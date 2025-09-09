@@ -1,0 +1,184 @@
+import { NextRequest, NextResponse } from 'next/server'
+import db from '@/lib/db'
+import { auth } from '@/lib/auth'
+
+type ProviderType = 'openai-api' | 'ollama'
+
+interface SyncRequestBody {
+  baseUrl: string
+  type?: ProviderType
+  apiKey?: string | null
+}
+
+function toUnixSeconds(date: number | Date = Date.now()): number {
+  return Math.floor((typeof date === 'number' ? date : date.getTime()) / 1000)
+}
+
+function inferProviderType(baseUrl: string): ProviderType | null {
+  const url = baseUrl.toLowerCase()
+  if (url.includes('openai.com') || url.endsWith('/v1') || url.includes('/v1/')) return 'openai-api'
+  if (url.includes('ollama') || url.includes('localhost:11434')) return 'ollama'
+  return null
+}
+
+function inferOwnership(baseUrl: string): string {
+  const url = baseUrl.toLowerCase()
+
+  // OpenAI and compatible services
+  if (url.includes('openai.com')) return 'openai'
+  if (url.includes('openrouter.ai')) return 'openrouter'
+  if (url.includes('x.ai')) return 'xai'
+  if (url.includes('anthropic.com')) return 'anthropic'
+  if (url.includes('together.xyz')) return 'together'
+  if (url.includes('replicate.com')) return 'replicate'
+  if (url.includes('huggingface.co')) return 'huggingface'
+
+  // Ollama
+  if (url.includes('ollama') || url.includes('localhost:11434')) return 'ollama'
+
+  // Generic OpenAI-compatible APIs
+  if (url.includes('/v1') || url.includes('api/')) return 'openai-compatible'
+
+  // Default fallback
+  return 'unknown'
+}
+
+async function fetchOpenAIModels(baseUrl: string, apiKey?: string | null) {
+  const url = baseUrl.replace(/\/$/, '') + '/models'
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json',
+      ...(apiKey ? { 'Authorization': `Bearer ${apiKey}` } : {}),
+    },
+  })
+  if (!response.ok) {
+    throw new Error(`OpenAI models request failed: ${response.status} ${response.statusText}`)
+  }
+  const data = await response.json()
+  const list = Array.isArray(data?.data) ? data.data : []
+  return list.map((m: any) => ({
+    id: String(m.id ?? m.name ?? ''),
+    name: String(m.id ?? m.name ?? ''),
+    meta: m,
+    params: {},
+  }))
+}
+
+async function fetchOllamaModels(baseUrl: string, apiKey?: string | null) {
+  const url = baseUrl.replace(/\/$/, '') + '/api/tags'
+  const headers: Record<string, string> = {
+    'Accept': 'application/json',
+    'Content-Type': 'application/json',
+  }
+
+  // Add API key if provided and not empty
+  if (apiKey && apiKey.trim() !== '') {
+    headers['Authorization'] = `Bearer ${apiKey.trim()}`
+  }
+
+  const response = await fetch(url, {
+    method: 'GET',
+    headers,
+  })
+  if (!response.ok) {
+    throw new Error(`Ollama tags request failed: ${response.status} ${response.statusText}`)
+  }
+  const data = await response.json()
+  const list = Array.isArray(data?.models) ? data.models : []
+  return list.map((m: any) => ({
+    id: String(m?.name ?? ''),
+    name: String(m?.name ?? ''),
+    meta: m,
+    params: {},
+  }))
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const session = await auth()
+    const userId = session?.user?.id
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const body = await request.json() as SyncRequestBody
+    if (!body?.baseUrl) {
+      return NextResponse.json({ error: 'Base URL is required' }, { status: 400 })
+    }
+
+    const baseUrl = body.baseUrl.trim()
+    try { new URL(baseUrl) } catch {
+      return NextResponse.json({ error: 'Invalid URL format' }, { status: 400 })
+    }
+
+    const provider: ProviderType | null = body.type ?? inferProviderType(baseUrl)
+    if (!provider) {
+      return NextResponse.json({ error: 'Unable to infer provider type. Provide type.' }, { status: 400 })
+    }
+
+    const apiKey = body.apiKey ?? null
+    let models: Array<{ id: string, name: string, meta: any, params: any }>
+    if (provider === 'openai-api') {
+      models = await fetchOpenAIModels(baseUrl, apiKey)
+    } else {
+      models = await fetchOllamaModels(baseUrl, apiKey)
+    }
+
+    const now = toUnixSeconds()
+
+    const upserts = await Promise.all(models.map(async (m) => {
+      if (!m.id) return null
+
+      // Determine ownership based on provider type and base URL
+      const ownedBy = provider === 'ollama' ? 'ollama' : inferOwnership(baseUrl)
+
+      // Enhance meta with specific fields + details containing original metadata
+      const enhancedMeta = {
+        // Keep these specific fields at top level
+        profile_image_url: m.meta?.profile_image_url || "/public/favicon.png",
+        description: m.meta?.description || null,
+        tags: m.meta?.tags || null,
+        tools: m.meta?.tools || null,
+        ownedBy: m.meta?.ownedBy || ownedBy,
+        // Put all original Ollama/OpenAI metadata in details
+        details: m.meta || {}
+      }
+
+      return db.model.upsert({
+        where: { id: m.id },
+        update: {
+          name: m.name,
+          meta: enhancedMeta,
+          params: m.params,
+          updatedAt: now,
+          isActive: true,
+        },
+        create: {
+          id: m.id,
+          userId: userId,
+          baseModelId: null,
+          name: m.name,
+          meta: enhancedMeta,
+          params: m.params,
+          createdAt: now,
+          updatedAt: now,
+          isActive: true,
+        },
+      })
+    }))
+
+    const created = upserts.filter(Boolean)
+    return NextResponse.json({
+      provider,
+      count: created.length,
+      models: created,
+    }, { status: 200 })
+  } catch (error: any) {
+    console.error('Error syncing models:', error)
+    return NextResponse.json({ error: error?.message ?? 'Failed to sync models' }, { status: 500 })
+  }
+}
+
+

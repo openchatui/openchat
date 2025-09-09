@@ -1,0 +1,409 @@
+import { useState, useEffect, useCallback } from 'react'
+import { toast } from 'sonner'
+import { connectionsApi } from '@/lib/connections'
+import { DEFAULT_OPENAI_CONNECTION, DEFAULT_OLLAMA_CONNECTION, API_ENDPOINTS, TOAST_MESSAGES } from '@/constants/connections'
+import type {
+  Connection,
+  CreateConnectionData,
+  ConnectionsState,
+  ConnectionFormState,
+  EditState,
+  ConnectionType
+} from '@/types/connections'
+
+export function useConnections() {
+  const [connectionsState, setConnectionsState] = useState<ConnectionsState>({
+    connections: [],
+    isLoading: true,
+    isSaving: false,
+    testingConnections: new Set(),
+    successfulConnections: new Set(),
+    deletingIds: new Set()
+  })
+
+  const [formState, setFormState] = useState<ConnectionFormState>({
+    newConnections: [DEFAULT_OPENAI_CONNECTION],
+    newOllamaConnections: [], // Will be populated in loadConnections based on existing connections
+    visibleApiKeys: new Set(),
+    visibleNewApiKeys: new Set()
+  })
+
+  const [editState, setEditState] = useState<EditState>({
+    editingConnection: null,
+    editForm: { baseUrl: '', apiKey: '' },
+    isUpdating: false,
+    showEditApiKey: false
+  })
+
+  const loadConnections = useCallback(async () => {
+    try {
+      setConnectionsState(prev => ({ ...prev, isLoading: true }))
+      const data = await connectionsApi.getAll()
+      setConnectionsState(prev => ({ ...prev, connections: data as Connection[] }))
+
+      // Update form state based on existing connections
+      const hasOllamaConnection = (data as Connection[]).some((conn) => conn.type === 'ollama')
+      setFormState(prev => ({
+        ...prev,
+        newOllamaConnections: hasOllamaConnection ? [] : [DEFAULT_OLLAMA_CONNECTION]
+      }))
+    } catch (error) {
+      console.error('Error loading connections:', error)
+      toast.error('Failed to load connections')
+    } finally {
+      setConnectionsState(prev => ({ ...prev, isLoading: false }))
+    }
+  }, [])
+
+  const syncModels = useCallback(async (
+    baseUrl: string,
+    type: ConnectionType,
+    apiKey?: string
+  ) => {
+    try {
+      const response = await fetch(API_ENDPOINTS.MODELS_SYNC, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          baseUrl: baseUrl.trim(),
+          type,
+          apiKey: apiKey || null
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error(`Failed to sync models: ${response.status}`)
+      }
+
+      const result = await response.json()
+      console.log(`Synced ${result.count} models for ${type} connection`)
+      return result
+    } catch (error) {
+      console.error('Error syncing models:', error)
+      return null
+    }
+  }, [])
+
+  const saveConnections = useCallback(async (connectionsToCreate: CreateConnectionData[]) => {
+    try {
+      setConnectionsState(prev => ({ ...prev, isSaving: true }))
+
+      await connectionsApi.create(connectionsToCreate)
+      await loadConnections()
+
+      // Reset forms
+      setFormState(prev => ({
+        ...prev,
+        newConnections: [DEFAULT_OPENAI_CONNECTION],
+        newOllamaConnections: [DEFAULT_OLLAMA_CONNECTION]
+      }))
+
+      // Sync models for all connections
+      for (const conn of connectionsToCreate) {
+        await syncModels(conn.baseUrl, conn.type, conn.apiKey)
+      }
+
+      toast.success(`Successfully added ${connectionsToCreate.length} connection(s) and synced models`)
+    } catch (error) {
+      console.error('Error saving connections:', error)
+      toast.error(error instanceof Error ? error.message : TOAST_MESSAGES.SAVE_FAILED)
+    } finally {
+      setConnectionsState(prev => ({ ...prev, isSaving: false }))
+    }
+  }, [loadConnections, syncModels])
+
+  const updateConnection = useCallback(async () => {
+    if (!editState.editingConnection) return
+
+    try {
+      setEditState(prev => ({ ...prev, isUpdating: true }))
+
+      await connectionsApi.update(editState.editingConnection.id, {
+        type: editState.editingConnection.type,
+        baseUrl: editState.editForm.baseUrl.trim(),
+        apiKey: editState.editingConnection.type === 'openai-api' ? editState.editForm.apiKey.trim() : undefined
+      })
+
+      await loadConnections()
+
+      // Sync models after updating
+      const apiKey = editState.editingConnection.type === 'openai-api' ? editState.editForm.apiKey.trim() : undefined
+      await syncModels(editState.editForm.baseUrl.trim(), editState.editingConnection.type, apiKey)
+
+      setEditState(prev => ({ ...prev, editingConnection: null }))
+      toast.success(TOAST_MESSAGES.CONNECTION_UPDATED)
+    } catch (error) {
+      console.error('Error updating connection:', error)
+      toast.error(error instanceof Error ? error.message : TOAST_MESSAGES.UPDATE_FAILED)
+    } finally {
+      setEditState(prev => ({ ...prev, isUpdating: false }))
+    }
+  }, [editState.editingConnection, editState.editForm, loadConnections, syncModels])
+
+  const deleteConnection = useCallback(async () => {
+    if (!editState.editingConnection) return
+
+    const wasOllama = editState.editingConnection.type === 'ollama'
+
+    try {
+      setEditState(prev => ({ ...prev, isUpdating: true }))
+      await connectionsApi.delete(editState.editingConnection!.id)
+      await loadConnections()
+
+      // If we deleted an Ollama connection, show the new connection input
+      if (wasOllama) {
+        setFormState(prev => ({
+          ...prev,
+          newOllamaConnections: [DEFAULT_OLLAMA_CONNECTION]
+        }))
+      }
+
+      setEditState(prev => ({ ...prev, editingConnection: null }))
+      toast.success(TOAST_MESSAGES.CONNECTION_DELETED)
+    } catch (error) {
+      console.error('Error deleting connection:', error)
+      toast.error(error instanceof Error ? error.message : TOAST_MESSAGES.DELETE_FAILED)
+    } finally {
+      setEditState(prev => ({ ...prev, isUpdating: false }))
+    }
+  }, [editState.editingConnection, loadConnections])
+
+  // Form management functions
+  const addNewConnectionRow = useCallback(() => {
+    const newId = (Date.now() + Math.random()).toString()
+    setFormState(prev => ({
+      ...prev,
+      newConnections: [...prev.newConnections, { id: newId, baseUrl: "", apiKey: "" }]
+    }))
+  }, [])
+
+  const removeNewConnectionRow = useCallback((id: string) => {
+    if (formState.newConnections.length > 1) {
+      setFormState(prev => ({
+        ...prev,
+        newConnections: prev.newConnections.filter(conn => conn.id !== id)
+      }))
+    }
+  }, [formState.newConnections.length])
+
+  const updateNewConnection = useCallback((id: string, field: 'baseUrl' | 'apiKey', value: string) => {
+    setFormState(prev => ({
+      ...prev,
+      newConnections: prev.newConnections.map(conn =>
+        conn.id === id ? { ...conn, [field]: value } : conn
+      )
+    }))
+  }, [])
+
+  const updateNewOllamaConnection = useCallback((id: string, field: 'baseUrl', value: string) => {
+    setFormState(prev => ({
+      ...prev,
+      newOllamaConnections: prev.newOllamaConnections.map(conn =>
+        conn.id === id ? { ...conn, [field]: value } : conn
+      )
+    }))
+    // Clear success state when URL changes
+    if (field === 'baseUrl') {
+      setConnectionsState(prev => {
+        const newSet = new Set(prev.successfulConnections)
+        newSet.delete(id)
+        return { ...prev, successfulConnections: newSet }
+      })
+    }
+  }, [])
+
+  const handleClearAll = useCallback(() => {
+    setFormState(prev => ({
+      ...prev,
+      newConnections: [DEFAULT_OPENAI_CONNECTION]
+    }))
+  }, [])
+
+  const toggleApiKeyVisibility = useCallback((id: string) => {
+    setFormState(prev => {
+      const newSet = new Set(prev.visibleApiKeys)
+      if (newSet.has(id)) {
+        newSet.delete(id)
+      } else {
+        newSet.add(id)
+      }
+      return { ...prev, visibleApiKeys: newSet }
+    })
+  }, [])
+
+  const toggleNewApiKeyVisibility = useCallback((id: string) => {
+    setFormState(prev => {
+      const newSet = new Set(prev.visibleNewApiKeys)
+      if (newSet.has(id)) {
+        newSet.delete(id)
+      } else {
+        newSet.add(id)
+      }
+      return { ...prev, visibleNewApiKeys: newSet }
+    })
+  }, [])
+
+  const handleEditConnection = useCallback((connection: Connection) => {
+    setEditState({
+      editingConnection: connection,
+      editForm: {
+        baseUrl: connection.baseUrl,
+        apiKey: connection.apiKey || ""
+      },
+      isUpdating: false,
+      showEditApiKey: false
+    })
+  }, [])
+
+  // Connection testing functionality
+  const testConnection = useCallback(async (
+    connectionId: string,
+    baseUrl: string,
+    type: ConnectionType = 'ollama',
+    apiKey?: string
+  ) => {
+    if (!baseUrl.trim()) {
+      toast.error(TOAST_MESSAGES.ENTER_BASE_URL)
+      return
+    }
+
+    try {
+      setConnectionsState(prev => ({
+        ...prev,
+        testingConnections: new Set(prev.testingConnections).add(connectionId)
+      }))
+
+      // Clear any previous success state for this connection
+      setConnectionsState(prev => ({
+        ...prev,
+        successfulConnections: (() => {
+          const newSet = new Set(prev.successfulConnections)
+          newSet.delete(connectionId)
+          return newSet
+        })()
+      }))
+
+      const response = await fetch(API_ENDPOINTS.CONNECTIONS_TEST, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ baseUrl: baseUrl.trim() }),
+      })
+
+      const result = await response.json()
+
+      if (result.success && result.status === 200) {
+        // Mark as successful and don't show toast for 200 responses
+        setConnectionsState(prev => ({
+          ...prev,
+          successfulConnections: new Set(prev.successfulConnections).add(connectionId)
+        }))
+
+        // Handle Ollama connections - ensure only one exists
+        if (type === 'ollama') {
+          try {
+            // Check if there's already an existing Ollama connection
+            const existingOllamaConnection = connectionsState.connections.find(
+              conn => conn.type === 'ollama'
+            )
+
+            if (existingOllamaConnection) {
+              // If there's already an existing connection, just sync models
+              await syncModels(baseUrl.trim(), 'ollama')
+              toast.success(TOAST_MESSAGES.CONNECTION_TEST_SUCCESSFUL_SYNC)
+            } else {
+              // If no existing connection, create one
+              const connectionsToCreate: CreateConnectionData[] = [{
+                type: 'ollama',
+                baseUrl: baseUrl.trim()
+              }]
+
+              await connectionsApi.create(connectionsToCreate)
+              await loadConnections()
+              toast.success(TOAST_MESSAGES.CONNECTION_SAVED)
+              await syncModels(baseUrl.trim(), 'ollama')
+
+              // Clear the new connection input since we now have a saved connection
+              setFormState(prev => ({
+                ...prev,
+                newOllamaConnections: []
+              }))
+            }
+          } catch (error) {
+            console.error('Error handling Ollama connection:', error)
+            toast.error(TOAST_MESSAGES.CONNECTION_TEST_PASSED_SAVE_FAILED)
+          }
+        } else {
+          toast.success(TOAST_MESSAGES.CONNECTION_TEST_SUCCESSFUL)
+        }
+      } else if (result.success) {
+        // Show toast for non-200 successful responses
+        toast.success(`Connection successful! Status: ${result.status}`)
+      } else {
+        toast.error(`${TOAST_MESSAGES.CONNECTION_TEST_FAILED}: ${result.error || 'Unknown error'}`)
+      }
+    } catch (error) {
+      console.error('Error testing connection:', error)
+      toast.error(TOAST_MESSAGES.CONNECTION_TEST_FAILED)
+    } finally {
+      setConnectionsState(prev => ({
+        ...prev,
+        testingConnections: (() => {
+          const newSet = new Set(prev.testingConnections)
+          newSet.delete(connectionId)
+          return newSet
+        })()
+      }))
+    }
+  }, [loadConnections, syncModels, connectionsState.connections])
+
+  // Load connections on mount
+  useEffect(() => {
+    loadConnections()
+  }, [loadConnections])
+
+  return {
+    // State
+    connections: connectionsState.connections,
+    isLoading: connectionsState.isLoading,
+    isSaving: connectionsState.isSaving,
+    testingConnections: connectionsState.testingConnections,
+    successfulConnections: connectionsState.successfulConnections,
+    newConnections: formState.newConnections,
+    newOllamaConnections: formState.newOllamaConnections,
+    visibleApiKeys: formState.visibleApiKeys,
+    visibleNewApiKeys: formState.visibleNewApiKeys,
+    editingConnection: editState.editingConnection,
+    editForm: editState.editForm,
+    isUpdating: editState.isUpdating,
+    showEditApiKey: editState.showEditApiKey,
+
+    // Actions
+    loadConnections,
+    syncModels,
+    saveConnections,
+    updateConnection,
+    deleteConnection,
+
+    // Form management
+    addNewConnectionRow,
+    removeNewConnectionRow,
+    updateNewConnection,
+    updateNewOllamaConnection,
+    handleClearAll,
+    toggleApiKeyVisibility,
+    toggleNewApiKeyVisibility,
+    handleEditConnection,
+
+    // Connection testing
+    testConnection,
+
+    // Edit state setters
+    setEditState,
+    setConnectionsState: setConnectionsState,
+    setFormState: setFormState
+  }
+}
