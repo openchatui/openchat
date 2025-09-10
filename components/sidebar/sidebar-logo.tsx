@@ -14,7 +14,7 @@ export function SidebarLogo() {
       <div className="flex items-center gap-3 ">
         <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary">
           <Image
-            src="/P.png"
+            src="/OpenChat.png"
             alt="Pensare"
             width={24}
             height={24}
@@ -22,7 +22,7 @@ export function SidebarLogo() {
           />
         </div>
         {state === "expanded" && (
-          <span className="text-xl font-semibold text-foreground">Pensare</span>
+          <span className="text-xl font-semibold text-foreground">OpenChat</span>
         )}
       </div>
       {state === "expanded" && (

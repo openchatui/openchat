@@ -13,6 +13,7 @@ import {
 import { NavMain } from "@/components/sidebar/nav-main"
 import { NavModels } from "@/components/sidebar/nav-models"
 import { NavUser } from "@/components/sidebar/nav-user"
+import { NavChats } from "@/components/sidebar/nav-chats"
 import { SidebarLogo } from "@/components/sidebar/sidebar-logo"
 import {
   Sidebar,
@@ -22,6 +23,7 @@ import {
   SidebarRail,
 } from "@/components/ui/sidebar"
 import { Session } from "next-auth"
+import type { ChatData } from "@/lib/chat-store"
 
 // Navigation data
 const data = {
@@ -89,33 +91,19 @@ const data = {
         },
       ],
     },
-    {
-      title: "Chats",
-      url: "#",
-      type: "collapse" as const,
-      items: [
-        {
-          title: "Building a Comprehensive LLM Bot",
-          url: "#",
-        },
-        {
-          title: "React vs Svelte Comparison",
-          url: "#",
-        },
-      ],
-    },
   ]
 }
 
 interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
   session: Session | null
+  initialChats?: ChatData[]
 }
 
-export function AppSidebar({ session, ...props }: AppSidebarProps) {
+export function AppSidebar({ session, initialChats = [], ...props }: AppSidebarProps) {
   const user = {
     name: session?.user?.name || "User",
     email: session?.user?.email || "",
-    avatar: session?.user?.image || "/avatars/default.jpg",
+    avatar: session?.user?.image || undefined,
   }
 
   return (
@@ -126,6 +114,7 @@ export function AppSidebar({ session, ...props }: AppSidebarProps) {
       <SidebarContent>
         <NavMain items={data.mainButtons} />
         <NavModels items={data.aiModels} />
+        <NavChats chats={initialChats} />
         <NavMain items={data.sections} />
       </SidebarContent>
       <SidebarFooter>

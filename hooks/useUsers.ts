@@ -49,7 +49,6 @@ export function useUsers() {
         isLoading: false
       }))
 
-      toast.success(TOAST_MESSAGES.USERS_LOADED)
     } catch (error) {
       console.error('Error loading users:', error)
       setUsersState(prev => ({ ...prev, isLoading: false }))

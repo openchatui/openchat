@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Layer_1" xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 191.1 191.1">
+  <!-- Generator: Adobe Illustrator 29.1.0, SVG Export Plug-In . SVG Version: 2.1.0 Build 142)  -->
+  <defs>
+    <style>
+      .st0 {
+        stroke-miterlimit: 10;
+      }
+
+      .st0, .st1 {
+        fill: none;
+        stroke: #000;
+        stroke-linecap: round;
+        stroke-width: 6px;
+      }
+
+      .st2 {
+        fill: #fff;
+      }
+
+      .st1 {
+        stroke-linejoin: round;
+      }
+    </style>
+  </defs>
+  <circle class="st2" cx="95.6" cy="95.6" r="94.9"/>
+  <line class="st0" x1="102.6" y1="95.6" x2="135.6" y2="95.6"/>
+  <polyline class="st1" points="102.6 110.7 117.8 110.7 128.3 121.1"/>
+  <polyline class="st1" points="102.6 80.5 117.8 80.6 128.4 69.7"/>
+  <circle class="st1" cx="133.6" cy="64.6" r="7"/>
+  <circle class="st1" cx="142.6" cy="95.6" r="7"/>
+  <circle class="st1" cx="133.6" cy="126.6" r="7"/>
+  <circle class="st1" cx="107.6" cy="140.6" r="7"/>
+  <circle class="st1" cx="107.6" cy="50.6" r="7"/>
+  <path class="st1" d="M89.6,127.2V57.1c-.7-5.3-4.9-8.2-8.9-8.4-4.7-.2-8.8,3.9-9.2,9.1-6.4-4.7-13.4-.5-15.3,4.4s.8,13.1,9.3,13.6"/>
+  <path class="st1" d="M54.3,68.1c-1.1.9-6.6,1.9-8.8,6.8s.6,10.5.9,10.9c-10.8,9.8-6.6,19.5-1.8,24.1s21.1,5.2,24.8-8.1"/>
+  <path class="st1" d="M44.5,111.3c0,7.2-.1,12.3,2.9,16.2,5,6.4,11,6.4,13,6.2,2.5,7,9.6,10.9,16.6,9.8,7.6-1.2,12.7-7.9,12.6-15.8"/>
+</svg>

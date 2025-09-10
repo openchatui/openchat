@@ -58,7 +58,16 @@ async function fetchOpenAIModels(baseUrl: string, apiKey?: string | null) {
   }
   const data = await response.json()
   const list = Array.isArray(data?.data) ? data.data : []
-  return list.map((m: any) => ({
+
+  // Filter out non-chat models
+  const nonChatModelKeywords = ['dalle', 'dall-e', 'tts', 'audio', 'computer-use', 'babbage', 'realtime-preview','davinci','text-embedding','whisper','codex','omni','image','realtime'
+  ]
+  const filteredList = list.filter((m: any) => {
+    const modelId = String(m.id ?? m.name ?? '').toLowerCase()
+    return !nonChatModelKeywords.some(keyword => modelId.includes(keyword))
+  })
+
+  return filteredList.map((m: any) => ({
     id: String(m.id ?? m.name ?? ''),
     name: String(m.id ?? m.name ?? ''),
     meta: m,
@@ -137,7 +146,7 @@ export async function POST(request: NextRequest) {
       // Enhance meta with specific fields + details containing original metadata
       const enhancedMeta = {
         // Keep these specific fields at top level
-        profile_image_url: m.meta?.profile_image_url || "/public/favicon.png",
+        profile_image_url: m.meta?.profile_image_url || "/OpenChat.png",
         description: m.meta?.description || null,
         tags: m.meta?.tags || null,
         tools: m.meta?.tools || null,

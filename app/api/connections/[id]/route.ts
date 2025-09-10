@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import db from '@/lib/db'
 
 interface RouteParams {
-  params: {
+  params: Promise<{
     id: string
-  }
+  }>
 }
 
 // GET /api/connections/[id] - Get single connection

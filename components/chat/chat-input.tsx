@@ -11,12 +11,15 @@ import {
   Image as ImageIcon,
   Terminal,
   AudioWaveform,
+  ArrowUp,
 } from "lucide-react";
 
 interface ChatInputProps {
   placeholder?: string;
   disabled?: boolean;
   className?: string;
+  isStreaming?: boolean;
+  onStop?: () => void;
   onSubmit?: (
     value: string,
     options: {
@@ -31,6 +34,8 @@ export function ChatInput({
   placeholder = "Send a Message",
   disabled,
   className,
+  isStreaming = false,
+  onStop,
   onSubmit,
 }: ChatInputProps) {
   const [value, setValue] = useState("");
@@ -62,11 +67,20 @@ export function ChatInput({
     textareaRef.current?.focus();
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      if (!isStreaming) {
+        handleSubmit(e as any);
+      }
+    }
+  };
+
   return (
-    <div className="bg-transparent">
+    <div className="bg-background mx-4">
       <form
         onSubmit={handleSubmit}
-        className={cn("max-w-6xl px-2.5 p-6 mx-auto inset-x-0", className)}
+        className={cn("max-w-6xl px-2.5 pb-6 pt-0 mx-auto inset-x-0", className)}
       >
         <div className="rounded-3xl bg-accent p-2">
           {/* Top row: input */}
@@ -76,8 +90,9 @@ export function ChatInput({
               value={value}
               onChange={(e) => setValue(e.target.value)}
               onInput={resizeTextarea}
+              onKeyDown={handleKeyDown}
               placeholder={placeholder}
-              disabled={disabled}
+              disabled={disabled && !isStreaming}
               id="input"
               name="input"
               rows={1}
@@ -132,17 +147,36 @@ export function ChatInput({
               >
                 <Mic className="h-5 w-5" />
               </Button>
-              <Button
-                type="submit"
-                size="icon"
-                className={cn(
-                  "rounded-full h-10 w-10 bg-white text-black hover:bg-white/90 dark:bg-white dark:text-black"
-                )}
-                aria-label="Send message"
-                disabled={disabled || !value.trim()}
-              >
-                <AudioWaveform className="h-5 w-5" />
-              </Button>
+              {isStreaming ? (
+                <Button
+                  type="button"
+                  size="icon"
+                  onClick={onStop}
+                  className={cn(
+                    "rounded-full h-9 w-9 bg-white text-black hover:bg-white/90 dark:bg-white dark:text-black"
+                  )}
+                  aria-label="Stop generation"
+                >
+                  {/* Square icon to represent stop */}
+                  <div className="h-3 w-3 bg-current rounded-[2px]" />
+                </Button>
+              ) : (
+                <Button
+                  type="submit"
+                  size="icon"
+                  className={cn(
+                    "rounded-full h-9 w-9 bg-white text-black hover:bg-white/90 dark:bg-white dark:text-black"
+                  )}
+                  aria-label="Send message"
+                  disabled={disabled || !value.trim()}
+                >
+                  {value.trim() ? (
+                    <ArrowUp className="h-5 w-5" />
+                  ) : (
+                    <AudioWaveform className="h-5 w-5" />
+                  )}
+                </Button>
+              )}
             </div>
           </div>
         </div>

@@ -1,5 +1,8 @@
 import { v4 as uuid } from "uuid";
 import { encode as defaultEncode } from "next-auth/jwt";
+import type { JWT, JWTEncodeParams } from "next-auth/jwt";
+import type { Account, User } from "next-auth";
+import type { AdapterUser } from "@auth/core/adapters";
 
 import db from "@/lib/db";
 import { PrismaAdapter } from "@auth/prisma-adapter";
@@ -32,6 +35,10 @@ export const authOptions = {
           throw new Error("Invalid credentials.");
         }
 
+        if (!user.hashedPassword) {
+          throw new Error("Invalid credentials.");
+        }
+
         const passwordMatch = await bcrypt.compare(validatedCredentials.password, user.hashedPassword);
 
         if (!passwordMatch) {
@@ -43,15 +50,23 @@ export const authOptions = {
     }),
   ],
   callbacks: {
-    async jwt({ token, account }) {
-      if (account?.provider === "credentials") {
-        token.credentials = true;
+    async jwt(params: {
+      token: JWT;
+      user?: User | AdapterUser;
+      account?: Account | null;
+      profile?: any;
+      trigger?: "signIn" | "signUp" | "update";
+      isNewUser?: boolean;
+      session?: any;
+    }) {
+      if (params.account?.provider === "credentials") {
+        params.token.credentials = true;
       }
-      return token;
+      return params.token;
     },
   },
   jwt: {
-    encode: async function (params) {
+    encode: async function (params: JWTEncodeParams) {
       if (params.token?.credentials) {
         const sessionToken = uuid();
 

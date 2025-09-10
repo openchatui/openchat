@@ -57,4 +57,11 @@ export const TOAST_MESSAGES = {
   USER_LOAD_FAILED: 'Failed to load users'
 } as const
 
-export const DEFAULT_AVATAR = '/avatars/default.png'
+export const getEmailInitials = (email: string) => {
+  const [username] = email.split('@')
+  return username
+    .split('.')
+    .map(part => part.charAt(0).toUpperCase())
+    .join('')
+    .slice(0, 2)
+}
