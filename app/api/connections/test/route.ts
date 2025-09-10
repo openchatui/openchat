@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
         method: 'GET',
         headers: {
           'Accept': 'application/json',
-          'User-Agent': 'PensareAI-ConnectionTest/1.0'
+          'User-Agent': 'OpenChat-ConnectionTest/1.0'
         },
         signal: controller.signal
       })

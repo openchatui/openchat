@@ -15,7 +15,7 @@ export function SidebarLogo() {
         <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary">
           <Image
             src="/OpenChat.png"
-            alt="Pensare"
+            alt="OpenChat"
             width={24}
             height={24}
             className="h-6 w-6 rounded-full"
