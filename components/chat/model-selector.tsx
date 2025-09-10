@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Check, ChevronsUpDown, Cpu } from "lucide-react"
+import { Check, ChevronsUpDown, Cpu, Link as LinkIcon } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -40,6 +40,10 @@ export function ModelSelector({ selectedModelId, onModelSelect }: ModelSelectorP
       return model.meta?.details?.details?.parameter_size || null
     }
     return null
+  }
+
+  const isOllama = (model: Model): boolean => {
+    return model.meta?.ownedBy?.toLowerCase() === 'ollama'
   }
 
   // Get display name (without parameter size for now)
@@ -86,11 +90,14 @@ export function ModelSelector({ selectedModelId, onModelSelect }: ModelSelectorP
                   </Avatar>
                   <div className="flex items-center gap-2">
                     <span className="truncate text-sm">{getDisplayName(selectedModel)}</span>
-                    {getParameterSize(selectedModel) && (
-                      <span className="text-xs text-primary/35 font-medium">
-                        {getParameterSize(selectedModel)}
-                      </span>
-                    )}
+                    {isOllama(selectedModel)
+                      ? (getParameterSize(selectedModel) && (
+                          <span className="text-xs text-primary/35 font-medium">
+                            {getParameterSize(selectedModel)}
+                          </span>
+                        ))
+                      : (<LinkIcon style={{ width: 10, height: 10 }} className="shrink-0 text-primary/35 mt-0.5" />)
+                    }
                   </div>
                 </>
               ) : (
@@ -123,12 +130,7 @@ export function ModelSelector({ selectedModelId, onModelSelect }: ModelSelectorP
                         setOpen(false)
                       }}
                     >
-                      <Check
-                        className={cn(
-                          "mr-2 h-4 w-4",
-                          selectedModel?.id === model.id ? "opacity-100" : "opacity-0"
-                        )}
-                      />
+                      
                       <Avatar className="h-8 w-8 mr-2">
                         <AvatarImage
                           src={model.meta?.profile_image_url || "/OpenChat.png"}
@@ -141,16 +143,25 @@ export function ModelSelector({ selectedModelId, onModelSelect }: ModelSelectorP
                       <div className="flex flex-col w-full">
                         <div className="flex items-center gap-2">
                           <span className="font-medium">{getDisplayName(model)}</span>
-                          {getParameterSize(model) && (
-                            <span className="text-xs text-primary/35 font-medium">
-                              {getParameterSize(model)}
-                            </span>
-                          )}
+                          {isOllama(model)
+                            ? (getParameterSize(model) && (
+                                <span className="text-xs text-primary/35 font-medium">
+                                  {getParameterSize(model)}
+                                </span>
+                              ))
+                            : (<LinkIcon style={{ width: 10, height: 10 }} className="shrink-0 text-primary/35 mt-0.5" />)
+                          }
                         </div>
                         <span className="text-xs text-muted-foreground capitalize">
                           {model.meta?.ownedBy}
                         </span>
                       </div>
+                      <Check
+                        className={cn(
+                          "mr-2 h-4 w-4",
+                          selectedModel?.id === model.id ? "opacity-100" : "opacity-0"
+                        )}
+                      />
                     </CommandItem>
                   ))}
                 </CommandGroup>

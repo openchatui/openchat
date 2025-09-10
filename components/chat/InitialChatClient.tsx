@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/sidebar"
 import { ChatInput } from "@/components/chat/chat-input"
 import { ModelSelector } from "@/components/chat/model-selector"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import type { Model } from "@/types/models"
 import { generateId } from 'ai'
 import type { ChatData } from "@/lib/chat-store"
@@ -67,14 +68,33 @@ export default function InitialChatClient({ session, initialChats = [] }: Initia
           {/* Centered content area */}
           <div className="flex-1 flex flex-col items-center justify-center px-4">
             <div className="w-full max-w-4xl mx-auto">
-              {/* Welcome message */}
+              {/* Welcome / Model info */}
               <div className="text-center mb-8">
-                <h1 className="text-4xl font-semibold mb-4">
-                  How can I help you today?
-                </h1>
-                <p className="text-muted-foreground text-lg">
-                  Start a conversation with AI
-                </p>
+                {selectedModel ? (
+                  <div className="flex items-center justify-center gap-4">
+                    <Avatar className="h-12 w-12">
+                      <AvatarImage
+                        src={selectedModel.meta?.profile_image_url || "/OpenChat.png"}
+                        alt={selectedModel.name}
+                      />
+                      <AvatarFallback>
+                        {selectedModel.name.charAt(0).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="text-3xl font-semibold mb-3.5">
+                      {selectedModel.name}
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <h1 className="text-4xl font-semibold mb-4">
+                      How can I help you today?
+                    </h1>
+                    <p className="text-muted-foreground text-lg">
+                      Start a conversation with AI
+                    </p>
+                  </>
+                )}
               </div>
 
               {/* Centered chat input */}

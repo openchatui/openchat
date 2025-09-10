@@ -8,6 +8,7 @@ import {
   LogOut,
   Moon,
   Settings,
+  Settings2,
   Sparkles,
   Sun,
 } from "lucide-react"
@@ -93,6 +94,12 @@ export function NavUser({
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <a href="/settings">
+                  <Settings />
+                  Settings
+                </a>
+              </DropdownMenuItem>
               <DropdownMenuItem asChild>
                 <a href="/admin">
                   <CgProfile />
