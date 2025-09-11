@@ -3,6 +3,55 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { createApiKey, listApiKeys } from '@/lib/apiKeys'
 
+/**
+ * @swagger
+ * /api/v1/api-keys:
+ *   get:
+ *     tags: [API Keys]
+ *     summary: List API keys for the authenticated user
+ *     description: Returns all API keys that belong to the currently authenticated user.
+ *     responses:
+ *       200:
+ *         description: List of API keys
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 keys:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Failed to list keys
+ *   post:
+ *     tags: [API Keys]
+ *     summary: Create a new API key
+ *     description: Creates a new API key for the authenticated user.
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               keyName:
+ *                 type: string
+ *                 maxLength: 100
+ *     responses:
+ *       201:
+ *         description: API key created
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Failed to create key
+ */
 export async function GET() {
   try {
     const session = await auth()

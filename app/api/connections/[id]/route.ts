@@ -7,6 +7,66 @@ interface RouteParams {
   }>
 }
 
+/**
+ * @swagger
+ * /api/connections/{id}:
+ *   get:
+ *     tags: [Connections]
+ *     summary: Get a single connection
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Connection
+ *       404:
+ *         description: Not found
+ *       500:
+ *         description: Failed to fetch connection
+ *   put:
+ *     tags: [Connections]
+ *     summary: Update a connection
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/Connection'
+ *     responses:
+ *       200:
+ *         description: Updated connection
+ *       400:
+ *         description: Validation error
+ *       404:
+ *         description: Not found
+ *       500:
+ *         description: Failed to update connection
+ *   delete:
+ *     tags: [Connections]
+ *     summary: Delete a connection
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Connection deleted successfully
+ *       404:
+ *         description: Not found
+ *       500:
+ *         description: Failed to delete connection
+ */
 // GET /api/connections/[id] - Get single connection
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {

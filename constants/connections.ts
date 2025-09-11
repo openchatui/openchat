@@ -24,7 +24,7 @@ export const API_ENDPOINTS = {
 
 export const MESSAGES = {
   LOADING_CONNECTIONS: 'Loading connections...',
-  SAVE_OPENAI_CONNECTIONS: 'Save OpenAI Connections',
+  SAVE_OPENAI_CONNECTIONS: 'Save',
   CLEAR_ALL: 'Clear All',
   TEST_CONNECTION: 'Test Connection',
   SAVE: 'Save',

@@ -101,13 +101,6 @@ export function OllamaConnectionForm({
             </div>
           </div>
         ))}
-
-        {/* Show a message when there's no existing connection */}
-        {!hasExistingOllamaConnection && (
-          <div className="text-center py-4 text-muted-foreground">
-            No Ollama connection configured. One will be created automatically when you test a successful connection.
-          </div>
-        )}
       </div>
     </div>
   )

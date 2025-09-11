@@ -1,7 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server'
 import db from '@/lib/db'
 
-// DELETE /api/admin/users/delete/[id] - Delete user
+/**
+ * @swagger
+ * /api/users/delete/{id}:
+ *   delete:
+ *     tags: [Admin]
+ *     summary: Delete a user by ID
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: User deleted successfully
+ *       400:
+ *         description: User ID is required
+ *       404:
+ *         description: User not found
+ *       500:
+ *         description: Failed to delete user
+ */
+// DELETE /api/users/delete/[id] - Delete user
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }

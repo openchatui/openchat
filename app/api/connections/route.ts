@@ -1,6 +1,38 @@
 import { NextRequest, NextResponse } from 'next/server'
 import db from '@/lib/db'
 
+/**
+ * @swagger
+ * /api/connections:
+ *   get:
+ *     tags: [Connections]
+ *     summary: List all connections
+ *     responses:
+ *       200:
+ *         description: List of connections
+ *       500:
+ *         description: Failed to fetch connections
+ *   post:
+ *     tags: [Connections]
+ *     summary: Create one or more connections
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             oneOf:
+ *               - $ref: '#/components/schemas/Connection'
+ *               - type: array
+ *                 items:
+ *                   $ref: '#/components/schemas/Connection'
+ *     responses:
+ *       201:
+ *         description: Connections created
+ *       400:
+ *         description: Validation error
+ *       500:
+ *         description: Failed to create connections
+ */
 // GET /api/connections - List all connections
 export async function GET() {
   try {

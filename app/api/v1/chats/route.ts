@@ -6,8 +6,33 @@ import { createChat, getUserChats } from '@/lib/chat-store';
 export const maxDuration = 30;
 
 /**
+ * @swagger
+ * /api/v1/chats:
+ *   post:
+ *     tags: [Chats]
+ *     summary: Create a new chat
+ *     responses:
+ *       200:
+ *         description: Chat created
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Internal server error
+ *   get:
+ *     tags: [Chats]
+ *     summary: Get all chats for the current user
+ *     responses:
+ *       200:
+ *         description: List of chats
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Internal server error
+ */
+/**
  * Create a new chat
  */
+
 export async function POST(req: NextRequest) {
   try {
     const session = await auth();

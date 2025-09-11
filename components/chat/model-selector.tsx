@@ -79,10 +79,11 @@ export function ModelSelector({ selectedModelId, onModelSelect }: ModelSelectorP
             <div className="flex items-center gap-2">
               {selectedModel ? (
                 <>
-                  <Avatar className="h-8 w-8">
+                  <Avatar className="h-8 w-8 bg-transparent">
                     <AvatarImage
                       src={selectedModel.meta?.profile_image_url || "/OpenChat.png"}
                       alt={selectedModel.name}
+                      className="bg-transparent"
                     />
                     <AvatarFallback>
                       {selectedModel.name.charAt(0).toUpperCase()}
@@ -131,10 +132,11 @@ export function ModelSelector({ selectedModelId, onModelSelect }: ModelSelectorP
                       }}
                     >
                       
-                      <Avatar className="h-8 w-8 mr-2">
+                      <Avatar className="h-8 w-8 mr-2 bg-transparent">
                         <AvatarImage
                           src={model.meta?.profile_image_url || "/OpenChat.png"}
                           alt={model.name}
+                          className="bg-transparent"
                         />
                         <AvatarFallback>
                           {model.name.charAt(0).toUpperCase()}

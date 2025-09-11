@@ -1,5 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server'
 
+/**
+ * @swagger
+ * /api/connections/test:
+ *   post:
+ *     tags: [Connections]
+ *     summary: Test a connection to a given URL
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               baseUrl:
+ *                 type: string
+ *               type:
+ *                 type: string
+ *               apiKey:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Connection test result
+ *       400:
+ *         description: Validation error
+ *       500:
+ *         description: Failed to test connection
+ */
 // POST /api/test-connection - Test connection to a given URL
 export async function POST(request: NextRequest) {
   try {

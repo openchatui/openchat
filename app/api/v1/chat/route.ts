@@ -9,6 +9,41 @@ import type { MessageMetadata } from '@/types/messages';
 // Allow streaming responses up to 30 seconds
 export const maxDuration = 30;
 
+/**
+ * @swagger
+ * /api/v1/chat:
+ *   post:
+ *     tags: [Chats]
+ *     summary: Send a chat message and stream assistant response
+ *     description: Accepts either a full messages array or a single message with chatId, and streams a response.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               messages:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *               message:
+ *                 type: object
+ *               chatId:
+ *                 type: string
+ *               modelId:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Streams a response
+ *       400:
+ *         description: Validation error
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Internal server error
+ */
+
 export async function POST(req: NextRequest) {
   try {
     // Get the current session

@@ -2,6 +2,58 @@ import { NextRequest, NextResponse } from 'next/server'
 import db from '@/lib/db'
 import { auth } from '@/lib/auth'
 
+/**
+ * @swagger
+ * /api/v1/models/{id}:
+ *   get:
+ *     tags: [Models]
+ *     summary: Get a model by ID
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Model
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Not found
+ *       500:
+ *         description: Failed to fetch model
+ *   put:
+ *     tags: [Models]
+ *     summary: Update a model
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               isActive:
+ *                 type: boolean
+ *               meta:
+ *                 type: object
+ *     responses:
+ *       200:
+ *         description: Updated model
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Not found
+ *       500:
+ *         description: Failed to update model
+ */
+
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }

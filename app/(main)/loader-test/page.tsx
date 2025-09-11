@@ -1,9 +1,6 @@
-const ProfilePage = () => (
+const LoaderTestPage = () => (
   <div className="min-h-screen flex items-center justify-center bg-background">
     <div className="text-center space-y-8">
-      <h1 className="text-4xl font-bold text-gray-900 mb-8">
-        Profile Settings
-      </h1>
       <div className="flex justify-center">
         <object
           type="image/svg+xml"
@@ -14,11 +11,8 @@ const ProfilePage = () => (
           svg-animation
         </object>
       </div>
-      <p className="text-lg text-gray-600">
-        Profile page coming soon...
-      </p>
     </div>
   </div>
 );
 
-export default ProfilePage;
+export default LoaderTestPage;

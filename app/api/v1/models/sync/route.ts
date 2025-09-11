@@ -1,6 +1,39 @@
 import { NextRequest, NextResponse } from 'next/server'
 import db from '@/lib/db'
 import { auth } from '@/lib/auth'
+import fs from 'fs/promises'
+import path from 'path'
+
+/**
+ * @swagger
+ * /api/v1/models/sync:
+ *   post:
+ *     tags: [Models]
+ *     summary: Sync models from a provider (OpenAI/Ollama)
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               baseUrl:
+ *                 type: string
+ *               type:
+ *                 type: string
+ *                 enum: [openai-api, ollama]
+ *               apiKey:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Models synced
+ *       400:
+ *         description: Validation error
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Failed to sync models
+ */
 
 type ProviderType = 'openai-api' | 'ollama'
 
@@ -41,6 +74,50 @@ function inferOwnership(baseUrl: string): string {
 
   // Default fallback
   return 'unknown'
+}
+
+// Lazy-load and cache model logos mapping from public/model-logos.json
+let modelLogosCache: Record<string, string | null> | null = null
+
+async function loadModelLogos(): Promise<Record<string, string | null>> {
+  if (modelLogosCache) return modelLogosCache
+  try {
+    const filePath = path.join(process.cwd(), 'public', 'model-logos.json')
+    const fileContent = await fs.readFile(filePath, 'utf-8')
+    const parsed = JSON.parse(fileContent)
+    if (parsed && typeof parsed === 'object') {
+      modelLogosCache = parsed as Record<string, string | null>
+      return modelLogosCache
+    }
+  } catch (err) {
+    console.error('Failed to load model-logos.json:', err)
+  }
+  modelLogosCache = {}
+  return modelLogosCache
+}
+
+async function findLogoUrlForModel(modelName: string): Promise<string | null> {
+  const logos = await loadModelLogos()
+  const normalized = String(modelName ?? '').toLowerCase().replace(/_/g, '-')
+
+  // Exact (case-insensitive) match first
+  for (const [rawKey, value] of Object.entries(logos)) {
+    if (normalized === rawKey.toLowerCase()) {
+      return typeof value === 'string' && value.length > 0 ? value : null
+    }
+  }
+
+  // Longest substring match fallback (e.g., match 'gpt' in 'gpt-4o-2024-05-13')
+  const keys = Object.keys(logos).sort((a, b) => b.length - a.length)
+  for (const key of keys) {
+    const keyLc = key.toLowerCase()
+    if (keyLc && normalized.includes(keyLc)) {
+      const url = logos[key]
+      if (typeof url === 'string' && url.length > 0) return url
+    }
+  }
+
+  return null
 }
 
 async function fetchOpenAIModels(baseUrl: string, apiKey?: string | null) {
@@ -144,9 +221,10 @@ export async function POST(request: NextRequest) {
       const ownedBy = provider === 'ollama' ? 'ollama' : inferOwnership(baseUrl)
 
       // Enhance meta with specific fields + details containing original metadata
+      const logoUrl = (await findLogoUrlForModel(m.name)) || m.meta?.profile_image_url || null
       const enhancedMeta = {
         // Keep these specific fields at top level
-        profile_image_url: m.meta?.profile_image_url || "/OpenChat.png",
+        profile_image_url: logoUrl || "/OpenChat.png",
         description: m.meta?.description || null,
         tags: m.meta?.tags || null,
         tools: m.meta?.tools || null,
@@ -163,6 +241,8 @@ export async function POST(request: NextRequest) {
           params: m.params,
           updatedAt: now,
           isActive: true,
+          // Ensure the model row is associated to the current user
+          userId: userId,
         },
         create: {
           id: m.id,

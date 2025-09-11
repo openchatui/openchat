@@ -14,7 +14,48 @@ const reverseRoleMap = {
   moderator: 'USER' // Map moderator to USER for now until we add it to the enum
 } as const
 
-// GET /api/admin/users - List all users
+/**
+ * @swagger
+ * /api/users:
+ *   get:
+ *     tags: [Admin]
+ *     summary: List all users
+ *     responses:
+ *       200:
+ *         description: List of users
+ *       500:
+ *         description: Failed to fetch users
+ *   post:
+ *     tags: [Admin]
+ *     summary: Create a new user
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *               email:
+ *                 type: string
+ *                 format: email
+ *               password:
+ *                 type: string
+ *               role:
+ *                 type: string
+ *                 enum: [user, admin]
+ *     responses:
+ *       201:
+ *         description: User created
+ *       400:
+ *         description: Validation error
+ *       409:
+ *         description: User already exists
+ *       500:
+ *         description: Failed to create user
+ */
+// GET /api/users - List all users
 export async function GET() {
   try {
     // Fetch all users with their accounts (for OAuth ID)
@@ -83,7 +124,7 @@ export async function GET() {
   }
 }
 
-// POST /api/admin/users - Create new user (optional, for future use)
+// POST /api/users - Create new user (optional, for future use)
 export async function POST(request: NextRequest) {
   try {
 

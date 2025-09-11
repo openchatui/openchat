@@ -14,7 +14,43 @@ const reverseRoleMap = {
   moderator: 'USER' // Map moderator to USER for now until we add it to the enum
 } as const
 
-// PUT /api/admin/users/update - Update user
+/**
+ * @swagger
+ * /api/users/update:
+ *   put:
+ *     tags: [Admin]
+ *     summary: Update a user
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               id:
+ *                 type: string
+ *               name:
+ *                 type: string
+ *               email:
+ *                 type: string
+ *               role:
+ *                 type: string
+ *                 enum: [user, admin]
+ *               userGroup:
+ *                 type: string
+ *               password:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: User updated
+ *       400:
+ *         description: Validation error
+ *       404:
+ *         description: User not found
+ *       500:
+ *         description: Failed to update user
+ */
+// PUT /api/users/update - Update user
 export async function PUT(request: NextRequest) {
   try {
 

@@ -3,6 +3,30 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { revokeApiKey } from '@/lib/apiKeys'
 
+/**
+ * @swagger
+ * /api/v1/api-keys/{id}:
+ *   delete:
+ *     tags: [API Keys]
+ *     summary: Revoke an API key by ID
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: API key revoked
+ *       400:
+ *         description: Key ID required
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Not found
+ *       500:
+ *         description: Failed to revoke key
+ */
 export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await auth()
