@@ -5,7 +5,7 @@ export default async function DocsPage() {
   const spec = await getApiDocs()
   return (
     <section className="container mx-auto p-4">
-      <ReactSwagger spec={spec} />
+      <ReactSwagger spec={spec as Record<string, unknown>} />
     </section>
   )
 }
