@@ -1,8 +1,7 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { useChat } from '@ai-sdk/react'
-import { DefaultChatTransport, UIMessage } from 'ai';
+import { useState, useEffect, useCallback, useRef } from "react"
+import { UIMessage } from 'ai';
 import { useRouter, useSearchParams } from "next/navigation"
 import { AppSidebar } from "@/components/sidebar/app-sidebar"
 import {
@@ -13,123 +12,453 @@ import { ChatInput } from "@/components/chat/chat-input"
 import { ModelSelector } from "@/components/chat/model-selector"
 import { Session } from "next-auth"
 import { toast } from 'sonner'
-import { useModels } from "@/hooks/useModels"
 import ChatMessages from "./chat-messages"
 import { AnimatedLoader } from "@/components/ui/loader"
 import type { Model } from "@/types/models"
 import type { ChatData } from "@/lib/chat-store"
+import { loadChatMessages } from "@/actions/chat"
+import type { MessageMetadata } from "@/types/messages"
 
 interface ChatClientProps {
   session: Session | null
   chatId: string
   initialMessages?: UIMessage[]
   initialChats?: ChatData[]
+  initialModels?: Model[]
+  assistantDisplayName?: string
+  assistantImageUrl?: string
 }
 
-export default function ChatClient({ session, chatId, initialMessages = [], initialChats = [] }: ChatClientProps) {
-  const { models, isLoading: modelsLoading } = useModels()
+export default function ChatClient({
+  session,
+  chatId,
+  initialMessages = [],
+  initialChats = [],
+  initialModels = [],
+  assistantDisplayName = 'AI Assistant',
+  assistantImageUrl = '/avatars/01.png'
+}: ChatClientProps) {
   const [selectedModel, setSelectedModel] = useState<Model | null>(null)
   const [isInitializing, setIsInitializing] = useState(true)
+
+  // Use server-loaded models
+  const effectiveModels = initialModels
+  const effectiveModelsLoading = false // Models are pre-loaded on server
+
+  // Prefer selected model for assistant display info during active session
+  const getAssistantDisplayInfo = () => ({
+    displayName: selectedModel?.name || assistantDisplayName,
+    imageUrl: selectedModel?.meta?.profile_image_url || assistantImageUrl
+  })
+
+  const [messages, setMessages] = useState<UIMessage[]>(initialMessages)
+
+  // Get assistant display info (pre-computed server-side)
+  const assistantInfo = getAssistantDisplayInfo()
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<Error | null>(null)
   const router = useRouter()
   const searchParams = useSearchParams()
-  
+  const abortControllerRef = useRef<AbortController | null>(null)
+  const hasSentInitialMessageRef = useRef(false)
+
   // Find the current model details from the models list
-  const currentModel = selectedModel ? models.find(m => m.id === selectedModel.id) : null
-  
-  const { messages, status, error, sendMessage, stop } = useChat({
-    id: chatId, // Use the provided chat ID
-    messages: initialMessages, // Load initial messages from the database
-    transport: new DefaultChatTransport({
-      api: '/api/v1/chat',
-      prepareSendMessagesRequest({ messages, id }) {
-        return { 
-          body: { 
-            message: messages[messages.length - 1], 
-            chatId: id,
-            modelId: selectedModel?.id 
-          } 
-        };
-      },
-    }),
-    onError: (error: Error) => {
-      console.error('Chat error:', error)
-      toast.error('Failed to send message. Please try again.')
+  const currentModel = selectedModel ? effectiveModels.find(m => m.id === selectedModel.id) : null
+
+  // Load messages on mount if not provided
+  useEffect(() => {
+    if (initialMessages.length === 0) {
+      loadChatMessages(chatId)
+        .then((loadedMessages) => {
+          setMessages(loadedMessages)
+        })
+        .catch((err) => {
+          console.error('Failed to load messages:', err)
+          setError(err)
+        })
     }
-  })
+  }, [chatId, initialMessages.length])
+
+  // Reset the initial message sent flag when chatId changes
+  useEffect(() => {
+    hasSentInitialMessageRef.current = false
+  }, [chatId])
+
+  // Cleanup abort controller on unmount
+  useEffect(() => {
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort()
+      }
+    }
+  }, [])
 
   // Handle initialization state
   useEffect(() => {
-    if (!modelsLoading && models.length > 0) {
+    if (!effectiveModelsLoading && effectiveModels.length > 0) {
       setIsInitializing(false)
     }
-  }, [modelsLoading, models.length])
+  }, [effectiveModelsLoading, effectiveModels.length])
 
-  // Handle initial message from URL params (for new chats)
+  // Initialize selected model from messages
   useEffect(() => {
-    const initialMessage = searchParams.get('initialMessage')
-    const modelId = searchParams.get('modelId')
-    
-    if (initialMessage && modelId && messages.length === 0 && models.length > 0) {
-      // Set the selected model
-      const model = models.find(m => m.id === modelId)
-      if (model) {
-        setSelectedModel(model)
-        
-        // Send the initial message immediately, include selected model metadata
-        sendMessage({
-          role: 'user',
-          parts: [{ type: 'text', text: initialMessage }],
-          metadata: {
-            model: {
-              id: model.id,
-              name: model.name,
-              profile_image_url: model.meta?.profile_image_url || null,
+    if (!selectedModel && messages.length > 0 && effectiveModels.length > 0) {
+      // First try to find model from the last user message (for new chats)
+      for (let i = messages.length - 1; i >= 0; i--) {
+        const message = messages[i]
+        if (message.role === 'user') {
+          const meta = (message as any).metadata
+          if (meta?.model?.id) {
+            const model = effectiveModels.find(m => m.id === meta.model.id)
+            if (model) {
+              setSelectedModel(model)
+              break
             }
           }
-        })
-        
-        // Clean up the URL immediately without waiting
-        router.replace(`/c/${chatId}`, { scroll: false })
+        }
+      }
+
+      // If no user message model found, try assistant messages
+      if (!selectedModel) {
+        for (let i = messages.length - 1; i >= 0; i--) {
+          const message = messages[i]
+          if (message.role === 'assistant') {
+            const meta = (message as any).metadata
+            if (meta?.model?.id) {
+              const model = effectiveModels.find(m => m.id === meta.model.id)
+              if (model) {
+                setSelectedModel(model)
+                break
+              }
+            }
+          }
+        }
       }
     }
-  }, [searchParams, models, messages.length, sendMessage, router, chatId])
+  }, [selectedModel, messages, effectiveModels])
 
-  const isLoading = status === 'streaming' || status === 'submitted'
+  // Auto-send message if we have only user messages (no assistant responses yet)
+  useEffect(() => {
+    if (!hasSentInitialMessageRef.current && messages.length > 0 && !isLoading && effectiveModels.length > 0 && !isInitializing) {
+      const hasAssistantMessage = messages.some(msg => msg.role === 'assistant')
+      if (!hasAssistantMessage) {
+        // Find the last user message
+        for (let i = messages.length - 1; i >= 0; i--) {
+          const message = messages[i]
+          if (message.role === 'user') {
+            const textContent = message.parts.find(part => part.type === 'text') as any
+            if (textContent?.text) {
+              // Get the model from message metadata
+              const meta = (message as any).metadata
+              if (meta?.model?.id) {
+                const model = effectiveModels.find(m => m.id === meta.model.id)
+                if (model) {
+                  // Send the message to get assistant response (pass model directly to avoid state timing issues)
+                  hasSentInitialMessageRef.current = true
+                  handleSendMessage(textContent.text, { webSearch: true, image: false, codeInterpreter: false }, model, true)
+                  // Also update the selected model state for UI consistency
+                  if (!selectedModel) {
+                    setSelectedModel(model)
+                  }
+                }
+              }
+              break
+            }
+          }
+        }
+      }
+    }
+  }, [messages, isLoading, selectedModel, effectiveModels, isInitializing])
 
   const handleModelSelect = (model: Model) => {
     setSelectedModel(model)
   }
 
-  const handleSendMessage = (
+  const handleSendMessage = useCallback(async (
     value: string,
     options: {
       webSearch: boolean
       image: boolean
       codeInterpreter: boolean
-    }
+    },
+    overrideModel?: Model,
+    isAutoSend: boolean = false
   ) => {
-    if (!selectedModel) {
+    const modelToUse = overrideModel || selectedModel
+
+    if (!modelToUse) {
       toast.error('Please select a model first.')
       return
     }
 
-    // For now, we'll just send the message
-    // TODO: Implement options handling (webSearch, image, codeInterpreter)
-    sendMessage({
+    // Clear any previous errors
+    setError(null)
+
+    // Create the user message
+    const userMessage: UIMessage<MessageMetadata> = {
+      id: `msg_${Date.now()}`,
       role: 'user',
       parts: [{ type: 'text', text: value }],
       metadata: {
+        createdAt: Date.now(),
         model: {
-          id: selectedModel.id,
-          name: selectedModel.name,
-          profile_image_url: selectedModel.meta?.profile_image_url || null,
+          id: modelToUse.id,
+          name: modelToUse.name,
+          profile_image_url: modelToUse.meta?.profile_image_url || null,
         }
       }
-    })
-  }
+    }
+
+    // Optimistically add the user message (only for new messages, not auto-send)
+    if (!isAutoSend) {
+      setMessages(prev => [...prev, userMessage])
+    }
+    setIsLoading(true)
+
+    try {
+      // Cancel any existing request
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort()
+      }
+
+      // Create new abort controller for this request
+      abortControllerRef.current = new AbortController()
+
+      // Build request body: use full messages for first auto-send to avoid duplication
+      const requestBody = isAutoSend
+        ? { messages, chatId, modelId: modelToUse.id }
+        : { message: userMessage, chatId, modelId: modelToUse.id }
+
+      // Call the API route directly for streaming
+      const response = await fetch('/api/v1/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'text/event-stream',
+        },
+        body: JSON.stringify(requestBody),
+        cache: 'no-store',
+        signal: abortControllerRef.current.signal,
+      })
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        throw new Error(`HTTP ${response.status}: ${errorText}`)
+      }
+
+      // Handle streaming response
+      const reader = response.body?.getReader()
+      if (!reader) {
+        throw new Error('No response body')
+      }
+
+      const decoder = new TextDecoder()
+
+      let assistantMessage: UIMessage<MessageMetadata> | null = null
+      // Track assistant cumulative text to avoid duplicated tokens when both text and text-delta are emitted
+      let assistantText = ''
+      const getNonOverlappingDelta = (existing: string, delta: string): string => {
+        if (!delta) return ''
+        // Find the longest suffix of existing that is a prefix of delta
+        const maxOverlap = Math.min(existing.length, delta.length)
+        for (let k = maxOverlap; k > 0; k--) {
+          if (existing.endsWith(delta.slice(0, k))) {
+            return delta.slice(k)
+          }
+        }
+        return delta
+      }
+      let buffer = ''
+
+      let reachedFinish = false
+      try {
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+
+          buffer += decoder.decode(value, { stream: true })
+          const lines = buffer.split(/\r?\n/)
+          buffer = lines.pop() || '' // Keep incomplete line in buffer
+
+          for (const line of lines) {
+            if (line.startsWith('data:')) {
+              const data = line.slice(line.indexOf(':') + 1).trim()
+              if (data === '[DONE]') {
+                reachedFinish = true
+                setIsLoading(false)
+                break
+              }
+
+              try {
+                const parsed = JSON.parse(data)
+
+                const type: string | undefined = parsed?.type
+                const isStart = type === 'start' || type === 'response-start'
+                const isText = type === 'text' || type === 'text-delta'
+                const isFinish = type === 'finish' || type === 'response-end' || type === 'end' || type === 'done'
+                const isReasonStart = type === 'reasoning-start'
+                const isReasonDelta = type === 'reasoning' || type === 'reasoning-delta' || type === 'reasoning-text'
+                const isReasonEnd = type === 'reasoning-end'
+
+                if (isStart) {
+                  // Create assistant message when streaming starts
+                  assistantMessage = {
+                    id: parsed.id || `assistant_${Date.now()}`,
+                    role: 'assistant',
+                    parts: [{ type: 'text', text: '' }],
+                    metadata: {
+                      createdAt: Date.now(),
+                      model: {
+                        id: modelToUse.id,
+                        name: modelToUse.name,
+                        profile_image_url: modelToUse.meta?.profile_image_url || null,
+                      },
+                      // Store assistant display info from the start event
+                      assistantDisplayName: parsed.metadata?.assistantDisplayName || modelToUse.name,
+                      assistantImageUrl: parsed.metadata?.assistantImageUrl || modelToUse.meta?.profile_image_url || '/avatars/01.png',
+                    } as MessageMetadata
+                  }
+                  setMessages(prev => [...prev, assistantMessage!])
+                  assistantText = ''
+                } else if (isText) {
+                  // Lazily create assistant message on first text chunk if needed
+                  if (!assistantMessage) {
+                    assistantMessage = {
+                      id: parsed.id || `assistant_${Date.now()}`,
+                      role: 'assistant',
+                      parts: [{ type: 'text', text: '' }],
+                      metadata: {
+                        createdAt: Date.now(),
+                        model: {
+                          id: modelToUse.id,
+                          name: modelToUse.name,
+                          profile_image_url: modelToUse.meta?.profile_image_url || null,
+                        },
+                        assistantDisplayName: parsed.metadata?.assistantDisplayName || modelToUse.name,
+                        assistantImageUrl: parsed.metadata?.assistantImageUrl || modelToUse.meta?.profile_image_url || '/avatars/01.png',
+                      } as MessageMetadata
+                    }
+                    setMessages(prev => [...prev, assistantMessage!])
+                    assistantText = ''
+                  }
+
+                  // Update assistant message with new text
+                  setMessages(prev => {
+                    const newMessages = [...prev]
+                    const lastMessage = newMessages[newMessages.length - 1]
+                    if (lastMessage && lastMessage.role === 'assistant') {
+                      const textPart = lastMessage.parts.find(p => p.type === 'text') as any
+                      if (textPart) {
+                        const incomingDelta: string | undefined = (parsed as any).delta
+                        const incomingText: string | undefined = (parsed as any).text
+                        if (typeof incomingText === 'string') {
+                          // Full snapshot mode from provider (authoritative)
+                          assistantText = incomingText
+                          textPart.text = assistantText
+                        } else if (typeof incomingDelta === 'string') {
+                          // Delta mode with overlap guard
+                          const append = getNonOverlappingDelta(assistantText, incomingDelta)
+                          if (append) {
+                            assistantText += append
+                            textPart.text = assistantText
+                          }
+                        }
+                      }
+                    }
+                    return newMessages
+                  })
+                } else if (isReasonStart || isReasonDelta || isReasonEnd) {
+                  // Handle reasoning stream updates
+                  if (!assistantMessage) {
+                    assistantMessage = {
+                      id: parsed.id || `assistant_${Date.now()}`,
+                      role: 'assistant',
+                      parts: [{ type: 'text', text: '' }],
+                      metadata: {
+                        createdAt: Date.now(),
+                        model: {
+                          id: modelToUse.id,
+                          name: modelToUse.name,
+                          profile_image_url: modelToUse.meta?.profile_image_url || null,
+                        },
+                        assistantDisplayName: parsed.metadata?.assistantDisplayName || modelToUse.name,
+                        assistantImageUrl: parsed.metadata?.assistantImageUrl || modelToUse.meta?.profile_image_url || '/avatars/01.png',
+                        reasoningActive: true,
+                      } as MessageMetadata
+                    }
+                    setMessages(prev => [...prev, assistantMessage!])
+                  }
+
+                  setMessages(prev => {
+                    const newMessages = [...prev]
+                    const lastMessage = newMessages[newMessages.length - 1] as any
+                    if (lastMessage && lastMessage.role === 'assistant') {
+                      lastMessage.metadata = {
+                        ...(lastMessage.metadata || {}),
+                        reasoningActive: isReasonEnd ? false : true,
+                      }
+
+                      // Maintain or create reasoning part
+                      let reasoningPart = lastMessage.parts.find((p: any) => typeof p?.type === 'string' && p.type.toLowerCase().includes('reason')) as any
+                      if (!reasoningPart) {
+                        reasoningPart = { type: 'reasoning', text: '' }
+                        lastMessage.parts = [reasoningPart, ...lastMessage.parts]
+                      }
+                      const rText: string | undefined = (parsed as any).text
+                      const rDelta: string | undefined = (parsed as any).delta
+                      if (typeof rText === 'string') {
+                        reasoningPart.text = rText
+                      } else if (typeof rDelta === 'string') {
+                        reasoningPart.text = (reasoningPart.text || '') + rDelta
+                      }
+                    }
+                    return newMessages
+                  })
+                } else if (isFinish) {
+                  // Streaming finished
+                  reachedFinish = true
+                  setIsLoading(false)
+                  break
+                }
+              } catch (e) {
+                // Ignore parse errors for incomplete JSON
+              }
+            }
+          }
+          if (reachedFinish) {
+            break
+          }
+        }
+      } finally {
+        reader.releaseLock()
+      }
+
+    } catch (err: any) {
+      console.error('Send message error:', err)
+      setError(err)
+
+      if (err.name !== 'AbortError') {
+        toast.error('Failed to send message. Please try again.')
+
+        // Remove the optimistic user message on error
+        setMessages(prev => prev.slice(0, -1))
+      }
+    } finally {
+      setIsLoading(false)
+      abortControllerRef.current = null
+    }
+  }, [selectedModel, chatId])
+
+  const handleStop = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+      abortControllerRef.current = null
+      setIsLoading(false)
+    }
+  }, [])
 
   // Show loading state during initialization
-  if (isInitializing || modelsLoading) {
+  if (isInitializing || effectiveModelsLoading) {
     return (
       <SidebarProvider>
         <AppSidebar session={session} initialChats={initialChats} />
@@ -151,26 +480,29 @@ export default function ChatClient({ session, chatId, initialMessages = [], init
       <AppSidebar session={session} initialChats={initialChats} />
       <SidebarInset>
         <div className="relative flex flex-col h-full">
-          <ModelSelector 
+          <ModelSelector
             selectedModelId={selectedModel?.id}
             onModelSelect={handleModelSelect}
+            models={effectiveModels}
           />
 
           <div className="flex-1 relative overflow-hidden">
             <div className="absolute inset-0">
-              <ChatMessages 
+              <ChatMessages
                 messages={messages}
                 isLoading={isLoading}
                 error={error}
                 selectedModel={currentModel}
+                assistantDisplayName={assistantInfo.displayName}
+                assistantImageUrl={assistantInfo.imageUrl}
               />
             </div>
             <div className="absolute bottom-0 left-0 right-0 z-10">
-              <ChatInput 
+              <ChatInput
                 onSubmit={handleSendMessage}
                 disabled={false}
                 isStreaming={isLoading}
-                onStop={() => stop()}
+                onStop={handleStop}
               />
             </div>
           </div>
@@ -179,3 +511,4 @@ export default function ChatClient({ session, chatId, initialMessages = [], init
     </SidebarProvider>
   )
 }
+

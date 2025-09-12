@@ -6,17 +6,54 @@ import { AdminSidebar } from "../AdminSidebar"
 // Models Panel Content
 import { Card, CardContent } from "@/components/ui/card"
 import { AnimatedLoader } from "@/components/ui/loader"
-import { useModels } from "@/hooks/useModels"
 import { ModelsByOwner } from "./models-by-owner"
-import { useMemo } from "react"
+import { adminToggleModelActive, adminUpdateModelsVisibility } from "@/actions/chat"
+import { useState, useCallback } from "react"
+import type { Model } from "@/types/models"
 
 // Main Admin Models Component
 interface AdminModelsProps {
     session: Session | null
+    initialModels?: Model[]
+    initialGroupedModels?: Record<string, Model[]>
 }
 
-export function AdminModels({ session }: AdminModelsProps) {
-  const { models, isLoading, groupedModels, toggleModelActive, updatingIds, updateModelsVisibility } = useModels()
+export function AdminModels({ session, initialModels = [], initialGroupedModels = {} }: AdminModelsProps) {
+  const [updatingIds, setUpdatingIds] = useState<Set<string>>(new Set())
+
+  // Use server-loaded models
+  const models = initialModels
+  const groupedModels = initialGroupedModels
+  const isLoading = false // Models are pre-loaded on server
+
+  // Wrap server actions with loading state management
+  const toggleModelActive = useCallback(async (modelId: string, isActive: boolean) => {
+    setUpdatingIds(prev => new Set(prev).add(modelId))
+    try {
+      await adminToggleModelActive(modelId, isActive)
+    } finally {
+      setUpdatingIds(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(modelId)
+        return newSet
+      })
+    }
+  }, [])
+
+  const updateModelsVisibility = useCallback(async (modelUpdates: { id: string; hidden: boolean }[]) => {
+    // Add all model IDs to updating set
+    setUpdatingIds(prev => new Set([...prev, ...modelUpdates.map(update => update.id)]))
+    try {
+      await adminUpdateModelsVisibility(modelUpdates)
+    } finally {
+      // Remove all model IDs from updating set
+      setUpdatingIds(prev => {
+        const newSet = new Set(prev)
+        modelUpdates.forEach(update => newSet.delete(update.id))
+        return newSet
+      })
+    }
+  }, [])
 
   const ownerKeys = Object.keys(groupedModels).filter(owner => (groupedModels[owner] || []).length > 0).sort()
 

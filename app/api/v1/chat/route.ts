@@ -8,6 +8,114 @@ import type { MessageMetadata } from '@/types/messages';
 
 // Allow streaming responses up to 30 seconds
 export const maxDuration = 30;
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+export const fetchCache = 'force-no-store';
+
+function withSSEHeaders(res: Response): Response {
+  const headers = new Headers(res.headers);
+  headers.set('Content-Type', 'text/event-stream; charset=utf-8');
+  headers.set('Cache-Control', 'no-cache, no-transform');
+  headers.set('Connection', 'keep-alive');
+  headers.set('X-Accel-Buffering', 'no');
+  return new Response(res.body, { status: 200, headers });
+}
+
+// ----- Helpers: streaming payload & persistence -----
+function buildMessageMetadataStart(selectedModelInfo: { id: string; name: string; profile_image_url?: string | null } | null): MessageMetadata | undefined {
+  if (!selectedModelInfo) return { createdAt: Date.now() };
+  return {
+    createdAt: Date.now(),
+    model: selectedModelInfo,
+    assistantDisplayName: selectedModelInfo.name,
+    assistantImageUrl: selectedModelInfo.profile_image_url || undefined,
+  } as MessageMetadata;
+}
+
+async function saveMessagesReplacingLastAssistant(
+  messages: UIMessage<MessageMetadata>[],
+  selectedModelInfo: { id: string; name: string; profile_image_url?: string | null } | null,
+  finalChatId: string,
+  userId: string,
+) {
+  const messagesWithModel = (() => {
+    if (!selectedModelInfo) return messages as UIMessage<MessageMetadata>[];
+    const lastIndex = messages.length - 1;
+    return messages.map((m, idx) => {
+      if (idx === lastIndex && m.role === 'assistant') {
+        return {
+          ...m,
+          metadata: {
+            ...(m as any).metadata,
+            model: selectedModelInfo,
+            assistantDisplayName: selectedModelInfo.name,
+            assistantImageUrl: selectedModelInfo.profile_image_url || undefined,
+          },
+        } as UIMessage<MessageMetadata>;
+      }
+      return m as UIMessage<MessageMetadata>;
+    });
+  })();
+
+  await saveChat({ chatId: finalChatId, userId, messages: messagesWithModel as unknown as UIMessage[] });
+}
+
+async function saveMessagesAppendAssistantFromTrimmed(
+  fullMessages: UIMessage<MessageMetadata>[],
+  streamedMessages: UIMessage<MessageMetadata>[],
+  selectedModelInfo: { id: string; name: string; profile_image_url?: string | null } | null,
+  finalChatId: string,
+  userId: string,
+) {
+  // Extract only last assistant from streamedMessages and append to fullMessages
+  const assistant = [...streamedMessages].reverse().find((m) => m.role === 'assistant') as UIMessage<MessageMetadata> | undefined;
+  const assistantWithModel = assistant
+    ? ({
+        ...assistant,
+        metadata: {
+          ...(assistant as any).metadata,
+          ...(selectedModelInfo ? { model: selectedModelInfo } : {}),
+        },
+      } as UIMessage<MessageMetadata>)
+    : undefined;
+
+  const toSave = assistantWithModel ? [...fullMessages, assistantWithModel] : fullMessages;
+  await saveChat({ chatId: finalChatId, userId, messages: toSave as unknown as UIMessage[] });
+}
+
+function buildToUIMessageStreamArgs(
+  originalMessages: UIMessage<MessageMetadata>[],
+  selectedModelInfo: { id: string; name: string; profile_image_url?: string | null } | null,
+  saveStrategy: 'replace_last' | 'append_from_trimmed',
+  persistParams: { finalChatId: string; userId: string; fullMessagesForTrimmed?: UIMessage<MessageMetadata>[] },
+) {
+  return {
+    originalMessages,
+    generateMessageId: createIdGenerator({ prefix: 'msg', size: 16 }),
+    messageMetadata: ({ part }: { part: any }) => {
+      if (part.type === 'start') {
+        return buildMessageMetadataStart(selectedModelInfo);
+      }
+      if (part.type === 'finish') {
+        return { totalTokens: part.totalUsage?.totalTokens } as MessageMetadata;
+      }
+      return undefined;
+    },
+    onFinish: async ({ messages }: { messages: UIMessage<MessageMetadata>[] }) => {
+      if (saveStrategy === 'replace_last') {
+        await saveMessagesReplacingLastAssistant(messages, selectedModelInfo, persistParams.finalChatId, persistParams.userId);
+      } else {
+        await saveMessagesAppendAssistantFromTrimmed(
+          persistParams.fullMessagesForTrimmed || [],
+          messages,
+          selectedModelInfo,
+          persistParams.finalChatId,
+          persistParams.userId,
+        );
+      }
+    },
+  } as const;
+}
 
 /**
  * @swagger
@@ -123,8 +231,11 @@ export async function POST(req: NextRequest) {
     let modelContextTokens: number | null = null;
     if (modelId) {
       // Get the model from the database to get its name
-      const model = await db.model.findUnique({
-        where: { id: modelId },
+      const model = await db.model.findFirst({
+        where: {
+          id: modelId,
+          userId: userId,
+        },
         select: { id: true, name: true, meta: true }
       });
       
@@ -160,7 +271,10 @@ export async function POST(req: NextRequest) {
     if (!selectedModelInfo) {
       // 2) Try to find a model by name in DB to get profile image url
       const modelByName = await db.model.findFirst({
-        where: { name: modelName },
+        where: {
+          name: modelName,
+          userId: userId,
+        },
         select: { id: true, name: true, meta: true },
       });
       if (modelByName) {
@@ -266,47 +380,13 @@ export async function POST(req: NextRequest) {
         ),
         abortSignal: req.signal,
       });
-      return result.toUIMessageStreamResponse({
-        originalMessages: validatedMessages as UIMessage<MessageMetadata>[],
-        generateMessageId: createIdGenerator({ prefix: 'msg', size: 16 }),
-        messageMetadata: ({ part }) => {
-          if (part.type === 'start') {
-            return {
-              createdAt: Date.now(),
-              ...(selectedModelInfo ? { model: selectedModelInfo } : {}),
-            } as MessageMetadata;
-          }
-          if (part.type === 'finish') {
-            return {
-              totalTokens: part.totalUsage?.totalTokens,
-            } as MessageMetadata;
-          }
-          return undefined;
-        },
-        onFinish: async ({ messages }) => {
-          const messagesWithModel = (() => {
-            if (!selectedModelInfo) return messages as UIMessage<MessageMetadata>[];
-            const lastIndex = messages.length - 1;
-            return messages.map((m, idx) => {
-              if (idx === lastIndex && m.role === 'assistant') {
-                return {
-                  ...m,
-                  metadata: {
-                    ...(m as any).metadata,
-                    model: selectedModelInfo,
-                  },
-                } as UIMessage<MessageMetadata>;
-              }
-              return m as UIMessage<MessageMetadata>;
-            });
-          })();
-          await saveChat({
-            chatId: finalChatId,
-            userId,
-            messages: messagesWithModel as unknown as UIMessage[],
-          });
-        },
-      });
+      const toUIArgs = buildToUIMessageStreamArgs(
+        validatedMessages as UIMessage<MessageMetadata>[],
+        selectedModelInfo,
+        'replace_last',
+        { finalChatId, userId }
+      );
+      return withSSEHeaders(result.toUIMessageStreamResponse(toUIArgs));
     };
 
     try {
@@ -319,32 +399,13 @@ export async function POST(req: NextRequest) {
         ),
         abortSignal: req.signal,
       });
-      return result.toUIMessageStreamResponse({
-        originalMessages: validatedFull as UIMessage<MessageMetadata>[],
-        generateMessageId: createIdGenerator({ prefix: 'msg', size: 16 }),
-        messageMetadata: ({ part }) => {
-          if (part.type === 'start') {
-            return {
-              createdAt: Date.now(),
-              ...(selectedModelInfo ? { model: selectedModelInfo } : {}),
-            } as MessageMetadata;
-          }
-          if (part.type === 'finish') {
-            return {
-              totalTokens: part.totalUsage?.totalTokens,
-            } as MessageMetadata;
-          }
-          return undefined;
-        },
-        onFinish: async ({ messages }) => {
-          // Save provider-returned messages as-is (full history + new assistant)
-          await saveChat({
-            chatId: finalChatId,
-            userId,
-            messages: messages as unknown as UIMessage[],
-          });
-        },
-      });
+      const toUIArgs = buildToUIMessageStreamArgs(
+        validatedFull as UIMessage<MessageMetadata>[],
+        selectedModelInfo,
+        'replace_last',
+        { finalChatId, userId }
+      );
+      return withSSEHeaders(result.toUIMessageStreamResponse(toUIArgs));
     } catch (err: any) {
       const msg = String(err?.message || '');
       const code = String((err as any)?.code || '');
@@ -366,43 +427,13 @@ export async function POST(req: NextRequest) {
         abortSignal: req.signal,
       });
       try {
-        return await retry.toUIMessageStreamResponse({
-          originalMessages: validatedTrimmed as UIMessage<MessageMetadata>[],
-          generateMessageId: createIdGenerator({ prefix: 'msg', size: 16 }),
-          messageMetadata: ({ part }) => {
-            if (part.type === 'start') {
-              return {
-                createdAt: Date.now(),
-                ...(selectedModelInfo ? { model: selectedModelInfo } : {}),
-              } as MessageMetadata;
-            }
-            if (part.type === 'finish') {
-              return {
-                totalTokens: part.totalUsage?.totalTokens,
-              } as MessageMetadata;
-            }
-            return undefined;
-          },
-          onFinish: async ({ messages }) => {
-            // Extract only the assistant reply from the trimmed conversation
-            const assistant = [...messages].reverse().find((m) => m.role === 'assistant') as UIMessage<MessageMetadata> | undefined;
-            const assistantWithModel = assistant
-              ? ({
-                  ...assistant,
-                  metadata: {
-                    ...(assistant as any).metadata,
-                    ...(selectedModelInfo ? { model: selectedModelInfo } : {}),
-                  },
-                } as UIMessage<MessageMetadata>)
-              : undefined;
-            const toSave = assistantWithModel ? [...fullMessages, assistantWithModel] : fullMessages;
-            await saveChat({
-              chatId: finalChatId,
-              userId,
-              messages: toSave as unknown as UIMessage[],
-            });
-          },
-        });
+        const toUIArgs = buildToUIMessageStreamArgs(
+          validatedTrimmed as UIMessage<MessageMetadata>[],
+          selectedModelInfo,
+          'append_from_trimmed',
+          { finalChatId, userId, fullMessagesForTrimmed: fullMessages as UIMessage<MessageMetadata>[] }
+        );
+        return withSSEHeaders(await retry.toUIMessageStreamResponse(toUIArgs));
       } catch (err2: any) {
         const body = {
           type: 'error',

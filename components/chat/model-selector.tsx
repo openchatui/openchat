@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { Check, ChevronsUpDown, Cpu, Link as LinkIcon } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
@@ -18,21 +18,37 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
-import { useModels } from "@/hooks/useModels"
 import type { Model } from "@/types/models"
 
 interface ModelSelectorProps {
   selectedModelId?: string
   onModelSelect?: (model: Model) => void
+  models?: Model[]
 }
 
-export function ModelSelector({ selectedModelId, onModelSelect }: ModelSelectorProps) {
-  const { models, isLoading } = useModels()
+export function ModelSelector({ selectedModelId, onModelSelect, models = [] }: ModelSelectorProps) {
   const [open, setOpen] = useState(false)
-  const [selectedModel, setSelectedModel] = useState<Model | null>(null)
+  const [userSelectedModel, setUserSelectedModel] = useState<Model | null>(null)
 
   // Filter for active models only
   const activeModels = models.filter(model => model.isActive && !model.meta?.hidden)
+
+  // Set selected model: user selection takes priority, then prop, then default
+  const selectedModel = useMemo(() => {
+    // If user has selected a model, use that
+    if (userSelectedModel) return userSelectedModel
+
+    // Otherwise use prop-specified model
+    if (selectedModelId) {
+      return activeModels.find(m => m.id === selectedModelId) || null
+    }
+
+    // Finally, default to first active model
+    return activeModels.length > 0 ? activeModels[0] : null
+  }, [userSelectedModel, selectedModelId, activeModels])
+
+  // Models are pre-loaded, so no loading state needed
+  const isLoading = false
 
   // Get parameter size for Ollama models
   const getParameterSize = (model: Model): string | null => {
@@ -51,19 +67,20 @@ export function ModelSelector({ selectedModelId, onModelSelect }: ModelSelectorP
     return model.name
   }
 
-  // Set selected model based on selectedModelId prop or default to first active model
+  // Set initial selected model when models load (but don't override user selections)
+  // Note: We don't call onModelSelect here because this is just initialization, not user selection
   useEffect(() => {
-    if (selectedModelId) {
-      const model = activeModels.find(m => m.id === selectedModelId)
-      if (model && model !== selectedModel) {
-        setSelectedModel(model)
+    if (!userSelectedModel && activeModels.length > 0) {
+      const initialModel = selectedModelId
+        ? activeModels.find(m => m.id === selectedModelId) || activeModels[0]
+        : activeModels[0]
+
+      if (initialModel) {
+        setUserSelectedModel(initialModel)
+        // Don't call onModelSelect here - this is initialization, not user selection
       }
-    } else if (!selectedModel && activeModels.length > 0 && !isLoading) {
-      const defaultModel = activeModels[0]
-      setSelectedModel(defaultModel)
-      onModelSelect?.(defaultModel)
     }
-  }, [selectedModelId, activeModels, isLoading, selectedModel, onModelSelect])
+  }, [activeModels, selectedModelId, userSelectedModel])
 
   return (
     <div className="absolute top-4 left-4 z-10">
@@ -126,7 +143,7 @@ export function ModelSelector({ selectedModelId, onModelSelect }: ModelSelectorP
                       key={model.id}
                       value={model.name}
                       onSelect={() => {
-                        setSelectedModel(model)
+                        setUserSelectedModel(model)
                         onModelSelect?.(model)
                         setOpen(false)
                       }}

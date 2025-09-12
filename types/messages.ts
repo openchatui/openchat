@@ -12,6 +12,9 @@ export const messageMetadataSchema = z.object({
   createdAt: z.number().optional(),
   model: messageModelSchema.optional(),
   totalTokens: z.number().optional(),
+  assistantDisplayName: z.string().optional(),
+  assistantImageUrl: z.string().optional(),
+  reasoningActive: z.boolean().optional(),
 });
 
 export type MessageMetadata = z.infer<typeof messageMetadataSchema>;
