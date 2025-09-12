@@ -82,7 +82,7 @@ export function ChatInput({
         onSubmit={handleSubmit}
         className={cn("max-w-6xl px-2.5 pb-6 pt-0 mx-auto inset-x-0", className)}
       >
-        <div className="rounded-3xl bg-accent p-2 shadow-2xl">
+        <div className="rounded-3xl bg-accent p-2 shadow-md">
           {/* Top row: input */}
           <div className="flex items-center px-2 bg-transparent">
             <Textarea

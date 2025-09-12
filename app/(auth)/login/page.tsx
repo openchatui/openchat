@@ -53,7 +53,7 @@ export default async function Login({ searchParams }: { searchParams: Promise<{ 
             });
           }}
         >
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-2">
             <Input
               name="email"
               placeholder="Email"
@@ -70,11 +70,11 @@ export default async function Login({ searchParams }: { searchParams: Promise<{ 
             />
           </div>
 
-          <Button variant="outline" className="w-full" type="submit">
+          <Button variant="outline" className="w-full mt-4" type="submit">
             Sign In
           </Button>
           
-          <div className="mt-2 text-sm">
+          <div className="text-sm">
             Don&apos;t have an account?{" "}
             <Link href="/signup" className="text-primary hover:text-primary/90">
               Sign up

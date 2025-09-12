@@ -24,7 +24,7 @@ export default async function Signup({ searchParams }: { searchParams: Promise<{
         
         {/* Email/Password Sign Up */}
         <form
-          className="flex flex-col gap-2"
+          className="flex flex-col"
           action={async (formData) => {
             "use server";
             const res = await signUp(formData);
@@ -35,7 +35,14 @@ export default async function Signup({ searchParams }: { searchParams: Promise<{
             }
           }}
         >
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-2">
+            <Input
+              name="username"
+              placeholder="Username"
+              type="text"
+              required
+              autoComplete="username"
+            />
             <Input
               name="email"
               placeholder="Email"
@@ -61,14 +68,14 @@ export default async function Signup({ searchParams }: { searchParams: Promise<{
 
           <Button 
             variant="outline" 
-            className="w-full" 
+            className="w-full mt-4" 
             type="submit"
           >
             Create Account
           </Button>
         </form>
         
-        <div className="text-center text-sm">
+        <div className="text-sm ">
           Already have an account?{" "}
           <Link href="/login" className="text-primary hover:underline">
             Sign in
