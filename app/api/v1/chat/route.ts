@@ -1,4 +1,4 @@
-import { createOpenAI } from '@ai-sdk/openai';
+import { resolveAiProvider } from '@/lib/ai/provider';
 import { streamText, UIMessage, convertToModelMessages, validateUIMessages, createIdGenerator } from 'ai';
 import { auth } from '@/lib/auth';
 import db from '@/lib/db';
@@ -203,25 +203,7 @@ export async function POST(req: NextRequest) {
       return new Response('Messages or message with chatId are required', { status: 400 });
     }
 
-    // Get OpenAI API key from connections
-    const openaiConnection = await db.connection.findFirst({
-      where: {
-        type: 'openai-api',
-        apiKey: {
-          not: null
-        }
-      },
-      select: {
-        apiKey: true,
-        baseUrl: true
-      }
-    });
-
-    if (!openaiConnection?.apiKey) {
-      return new Response('OpenAI API key not configured. Please add an OpenAI connection in settings.', { 
-        status: 400 
-      });
-    }
+    
 
     // Determine the model to use
     let modelName = 'gpt-4o'; // default
@@ -301,10 +283,10 @@ export async function POST(req: NextRequest) {
       modelName = selectedModelInfo.name;
     }
 
-    const openai = createOpenAI({
-      apiKey: openaiConnection.apiKey,
-      baseURL: openaiConnection.baseUrl !== 'https://api.openai.com/v1' ? openaiConnection.baseUrl : undefined,
-    });
+    // Resolve provider/model handle via resolver (uses Models.provider_id and Connection.provider)
+    const { getModelHandle, providerModelId } = await resolveAiProvider({ model: modelId || modelName })
+    const modelHandle = getModelHandle(providerModelId)
+
 
     // Filter to text-only parts for provider payload and cap per-message length (used for retry only)
     const filterToTextParts = (msgs: UIMessage<MessageMetadata>[]) => {
@@ -374,7 +356,7 @@ export async function POST(req: NextRequest) {
     ): Promise<Response> => {
       const validatedMessages = await validateUIMessages({ messages: msgs });
       const result = streamText({
-        model: openai(modelName),
+        model: modelHandle,
         messages: convertToModelMessages(
           validatedMessages as UIMessage<MessageMetadata>[]
         ),
@@ -393,7 +375,7 @@ export async function POST(req: NextRequest) {
       // First attempt: no trimming; if provider throws context error, we'll retry with trimmed payload
       const validatedFull = await validateUIMessages({ messages: fullMessages });
       const result = streamText({
-        model: openai(modelName),
+        model: modelHandle,
         messages: convertToModelMessages(
           validatedFull as UIMessage<MessageMetadata>[]
         ),
@@ -420,7 +402,7 @@ export async function POST(req: NextRequest) {
       const budgetTrimmed = trimByCharBudget(textOnly, maxCharsBudget, 8);
       const validatedTrimmed = await validateUIMessages({ messages: budgetTrimmed });
       const retry = streamText({
-        model: openai(modelName),
+        model: modelHandle,
         messages: convertToModelMessages(
           validatedTrimmed as UIMessage<MessageMetadata>[]
         ),

@@ -66,3 +66,26 @@ export interface EditState {
   isUpdating: boolean
   showEditApiKey: boolean
 }
+
+export interface OpenAIConfigEntry {
+  enable?: boolean
+  tags?: string[]
+  prefix_id?: string
+  model_ids?: string[]
+  connection_type?: string
+  [key: string]: unknown
+}
+
+export interface ConnectionsConfig {
+  openai: {
+    enable: boolean
+    api_base_urls: string[]
+    api_keys: string[]
+    api_configs: Record<string, OpenAIConfigEntry>
+  }
+  ollama: {
+    enable: boolean
+    base_urls: string[]
+    api_configs: Record<string, unknown>
+  }
+}

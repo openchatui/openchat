@@ -17,6 +17,7 @@
     "@auth/prisma-adapter": "^2.10.0",
     "@hookform/resolvers": "^5.1.1",
     "@icons-pack/react-simple-icons": "^13.7.0",
+    "@openrouter/ai-sdk-provider": "^1.2.0",
     "@radix-ui/react-accordion": "^1.2.11",
     "@radix-ui/react-alert-dialog": "^1.1.14",
     "@radix-ui/react-aspect-ratio": "^1.1.7",
@@ -79,6 +80,7 @@
     "swagger-ui-dist": "^5.29.0",
     "swagger-ui-react": "^5.29.0",
     "tailwind-merge": "^3.3.1",
+    "tldts": "^7.0.14",
     "use-stick-to-bottom": "^1.1.1",
     "vaul": "^1.1.2",
     "zod": "^4.1.5"

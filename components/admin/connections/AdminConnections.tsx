@@ -14,9 +14,10 @@ import { MESSAGES } from "@/constants/connections"
 // Main Admin Connections Component
 interface AdminConnectionsProps {
     session: Session | null
+    initialChats?: any[]
 }
 
-export function AdminConnections({ session }: AdminConnectionsProps) {
+export function AdminConnections({ session, initialChats = [] }: AdminConnectionsProps) {
   const {
     connections,
     isLoading,
@@ -40,6 +41,9 @@ export function AdminConnections({ session }: AdminConnectionsProps) {
     toggleApiKeyVisibility,
     toggleNewApiKeyVisibility,
     handleEditConnection,
+    connectionsConfig,
+    toggleOpenAIConnectionEnabledAt,
+    toggleOllamaEnabled,
     updateConnection,
     deleteConnection,
     testConnection,
@@ -62,9 +66,14 @@ export function AdminConnections({ session }: AdminConnectionsProps) {
 
   const openaiConnections = connections.filter(conn => conn.type === 'openai-api')
   const ollamaConnections = connections.filter(conn => conn.type === 'ollama')
+  const openaiEnableStatuses = openaiConnections.map((_, idx) => {
+    const cfg = connectionsConfig?.openai?.api_configs?.[String(idx)] as any
+    return !!cfg?.enable
+  })
+  const ollamaEnabled = !!connectionsConfig?.ollama?.enable
 
   return (
-    <AdminSidebar session={session} activeTab="connections">
+    <AdminSidebar session={session} activeTab="connections" initialChats={initialChats}>
       <div className="max-w-none mx-auto space-y-6">
         <div className="mx-2.5">
           <h2 className="text-2xl font-semibold">{MESSAGES.CONNECTIONS_TITLE}</h2>
@@ -95,6 +104,8 @@ export function AdminConnections({ session }: AdminConnectionsProps) {
               onSave={saveConnections}
               onClearAll={handleClearAll}
               onEditConnection={handleEditConnection}
+              enableStatuses={openaiEnableStatuses}
+              onToggleEnable={(index, enabled) => toggleOpenAIConnectionEnabledAt(index, enabled)}
             />
 
             {/* Ollama Connection Form */}
@@ -105,6 +116,9 @@ export function AdminConnections({ session }: AdminConnectionsProps) {
               successfulConnections={successfulConnections}
               onUpdateConnection={updateNewOllamaConnection}
               onTestConnection={testConnection}
+              onEditConnection={handleEditConnection}
+              ollamaEnabled={ollamaEnabled}
+              onToggleOllamaEnabled={toggleOllamaEnabled}
             />
                   </div>
                 )}

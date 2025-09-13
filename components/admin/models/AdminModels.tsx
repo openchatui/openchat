@@ -16,9 +16,11 @@ interface AdminModelsProps {
     session: Session | null
     initialModels?: Model[]
     initialGroupedModels?: Record<string, Model[]>
+    initialModelsConfig?: { hidden: string[]; invisible: string[]; active: string[]; order: string[] }
+    initialChats?: any[]
 }
 
-export function AdminModels({ session, initialModels = [], initialGroupedModels = {} }: AdminModelsProps) {
+export function AdminModels({ session, initialModels = [], initialGroupedModels = {}, initialChats = [] }: AdminModelsProps) {
   const [updatingIds, setUpdatingIds] = useState<Set<string>>(new Set())
 
   // Use server-loaded models
@@ -58,7 +60,7 @@ export function AdminModels({ session, initialModels = [], initialGroupedModels 
   const ownerKeys = Object.keys(groupedModels).filter(owner => (groupedModels[owner] || []).length > 0).sort()
 
     return (
-        <AdminSidebar session={session} activeTab="models">
+        <AdminSidebar session={session} activeTab="models" initialChats={initialChats}>
             <div className="flex flex-col h-full">
       {/* Fixed header */}
       <div className="flex-shrink-0 space-y-6 pb-6">

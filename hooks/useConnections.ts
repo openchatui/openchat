@@ -8,7 +8,8 @@ import type {
   ConnectionsState,
   ConnectionFormState,
   EditState,
-  ConnectionType
+  ConnectionType,
+  ConnectionsConfig
 } from '@/types/connections'
 
 export function useConnections() {
@@ -35,11 +36,17 @@ export function useConnections() {
     showEditApiKey: false
   })
 
+  const [connectionsConfig, setConnectionsConfig] = useState<ConnectionsConfig | null>(null)
+
   const loadConnections = useCallback(async () => {
     try {
       setConnectionsState(prev => ({ ...prev, isLoading: true }))
-      const data = await connectionsApi.getAll()
+      const [data, cfg] = await Promise.all([
+        connectionsApi.getAll(),
+        connectionsApi.getConfig().catch(() => null)
+      ])
       setConnectionsState(prev => ({ ...prev, connections: data as Connection[] }))
+      if (cfg && (cfg as any).connections) setConnectionsConfig((cfg as any).connections as ConnectionsConfig)
 
       // Update form state based on existing connections
       const hasOllamaConnection = (data as Connection[]).some((conn) => conn.type === 'ollama')
@@ -69,7 +76,9 @@ export function useConnections() {
         body: JSON.stringify({
           baseUrl: baseUrl.trim(),
           type,
-          apiKey: apiKey || null
+          apiKey: apiKey || null,
+          // Provide an explicit namespace label for local ollama providers
+          ollama: type === 'ollama' ? 'ollama' : undefined,
         }),
       })
 
@@ -257,6 +266,26 @@ export function useConnections() {
     })
   }, [])
 
+  const toggleOpenAIConnectionEnabledAt = useCallback(async (index: number, enabled: boolean) => {
+    try {
+      const payload = { connections: { openai: { api_configs: { [String(index)]: { enable: enabled } } } } }
+      const result = await connectionsApi.updateConfig(payload)
+      if ((result as any).connections) setConnectionsConfig((result as any).connections as ConnectionsConfig)
+    } catch (error) {
+      console.error('Failed to update OpenAI config enable:', error)
+    }
+  }, [])
+
+  const toggleOllamaEnabled = useCallback(async (enabled: boolean) => {
+    try {
+      const payload = { connections: { ollama: { enable: enabled } } }
+      const result = await connectionsApi.updateConfig(payload)
+      if ((result as any).connections) setConnectionsConfig((result as any).connections as ConnectionsConfig)
+    } catch (error) {
+      console.error('Failed to update Ollama enable:', error)
+    }
+  }, [])
+
   // Connection testing functionality
   const testConnection = useCallback(async (
     connectionId: string,
@@ -397,6 +426,9 @@ export function useConnections() {
     toggleApiKeyVisibility,
     toggleNewApiKeyVisibility,
     handleEditConnection,
+    connectionsConfig,
+    toggleOpenAIConnectionEnabledAt,
+    toggleOllamaEnabled,
 
     // Connection testing
     testConnection,

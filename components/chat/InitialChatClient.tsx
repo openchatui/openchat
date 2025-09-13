@@ -23,9 +23,10 @@ interface InitialChatClientProps {
   initialModels?: Model[]
   initialUserSettings?: Record<string, any>
   lastUsedModelId?: string | null
+  pinnedModels?: Model[]
 }
 
-export default function InitialChatClient({ session, initialChats = [], initialModels = [], initialUserSettings = {}, lastUsedModelId }: InitialChatClientProps) {
+export default function InitialChatClient({ session, initialChats = [], initialModels = [], initialUserSettings = {}, lastUsedModelId, pinnedModels = [] }: InitialChatClientProps) {
   const [isCreating, setIsCreating] = useState(false)
   const router = useRouter()
 
@@ -41,7 +42,7 @@ export default function InitialChatClient({ session, initialChats = [], initialM
   // First, try to use the saved model from user settings
   const savedModelId = initialUserSettings?.ui?.models?.[0]
   if (savedModelId) {
-    const savedModel = activeModels.find(model => model.id === savedModelId)
+    const savedModel = activeModels.find(model => model.id === savedModelId || (model as any).providerId === savedModelId)
     if (savedModel) {
       initialSelectedModel = savedModel
     }
@@ -49,7 +50,7 @@ export default function InitialChatClient({ session, initialChats = [], initialM
 
   // If no saved model, try the last used model from chat history
   if (!initialSelectedModel && lastUsedModelId) {
-    const lastUsedModel = activeModels.find(model => model.id === lastUsedModelId)
+    const lastUsedModel = activeModels.find(model => model.id === lastUsedModelId || (model as any).providerId === lastUsedModelId)
     if (lastUsedModel) {
       initialSelectedModel = lastUsedModel
     }
@@ -75,7 +76,7 @@ export default function InitialChatClient({ session, initialChats = [], initialM
         ...initialUserSettings,
         ui: {
           ...initialUserSettings.ui,
-          models: [model.id]
+          models: [((model as any).providerId || model.id)]
         }
       }
       await updateUserSettings(updatedSettings)
@@ -124,7 +125,7 @@ export default function InitialChatClient({ session, initialChats = [], initialM
 
   return (
     <SidebarProvider>
-      <AppSidebar session={session} initialChats={initialChats} />
+      <AppSidebar session={session} initialChats={initialChats} pinnedModels={pinnedModels} />
       <SidebarInset>
         <div className="flex flex-col h-full">
           {/* Header with model selector */}

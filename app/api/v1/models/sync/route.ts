@@ -76,6 +76,24 @@ function inferOwnership(baseUrl: string): string {
   return 'unknown'
 }
 
+// Compute a namespace from provider base URL
+// - For public hosts: use second-level domain (e.g., openrouter.ai -> "openrouter", api.openai.com -> "openai")
+// - For localhost: use the port number (e.g., http://localhost:11434 -> "11434"); default to 80/443 if absent
+function computeModelNamespace(baseUrl: string): string {
+  try {
+    const u = new URL(baseUrl)
+    const host = u.hostname.toLowerCase()
+    
+    // Use second-level domain as namespace (domain names only)
+    const parts = host.split('.').filter(Boolean)
+    if (parts.length >= 2) return parts[parts.length - 2]
+    return parts[0] || host
+  } catch {
+    // Fallback: try to salvage a simple token
+    return 'external'
+  }
+}
+
 // Lazy-load and cache model logos mapping from public/model-logos.json
 let modelLogosCache: Record<string, string | null> | null = null
 
@@ -205,6 +223,7 @@ export async function POST(request: NextRequest) {
     }
 
     const apiKey = body.apiKey ?? null
+    const ollamaNamespace = typeof (body as any).ollama === 'string' && (body as any).ollama.trim() ? (body as any).ollama.trim() : null
     let models: Array<{ id: string, name: string, meta: any, params: any }>
     if (provider === 'openai-api') {
       models = await fetchOpenAIModels(baseUrl, apiKey)
@@ -213,6 +232,9 @@ export async function POST(request: NextRequest) {
     }
 
     const now = toUnixSeconds()
+
+    const baseNamespace = computeModelNamespace(baseUrl)
+    const namespace = provider === 'ollama' ? 'ollama' : (ollamaNamespace || baseNamespace)
 
     const upserts = await Promise.all(models.map(async (m) => {
       if (!m.id) return null
@@ -229,25 +251,30 @@ export async function POST(request: NextRequest) {
         tags: m.meta?.tags || null,
         tools: m.meta?.tools || null,
         ownedBy: m.meta?.ownedBy || ownedBy,
+        provider_model_id: m.id,
         // Put all original Ollama/OpenAI metadata in details
         details: m.meta || {}
       }
 
+      const namespacedId = `${namespace}/${m.id}`
+
       return db.model.upsert({
-        where: { id: m.id },
+        where: { id: namespacedId },
         update: {
           name: m.name,
           meta: enhancedMeta,
           params: m.params,
           updatedAt: now,
           isActive: true,
-          // Ensure the model row is associated to the current user
+          providerId: m.id,
+          provider: ownedBy,
           userId: userId,
         },
         create: {
-          id: m.id,
+          id: namespacedId,
           userId: userId,
-          baseModelId: null,
+          providerId: m.id,
+          provider: ownedBy,
           name: m.name,
           meta: enhancedMeta,
           params: m.params,

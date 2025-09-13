@@ -25,6 +25,7 @@ interface ChatClientProps {
   initialMessages?: UIMessage[]
   initialChats?: ChatData[]
   initialModels?: Model[]
+  pinnedModels?: Model[]
   assistantDisplayName?: string
   assistantImageUrl?: string
 }
@@ -35,6 +36,7 @@ export default function ChatClient({
   initialMessages = [],
   initialChats = [],
   initialModels = [],
+  pinnedModels = [],
   assistantDisplayName = 'AI Assistant',
   assistantImageUrl = '/avatars/01.png'
 }: ChatClientProps) {
@@ -45,11 +47,31 @@ export default function ChatClient({
   const effectiveModels = initialModels
   const effectiveModelsLoading = false // Models are pre-loaded on server
 
-  // Prefer selected model for assistant display info during active session
-  const getAssistantDisplayInfo = () => ({
-    displayName: selectedModel?.name || assistantDisplayName,
-    imageUrl: selectedModel?.meta?.profile_image_url || assistantImageUrl
-  })
+  // Prefer message history for assistant display info; fallback to selected model, then server defaults
+  const getAssistantDisplayInfo = () => {
+    // Find last assistant message with metadata
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const msg = messages[i] as any
+      if (msg?.role === 'assistant') {
+        const meta = msg?.metadata || {}
+        const name = (meta.assistantDisplayName && meta.assistantDisplayName !== 'Unknown Model')
+          ? meta.assistantDisplayName
+          : (meta?.model?.name || '')
+          || selectedModel?.name
+          || assistantDisplayName
+        const imageUrl = (meta.assistantImageUrl && typeof meta.assistantImageUrl === 'string')
+          ? meta.assistantImageUrl
+          : (meta?.model?.profile_image_url || '')
+          || selectedModel?.meta?.profile_image_url
+          || assistantImageUrl
+        return { displayName: name, imageUrl }
+      }
+    }
+    return {
+      displayName: selectedModel?.name || assistantDisplayName,
+      imageUrl: selectedModel?.meta?.profile_image_url || assistantImageUrl
+    }
+  }
 
   const [messages, setMessages] = useState<UIMessage[]>(initialMessages)
 
@@ -63,7 +85,16 @@ export default function ChatClient({
   const hasSentInitialMessageRef = useRef(false)
 
   // Find the current model details from the models list
-  const currentModel = selectedModel ? effectiveModels.find(m => m.id === selectedModel.id) : null
+  const currentModel = selectedModel
+    ? effectiveModels.find(m => m.id === selectedModel.id || (m as any).providerId === selectedModel.id) || null
+    : null
+
+  const resolveModelDisplay = (providerModelId: string, fallback?: Model) => {
+    const byId = effectiveModels.find(m => m.id === providerModelId || (m as any).providerId === providerModelId)
+    const name = byId?.name || fallback?.name || providerModelId
+    const image = (byId as any)?.meta?.profile_image_url || fallback?.meta?.profile_image_url || '/OpenChat.png'
+    return { name, image }
+  }
 
   // Load messages on mount if not provided
   useEffect(() => {
@@ -109,7 +140,7 @@ export default function ChatClient({
         if (message.role === 'user') {
           const meta = (message as any).metadata
           if (meta?.model?.id) {
-            const model = effectiveModels.find(m => m.id === meta.model.id)
+            const model = effectiveModels.find(m => m.id === meta.model.id || (m as any).providerId === meta.model.id)
             if (model) {
               setSelectedModel(model)
               break
@@ -125,7 +156,7 @@ export default function ChatClient({
           if (message.role === 'assistant') {
             const meta = (message as any).metadata
             if (meta?.model?.id) {
-              const model = effectiveModels.find(m => m.id === meta.model.id)
+              const model = effectiveModels.find(m => m.id === meta.model.id || (m as any).providerId === meta.model.id)
               if (model) {
                 setSelectedModel(model)
                 break
@@ -151,7 +182,7 @@ export default function ChatClient({
               // Get the model from message metadata
               const meta = (message as any).metadata
               if (meta?.model?.id) {
-                const model = effectiveModels.find(m => m.id === meta.model.id)
+                const model = effectiveModels.find(m => m.id === meta.model.id || (m as any).providerId === meta.model.id)
                 if (model) {
                   // Send the message to get assistant response (pass model directly to avoid state timing issues)
                   hasSentInitialMessageRef.current = true
@@ -195,6 +226,7 @@ export default function ChatClient({
     setError(null)
 
     // Create the user message
+    const providerModelId = (modelToUse as any).providerId || modelToUse.id
     const userMessage: UIMessage<MessageMetadata> = {
       id: `msg_${Date.now()}`,
       role: 'user',
@@ -202,9 +234,9 @@ export default function ChatClient({
       metadata: {
         createdAt: Date.now(),
         model: {
-          id: modelToUse.id,
-          name: modelToUse.name,
-          profile_image_url: modelToUse.meta?.profile_image_url || null,
+          id: providerModelId,
+          name: resolveModelDisplay(providerModelId, modelToUse).name,
+          profile_image_url: resolveModelDisplay(providerModelId, modelToUse).image || null,
         }
       }
     }
@@ -226,8 +258,8 @@ export default function ChatClient({
 
       // Build request body: use full messages for first auto-send to avoid duplication
       const requestBody = isAutoSend
-        ? { messages, chatId, modelId: modelToUse.id }
-        : { message: userMessage, chatId, modelId: modelToUse.id }
+        ? { messages, chatId, modelId: providerModelId }
+        : { message: userMessage, chatId, modelId: providerModelId }
 
       // Call the API route directly for streaming
       const response = await fetch('/api/v1/chat', {
@@ -309,13 +341,13 @@ export default function ChatClient({
                     metadata: {
                       createdAt: Date.now(),
                       model: {
-                        id: modelToUse.id,
-                        name: modelToUse.name,
-                        profile_image_url: modelToUse.meta?.profile_image_url || null,
+                        id: providerModelId,
+                        name: resolveModelDisplay(providerModelId, modelToUse).name,
+                        profile_image_url: resolveModelDisplay(providerModelId, modelToUse).image || null,
                       },
                       // Store assistant display info from the start event
-                      assistantDisplayName: parsed.metadata?.assistantDisplayName || modelToUse.name,
-                      assistantImageUrl: parsed.metadata?.assistantImageUrl || modelToUse.meta?.profile_image_url || '/avatars/01.png',
+                      assistantDisplayName: parsed.metadata?.assistantDisplayName || resolveModelDisplay(providerModelId, modelToUse).name,
+                      assistantImageUrl: parsed.metadata?.assistantImageUrl || resolveModelDisplay(providerModelId, modelToUse).image || '/avatars/01.png',
                     } as MessageMetadata
                   }
                   setMessages(prev => [...prev, assistantMessage!])
@@ -330,12 +362,12 @@ export default function ChatClient({
                       metadata: {
                         createdAt: Date.now(),
                         model: {
-                          id: modelToUse.id,
-                          name: modelToUse.name,
-                          profile_image_url: modelToUse.meta?.profile_image_url || null,
+                          id: providerModelId,
+                          name: resolveModelDisplay(providerModelId, modelToUse).name,
+                          profile_image_url: resolveModelDisplay(providerModelId, modelToUse).image || null,
                         },
-                        assistantDisplayName: parsed.metadata?.assistantDisplayName || modelToUse.name,
-                        assistantImageUrl: parsed.metadata?.assistantImageUrl || modelToUse.meta?.profile_image_url || '/avatars/01.png',
+                        assistantDisplayName: parsed.metadata?.assistantDisplayName || resolveModelDisplay(providerModelId, modelToUse).name,
+                        assistantImageUrl: parsed.metadata?.assistantImageUrl || resolveModelDisplay(providerModelId, modelToUse).image || '/avatars/01.png',
                       } as MessageMetadata
                     }
                     setMessages(prev => [...prev, assistantMessage!])
@@ -377,12 +409,12 @@ export default function ChatClient({
                       metadata: {
                         createdAt: Date.now(),
                         model: {
-                          id: modelToUse.id,
-                          name: modelToUse.name,
-                          profile_image_url: modelToUse.meta?.profile_image_url || null,
+                          id: providerModelId,
+                          name: resolveModelDisplay(providerModelId, modelToUse).name,
+                          profile_image_url: resolveModelDisplay(providerModelId, modelToUse).image || null,
                         },
-                        assistantDisplayName: parsed.metadata?.assistantDisplayName || modelToUse.name,
-                        assistantImageUrl: parsed.metadata?.assistantImageUrl || modelToUse.meta?.profile_image_url || '/avatars/01.png',
+                        assistantDisplayName: parsed.metadata?.assistantDisplayName || resolveModelDisplay(providerModelId, modelToUse).name,
+                        assistantImageUrl: parsed.metadata?.assistantImageUrl || resolveModelDisplay(providerModelId, modelToUse).image || '/avatars/01.png',
                         reasoningActive: true,
                       } as MessageMetadata
                     }
@@ -461,7 +493,7 @@ export default function ChatClient({
   if (isInitializing || effectiveModelsLoading) {
     return (
       <SidebarProvider>
-        <AppSidebar session={session} initialChats={initialChats} />
+        <AppSidebar session={session} initialChats={initialChats} pinnedModels={pinnedModels} />
         <SidebarInset>
           <div className="flex items-center justify-center h-full">
             <AnimatedLoader 
@@ -477,11 +509,11 @@ export default function ChatClient({
 
   return (
     <SidebarProvider>
-      <AppSidebar session={session} initialChats={initialChats} />
+      <AppSidebar session={session} initialChats={initialChats} pinnedModels={pinnedModels} />
       <SidebarInset>
         <div className="relative flex flex-col h-full">
           <ModelSelector
-            selectedModelId={selectedModel?.id}
+            selectedModelId={currentModel?.id}
             onModelSelect={handleModelSelect}
             models={effectiveModels}
           />

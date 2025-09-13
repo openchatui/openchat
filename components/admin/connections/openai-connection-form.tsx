@@ -1,6 +1,7 @@
 import { Plus, Eye, EyeOff, X, Save, Loader2, Edit } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Switch } from "@/components/ui/switch"
 import { toast } from "sonner"
 import { PLACEHOLDERS, MESSAGES, TOAST_MESSAGES } from "@/constants/connections"
 import type { NewConnection, CreateConnectionData, Connection } from "@/types/connections"
@@ -19,6 +20,8 @@ interface OpenAIConnectionFormProps {
   onSave: (connections: CreateConnectionData[]) => Promise<void>
   onClearAll: () => void
   onEditConnection: (connection: Connection) => void
+  enableStatuses?: boolean[]
+  onToggleEnable?: (index: number, enabled: boolean) => void
 }
 
 export function OpenAIConnectionForm({
@@ -34,7 +37,9 @@ export function OpenAIConnectionForm({
   onToggleNewApiKeyVisibility,
   onSave,
   onClearAll,
-  onEditConnection
+  onEditConnection,
+  enableStatuses = [],
+  onToggleEnable
 }: OpenAIConnectionFormProps) {
   const hasValidConnections = newConnections.some(conn => conn.baseUrl.trim() && conn.apiKey.trim())
 
@@ -71,7 +76,7 @@ export function OpenAIConnectionForm({
       </div>
 
       {/* Existing saved OpenAI connections */}
-      {existingConnections.map((connection) => (
+      {existingConnections.map((connection, idx) => (
         <div key={connection.id} className="rounded-lg">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
@@ -112,6 +117,12 @@ export function OpenAIConnectionForm({
                 >
                   <Edit className="h-4 w-4" />
                 </Button>
+                <div className="flex items-center pl-1">
+                  <Switch
+                    checked={!!enableStatuses[idx]}
+                    onCheckedChange={(checked) => onToggleEnable?.(idx, Boolean(checked))}
+                  />
+                </div>
               </div>
             </div>
           </div>

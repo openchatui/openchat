@@ -1,3 +1,4 @@
+import type { ConnectionsConfig } from '@/types/connections'
 // Types
 export interface Connection {
   id: string
@@ -80,5 +81,28 @@ export const connectionsApi = {
       const error = await response.json()
       throw new Error(error.error || 'Failed to delete connection')
     }
+  },
+
+  // Get connections config
+  async getConfig(): Promise<{ connections: ConnectionsConfig }> {
+    const response = await fetch('/api/connections/config')
+    if (!response.ok) {
+      throw new Error('Failed to fetch connections config')
+    }
+    return response.json()
+  },
+
+  // Update connections config
+  async updateConfig(payload: any): Promise<{ connections: ConnectionsConfig }> {
+    const response = await fetch('/api/connections/config/update', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}))
+      throw new Error(err.error || 'Failed to update connections config')
+    }
+    return response.json()
   },
 }

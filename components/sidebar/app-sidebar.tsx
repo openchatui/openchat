@@ -14,6 +14,7 @@ import { NavMain } from "@/components/sidebar/nav-main"
 import { NavModels } from "@/components/sidebar/nav-models"
 import { NavUser } from "@/components/sidebar/nav-user"
 import { NavChats } from "@/components/sidebar/nav-chats"
+import { NavChannels } from "@/components/sidebar/nav-channels"
 import { SidebarLogo } from "@/components/sidebar/sidebar-logo"
 import {
   Sidebar,
@@ -23,6 +24,7 @@ import {
   SidebarRail,
 } from "@/components/ui/sidebar"
 import { Session } from "next-auth"
+import type { Model } from "@/types/models"
 import type { ChatData } from "@/lib/chat-store"
 
 // Navigation data
@@ -97,9 +99,10 @@ const data = {
 interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
   session: Session | null
   initialChats?: ChatData[]
+  pinnedModels?: Model[]
 }
 
-export function AppSidebar({ session, initialChats = [], ...props }: AppSidebarProps) {
+export function AppSidebar({ session, initialChats = [], pinnedModels = [], ...props }: AppSidebarProps) {
   const user = {
     name: session?.user?.name || "User",
     email: session?.user?.email || "",
@@ -111,14 +114,14 @@ export function AppSidebar({ session, initialChats = [], ...props }: AppSidebarP
       <SidebarHeader>
         <SidebarLogo />
       </SidebarHeader>
-      <SidebarContent>
+      <SidebarContent className="[&::-webkit-scrollbar]:hidden [scrollbar-width:none] [-ms-overflow-style:none] gap-0">
         <NavMain items={data.mainButtons} />
-        <NavModels items={data.aiModels} />
+        <NavModels pinnedModels={pinnedModels} />
+        <NavChannels items={data.sections} />
         <NavChats chats={initialChats} />
-        <NavMain items={data.sections} />
       </SidebarContent>
       <SidebarFooter>
-        <NavUser user={user} />
+        <NavUser user={user}/>
       </SidebarFooter>
       <SidebarRail />
     </Sidebar>

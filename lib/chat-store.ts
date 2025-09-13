@@ -28,12 +28,8 @@ export async function createChat(userId: string, initialMessage?: UIMessage, cha
   const finalChatId = chatId || generateId();
   const messages: UIMessage[] = initialMessage ? [initialMessage] : [];
   
-  // Generate title from first message or use default
-  const title = initialMessage?.parts
-    .filter(part => part.type === 'text')
-    .map(part => part.text)
-    .join(' ')
-    .slice(0, 50) + (initialMessage ? '...' : 'New Chat');
+  // Always start with default title; async process may update later
+  const title = 'New Chat';
 
   await db.chat.create({
     data: {
@@ -90,44 +86,20 @@ export async function saveChat({
   userId: string;
   messages: UIMessage[];
 }): Promise<void> {
-  // Update the title if this is the first save with messages
+  // Ensure chat exists for this user
   const existingChat = await db.chat.findFirst({
     where: { id: chatId, userId },
-    select: { chat: true, title: true },
+    select: { id: true },
   });
 
   if (!existingChat) {
     throw new Error('Chat not found');
   }
 
-  // Convert and validate existing messages
-  const existingMessages = (() => {
-    const msgs = existingChat.chat as unknown;
-    if (!Array.isArray(msgs)) {
-      return [];
-    }
-    return msgs.filter(isUIMessage);
-  })();
-  
-  let title = existingChat.title;
-
-  // If the chat was empty and now has messages, update the title
-  if (existingMessages.length === 0 && messages.length > 0) {
-    const firstUserMessage = messages.find(m => m.role === 'user');
-    if (firstUserMessage) {
-      title = firstUserMessage.parts
-        .filter(part => part.type === 'text')
-        .map(part => part.text)
-        .join(' ')
-        .slice(0, 50) + '...';
-    }
-  }
-
   await db.chat.update({
     where: { id: chatId },
     data: {
       chat: JSON.parse(JSON.stringify(messages)), // Convert to plain object for Prisma
-      title,
       updatedAt: new Date(),
     },
   });
@@ -207,6 +179,19 @@ export async function archiveChat(chatId: string, userId: string): Promise<void>
     },
     data: {
       archived: 1,
+      updatedAt: new Date(),
+    },
+  });
+}
+
+/**
+ * Update a chat's title (ensures ownership)
+ */
+export async function updateChatTitle(chatId: string, userId: string, title: string): Promise<void> {
+  await db.chat.updateMany({
+    where: { id: chatId, userId },
+    data: {
+      title,
       updatedAt: new Date(),
     },
   });

@@ -9,6 +9,83 @@ import type { MessageMetadata } from '@/types/messages';
 import type { Model, ModelMeta, ModelsGroupedByOwner, UpdateModelData } from '@/types/models';
 import { revalidatePath } from 'next/cache';
 
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+async function getConnectionsConfig(): Promise<any> {
+  try {
+    const row = await (db as any).config.findUnique({ where: { id: 1 } })
+    const data = (row?.data || {}) as any
+    const connections = isPlainObject(data.connections) ? (data.connections as any) : {}
+    const openai = isPlainObject(connections.openai) ? (connections.openai as any) : {}
+    const ollama = isPlainObject(connections.ollama) ? (connections.ollama as any) : {}
+    return { openai, ollama }
+  } catch {
+    return { openai: {}, ollama: {} }
+  }
+}
+
+function normalizeProviderName(raw?: string | null): 'openai' | 'openrouter' | 'ollama' | 'openai-compatible' | null {
+  const name = String(raw || '').toLowerCase()
+  if (!name) return null
+  if (name.includes('openrouter')) return 'openrouter'
+  if (name.includes('ollama')) return 'ollama'
+  if (name.includes('openai')) return 'openai'
+  if (name.includes('compatible')) return 'openai-compatible'
+  return null
+}
+
+function computeProviderEnabled(connectionsCfg: any, provider?: string | null): boolean {
+  const norm = normalizeProviderName(provider)
+  if (norm === 'ollama') {
+    return Boolean((connectionsCfg?.ollama || {}).enable)
+  }
+  if (norm === 'openrouter' || norm === 'openai' || norm === 'openai-compatible') {
+    const openai = connectionsCfg?.openai || {}
+    // If top-level enable is explicitly false, provider disabled
+    if (openai.enable === false) return false
+    const apiConfigs = isPlainObject(openai.api_configs) ? openai.api_configs as Record<string, any> : {}
+    const entries = Object.values(apiConfigs)
+    if (entries.length === 0) return true
+    // Enabled if at least one entry isn't explicitly disabled
+    return entries.some((e: any) => e && e.enable !== false)
+  }
+  // Unknown providers default to enabled
+  return true
+}
+
+async function getOllamaBaseUrl(connectionsCfg?: any): Promise<string> {
+  const cfgUrl = (() => {
+    const urls = (connectionsCfg?.ollama?.base_urls || []) as string[]
+    if (Array.isArray(urls) && urls.length > 0 && typeof urls[0] === 'string') return urls[0]
+    return null
+  })()
+  if (cfgUrl) return cfgUrl
+  try {
+    const row = await db.connection.findFirst({ where: { type: 'ollama' }, select: { baseUrl: true } })
+    if (row?.baseUrl) return row.baseUrl
+  } catch {}
+  return 'http://localhost:11434'
+}
+
+async function getActiveOllamaModelNames(connectionsCfg?: any): Promise<Set<string>> {
+  try {
+    const base = await getOllamaBaseUrl(connectionsCfg)
+    const url = base.replace(/\/+$/, '') + '/api/ps'
+    const res = await fetch(url, { method: 'GET', headers: { 'Accept': 'application/json' } })
+    const data = await res.json().catch(() => null)
+    if (!res.ok || !data) return new Set<string>()
+    const list: any[] = Array.isArray(data?.models) ? data.models : (Array.isArray(data) ? data : [])
+    const names = list
+      .map((m: any) => (typeof m?.name === 'string' ? m.name : (typeof m?.model === 'string' ? m.model : null)))
+      .filter((v: any) => typeof v === 'string')
+    return new Set<string>(names as string[])
+  } catch {
+    return new Set<string>()
+  }
+}
+
 // Server action to send a message and get streaming response
 export async function sendMessage(
   chatId: string,
@@ -405,11 +482,34 @@ export async function getModels(): Promise<Model[]> {
       },
     });
 
-    // Map database models to Model type
-    return models.map(model => ({
-      ...model,
-      meta: (model.meta as unknown) as ModelMeta,
-    }));
+    // Filter by connections config (disabled providers)
+    const connectionsCfg = await getConnectionsConfig()
+    const activeOllamaNames = computeProviderEnabled(connectionsCfg, 'ollama')
+      ? await getActiveOllamaModelNames(connectionsCfg)
+      : new Set<string>()
+
+    const filtered = models.filter((model: any) => {
+      const provider = (model as any).provider || null
+      return computeProviderEnabled(connectionsCfg, provider)
+    })
+
+    // Map database models to Model type, annotate active Ollama models
+    return filtered.map(model => {
+      const meta = (model.meta as unknown) as ModelMeta
+      const isOllama = String((meta as any)?.ownedBy || '').toLowerCase() === 'ollama'
+      const name = (model as any).name as string
+      const runtimeActive = isOllama && activeOllamaNames.has(name)
+      const nextMeta = runtimeActive
+        ? ({
+            ...meta,
+            details: { ...(meta?.details as any || {}), runtime_active: true }
+          } as ModelMeta)
+        : meta
+      return {
+        ...(model as any),
+        meta: nextMeta,
+      } as Model
+    });
   } catch (error) {
     console.error('Get models error:', error);
     return [];

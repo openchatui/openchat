@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import {
   Plus,
   Mic,
@@ -121,19 +122,19 @@ export function ChatInput({
                 active={webSearch}
                 onClick={() => setWebSearch((v) => !v)}
                 icon={<Globe className="h-3.5 w-3.5" />}
-                label="Web Search"
+                label="Web search"
               />
               <Pill
                 active={image}
                 onClick={() => setImage((v) => !v)}
                 icon={<ImageIcon className="h-3.5 w-3.5" />}
-                label="Image"
+                label="Image input"
               />
               <Pill
                 active={codeInterpreter}
                 onClick={() => setCodeInterpreter((v) => !v)}
                 icon={<Terminal className="h-3.5 w-3.5" />}
-                label="Code Interpreter"
+                label="Code interpreter"
               />
             </div>
 
@@ -197,20 +198,29 @@ function Pill({
   label: string;
 }) {
   return (
-    <Button
-      type="button"
-      variant="outline"
-      size="sm"
-      onClick={onClick}
-      className={cn(
-        "rounded-full h-7 px-3 gap-2",
-        active && "border-primary text-primary bg-primary/10"
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={onClick}
+          className={cn(
+            "rounded-full h-7 px-3 gap-0",
+            active && "border-primary text-primary bg-primary/10"
+          )}
+          aria-pressed={active}
+          aria-label={label || "Toggle"}
+        >
+          {icon}
+        </Button>
+      </TooltipTrigger>
+      {!!label && (
+        <TooltipContent side="top" sideOffset={6}>
+          {label}
+        </TooltipContent>
       )}
-      aria-pressed={active}
-    >
-      {icon}
-      <span className="text-xs">{label}</span>
-    </Button>
+    </Tooltip>
   );
 }
 

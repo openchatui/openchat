@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Eye, EyeOff } from "lucide-react"
+import { useState, useEffect, useMemo } from "react"
+import { Eye, EyeOff, Search } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -17,6 +17,7 @@ import { Label } from "@/components/ui/label"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
 import { Badge } from "@/components/ui/badge"
+import { Input } from "@/components/ui/input"
 import type { Model } from "@/types/models"
 
 interface HideModelsDialogProps {
@@ -29,6 +30,7 @@ export function HideModelsDialog({ owner, models, onUpdateModels }: HideModelsDi
   const [open, setOpen] = useState(false)
   const [hiddenStates, setHiddenStates] = useState<Record<string, boolean>>({})
   const [isSaving, setIsSaving] = useState(false)
+  const [searchTerm, setSearchTerm] = useState("")
 
   // Initialize hidden states when dialog opens
   useEffect(() => {
@@ -72,6 +74,25 @@ export function HideModelsDialog({ owner, models, onUpdateModels }: HideModelsDi
   const hiddenCount = Object.values(hiddenStates).filter(Boolean).length
   const visibleCount = models.length - hiddenCount
 
+  const filteredModels = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase()
+    if (!term) return models
+    return models.filter(m => {
+      const name = String(m.name || "").toLowerCase()
+      const id = String(m.id || "").toLowerCase()
+      const desc = String((m.meta as any)?.description || "").toLowerCase()
+      return name.includes(term) || id.includes(term) || desc.includes(term)
+    })
+  }, [models, searchTerm])
+
+  const handleSelectAll = (value: boolean) => {
+    setHiddenStates(prev => {
+      const next = { ...prev }
+      filteredModels.forEach(m => { next[m.id] = value })
+      return next
+    })
+  }
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
@@ -93,25 +114,48 @@ export function HideModelsDialog({ owner, models, onUpdateModels }: HideModelsDi
         </DialogHeader>
 
         <div className="space-y-4">
-          <div className="flex items-center justify-between text-sm text-muted-foreground">
-            <span>Total models: {models.length}</span>
-            <div className="flex gap-2">
-              <Badge variant="secondary" className="text-green-600">
-                <Eye className="h-3 w-3 mr-1" />
-                Visible: {visibleCount}
-              </Badge>
-              <Badge variant="secondary" className="text-gray-600">
-                <EyeOff className="h-3 w-3 mr-1" />
-                Hidden: {hiddenCount}
-              </Badge>
-            </div>
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Badge variant="secondary" className="text-green-600">
+              <Eye className="h-3 w-3 mr-1" />
+              Visible: {visibleCount}
+            </Badge>
+            <Badge variant="secondary" className="text-gray-600">
+              <EyeOff className="h-3 w-3 mr-1" />
+              Hidden: {hiddenCount}
+            </Badge>
           </div>
 
           <Separator />
 
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Search models by name or id"
+                className="pl-8"
+              />
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleSelectAll(true)}
+            >
+              Select all
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => handleSelectAll(false)}
+            >
+              Clear all
+            </Button>
+          </div>
+
           <ScrollArea className="h-[400px] pr-4">
             <div className="space-y-3">
-              {models.map((model) => (
+              {filteredModels.map((model) => (
                 <div key={model.id} className="flex items-center space-x-3">
                   <Checkbox
                     id={`model-${model.id}`}
@@ -126,11 +170,6 @@ export function HideModelsDialog({ owner, models, onUpdateModels }: HideModelsDi
                       <span className={`font-medium ${model.meta?.hidden ? 'text-muted-foreground' : ''}`}>
                         {model.name}
                       </span>
-                      {model.meta?.description && (
-                        <span className="text-xs text-muted-foreground truncate">
-                          {model.meta.description}
-                        </span>
-                      )}
                     </div>
                   </Label>
                   <div className="flex gap-1">

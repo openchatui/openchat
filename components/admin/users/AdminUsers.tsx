@@ -26,9 +26,10 @@ import { useState, useMemo } from "react";
 // Main Admin Users Component
 interface AdminUsersProps {
     session: Session | null
+    initialChats?: any[]
 }
 
-export function AdminUsers({ session }: AdminUsersProps) {
+export function AdminUsers({ session, initialChats = [] }: AdminUsersProps) {
   const [searchTerm, setSearchTerm] = useState("");
 
   const {
@@ -90,7 +91,7 @@ export function AdminUsers({ session }: AdminUsersProps) {
   };
 
   return (
-    <AdminSidebar session={session} activeTab="users">
+    <AdminSidebar session={session} activeTab="users" initialChats={initialChats}>
       <div className="space-y-6">
         <div>
           <h2 className="text-2xl font-semibold">{MESSAGES.USERS_TITLE}</h2>

@@ -7,14 +7,16 @@ import { Session } from "next-auth"
 import { ADMIN_NAV_ITEMS, AdminTab, AdminNavItem } from "@/constants/admin"
 import { ReactNode } from "react"
 import { cn } from "@/lib/utils"
+import type { ChatData } from "@/lib/chat-store"
 
 interface AdminLayoutProps {
     session: Session | null
     activeTab: AdminTab
     children: ReactNode
+    initialChats?: ChatData[]
 }
 
-export function AdminSidebar({ session, activeTab, children }: AdminLayoutProps) {
+export function AdminSidebar({ session, activeTab, children, initialChats = [] }: AdminLayoutProps) {
     const router = useRouter()
 
     const handleTabChange = (tab: string) => {
@@ -26,7 +28,7 @@ export function AdminSidebar({ session, activeTab, children }: AdminLayoutProps)
 
     return (
         <SidebarProvider>
-            <AppSidebar session={session} />
+            <AppSidebar session={session} initialChats={initialChats} />
             <SidebarInset>
                 <div className="flex h-screen bg-background">
                     {/* Admin Navigation Sidebar */}

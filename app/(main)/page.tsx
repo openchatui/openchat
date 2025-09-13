@@ -65,6 +65,12 @@ export default async function Page() {
     }
   }
 
+  // Build pinned models list from user settings
+  const pinnedIds: string[] = Array.isArray((userSettings as any)?.ui?.pinned_models)
+    ? ((userSettings as any).ui.pinned_models as string[])
+    : []
+  const pinnedModels = models.filter(m => pinnedIds.includes(m.id))
+
   return (
     <>
       {/* Preload critical images */}
@@ -84,6 +90,7 @@ export default async function Page() {
         initialModels={models}
         initialUserSettings={userSettings as Record<string, any>}
         lastUsedModelId={lastUsedModelId}
+        pinnedModels={pinnedModels}
       />
     </>
   )
