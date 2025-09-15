@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import db from '@/lib/db'
-import { authenticateRequest } from '@/lib/apiAuth'
+import { authenticateRequest } from '@/lib/api/apiAuth'
 
 /**
  * @swagger

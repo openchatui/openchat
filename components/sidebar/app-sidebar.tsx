@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/sidebar"
 import { Session } from "next-auth"
 import type { Model } from "@/types/models"
-import type { ChatData } from "@/lib/chat-store"
+import type { ChatData } from "@/lib/chat/chat-store"
 
 // Navigation data
 const data = {
@@ -100,9 +100,10 @@ interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
   session: Session | null
   initialChats?: ChatData[]
   pinnedModels?: Model[]
+  timeZone?: string
 }
 
-export function AppSidebar({ session, initialChats = [], pinnedModels = [], ...props }: AppSidebarProps) {
+export function AppSidebar({ session, initialChats = [], pinnedModels = [], timeZone = 'UTC', ...props }: AppSidebarProps) {
   const user = {
     name: session?.user?.name || "User",
     email: session?.user?.email || "",
@@ -118,7 +119,7 @@ export function AppSidebar({ session, initialChats = [], pinnedModels = [], ...p
         <NavMain items={data.mainButtons} />
         <NavModels pinnedModels={pinnedModels} />
         <NavChannels items={data.sections} />
-        <NavChats chats={initialChats} />
+        <NavChats chats={initialChats} timeZone={timeZone} />
       </SidebarContent>
       <SidebarFooter>
         <NavUser user={user}/>

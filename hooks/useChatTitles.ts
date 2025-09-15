@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type { ChatData } from '@/lib/chat-store'
+import type { ChatData } from '@/lib/chat/chat-store'
 
 interface UseChatTitlesResult {
   titles: Record<string, string>
@@ -29,9 +29,10 @@ export function useChatTitles(chats: ChatData[]): UseChatTitlesResult {
     const attempt = (chatId: string) => {
       if (requestedRef.current.has(chatId)) return
       requestedRef.current.add(chatId)
-      fetch(`/api/v1/chats/${encodeURIComponent(chatId)}/title`, {
+      fetch(`/api/v1/tasks/title`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ chatId }),
       })
         .then(async (res) => {
           if (!res.ok) {

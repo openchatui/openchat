@@ -13,7 +13,7 @@ import { ChatInput } from "@/components/chat/chat-input"
 import { ModelSelector } from "@/components/chat/model-selector"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import type { Model } from "@/types/models"
-import type { ChatData } from "@/lib/chat-store"
+import type { ChatData } from "@/lib/chat/chat-store"
 import { createInitialChat, updateUserSettings } from "@/actions/chat"
 import ChatMessages from "./chat-messages"
 
@@ -24,9 +24,10 @@ interface InitialChatClientProps {
   initialUserSettings?: Record<string, any>
   lastUsedModelId?: string | null
   pinnedModels?: Model[]
+  timeZone?: string
 }
 
-export default function InitialChatClient({ session, initialChats = [], initialModels = [], initialUserSettings = {}, lastUsedModelId, pinnedModels = [] }: InitialChatClientProps) {
+export default function InitialChatClient({ session, initialChats = [], initialModels = [], initialUserSettings = {}, lastUsedModelId, pinnedModels = [], timeZone = 'UTC' }: InitialChatClientProps) {
   const [isCreating, setIsCreating] = useState(false)
   const router = useRouter()
 
@@ -125,7 +126,7 @@ export default function InitialChatClient({ session, initialChats = [], initialM
 
   return (
     <SidebarProvider>
-      <AppSidebar session={session} initialChats={initialChats} pinnedModels={pinnedModels} />
+      <AppSidebar session={session} initialChats={initialChats} pinnedModels={pinnedModels} timeZone={timeZone} />
       <SidebarInset>
         <div className="flex flex-col h-full">
           {/* Header with model selector */}

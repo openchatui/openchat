@@ -1,4 +1,4 @@
-import { auth } from '@/lib/auth'
+import { auth } from '@/lib/auth/auth'
 import { SettingsSidebar } from '@/components/settings/SettingsSidebar'
 import { SETTINGS_MESSAGES } from '@/constants/settings'
 

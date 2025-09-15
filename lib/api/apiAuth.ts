@@ -1,5 +1,5 @@
-import { auth } from '@/lib/auth'
-import { extractApiKeyFromHeaders, resolveUserIdFromApiKey } from '@/lib/apiKeys'
+import { auth } from '@/lib/auth/auth'
+import { extractApiKeyFromHeaders, resolveUserIdFromApiKey } from '@/lib/api/apiKeys'
 
 export async function authenticateRequest(headers: Headers): Promise<{ userId: string | null, via: 'session' | 'apiKey' | 'none' }> {
   const session = await auth()

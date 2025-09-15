@@ -77,7 +77,7 @@ export function AdminModels({ session, initialModels = [], initialGroupedModels 
         {isLoading ? (
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-12">
-              <AnimatedLoader size="lg" message="Loading models..." />
+              <AnimatedLoader className="h-10 w-10" message="Loading models..." />
             </CardContent>
           </Card>
         ) : models.length === 0 ? (

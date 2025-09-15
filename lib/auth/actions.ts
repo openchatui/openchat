@@ -1,6 +1,6 @@
-import { signUpSchema } from "@/lib/schema";
+import { signUpSchema } from "@/lib/auth/schema";
 import db from "@/lib/db";
-import { executeAction } from "@/lib/execute";
+import { executeAction } from "@/lib/auth/execute";
 import bcrypt from "bcryptjs";
 
 const signUp = async (formData: FormData) => {

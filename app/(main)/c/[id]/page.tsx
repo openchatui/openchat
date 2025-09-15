@@ -1,10 +1,11 @@
 "use server";
 
 import ChatClient from "@/components/chat/ChatClient";
-import { auth } from "@/lib/auth";
+import { auth } from "@/lib/auth/auth";
 import { redirect } from "next/navigation";
-import { chatExists, createChat, getUserChats } from "@/lib/chat-store";
+import { chatExists, createChat, getUserChats } from "@/lib/chat/chat-store";
 import { getActiveModels, loadChatMessages } from "@/actions/chat";
+import { cookies } from "next/headers";
 
 interface ChatPageProps {
   params: Promise<{ id: string }>;
@@ -72,6 +73,10 @@ export default async function ChatPage({ params }: ChatPageProps) {
     criticalImages.push(assistantImageUrl);
   }
 
+  // Resolve user timezone from cookie (fallback to UTC for deterministic SSR)
+  const cookieStore = await cookies()
+  const timeZone = cookieStore.get('tz')?.value || 'UTC'
+
   return (
     <>
       {/* Preload critical images */}
@@ -93,6 +98,7 @@ export default async function ChatPage({ params }: ChatPageProps) {
         initialModels={initialModels}
         assistantDisplayName={assistantDisplayName}
         assistantImageUrl={assistantImageUrl}
+        timeZone={timeZone}
       />
     </>
   );

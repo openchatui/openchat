@@ -13,9 +13,9 @@ import { ModelSelector } from "@/components/chat/model-selector"
 import { Session } from "next-auth"
 import { toast } from 'sonner'
 import ChatMessages from "./chat-messages"
-import { AnimatedLoader } from "@/components/ui/loader"
+import { Loader } from "@/components/ui/loader"
 import type { Model } from "@/types/models"
-import type { ChatData } from "@/lib/chat-store"
+import type { ChatData } from "@/lib/chat/chat-store"
 import { loadChatMessages } from "@/actions/chat"
 import type { MessageMetadata } from "@/types/messages"
 
@@ -28,6 +28,7 @@ interface ChatClientProps {
   pinnedModels?: Model[]
   assistantDisplayName?: string
   assistantImageUrl?: string
+  timeZone?: string
 }
 
 export default function ChatClient({
@@ -38,7 +39,8 @@ export default function ChatClient({
   initialModels = [],
   pinnedModels = [],
   assistantDisplayName = 'AI Assistant',
-  assistantImageUrl = '/avatars/01.png'
+  assistantImageUrl = '/avatars/01.png',
+  timeZone = 'UTC'
 }: ChatClientProps) {
   const [selectedModel, setSelectedModel] = useState<Model | null>(null)
   const [isInitializing, setIsInitializing] = useState(true)
@@ -205,6 +207,12 @@ export default function ChatClient({
     setSelectedModel(model)
   }
 
+  type StreamHandlers = {
+    onStart?: () => void
+    onDelta?: (delta: string, fullText: string) => void
+    onFinish?: (finalText: string) => void
+  }
+
   const handleSendMessage = useCallback(async (
     value: string,
     options: {
@@ -213,13 +221,14 @@ export default function ChatClient({
       codeInterpreter: boolean
     },
     overrideModel?: Model,
-    isAutoSend: boolean = false
-  ) => {
+    isAutoSend: boolean = false,
+    streamHandlers?: StreamHandlers
+  ): Promise<string | null> => {
     const modelToUse = overrideModel || selectedModel
 
     if (!modelToUse) {
       toast.error('Please select a model first.')
-      return
+      return null
     }
 
     // Clear any previous errors
@@ -247,6 +256,7 @@ export default function ChatClient({
     }
     setIsLoading(true)
 
+    let assistantTextReturn: string | null = null
     try {
       // Cancel any existing request
       if (abortControllerRef.current) {
@@ -333,6 +343,7 @@ export default function ChatClient({
                 const isReasonEnd = type === 'reasoning-end'
 
                 if (isStart) {
+                  try { streamHandlers?.onStart?.() } catch {}
                   // Create assistant message when streaming starts
                   assistantMessage = {
                     id: parsed.id || `assistant_${Date.now()}`,
@@ -387,12 +398,14 @@ export default function ChatClient({
                           // Full snapshot mode from provider (authoritative)
                           assistantText = incomingText
                           textPart.text = assistantText
+                          try { streamHandlers?.onDelta?.('', assistantText) } catch {}
                         } else if (typeof incomingDelta === 'string') {
                           // Delta mode with overlap guard
                           const append = getNonOverlappingDelta(assistantText, incomingDelta)
                           if (append) {
                             assistantText += append
                             textPart.text = assistantText
+                            try { streamHandlers?.onDelta?.(append, assistantText) } catch {}
                           }
                         }
                       }
@@ -450,6 +463,7 @@ export default function ChatClient({
                   // Streaming finished
                   reachedFinish = true
                   setIsLoading(false)
+                  try { streamHandlers?.onFinish?.(assistantText) } catch {}
                   break
                 }
               } catch (e) {
@@ -465,13 +479,15 @@ export default function ChatClient({
         reader.releaseLock()
       }
 
+      // After streaming completes, return the final assistant text if any
+      assistantTextReturn = assistantText ? assistantText : null
+
     } catch (err: any) {
-      console.error('Send message error:', err)
-      setError(err)
-
-      if (err.name !== 'AbortError') {
+      const isAbort = err?.name === 'AbortError' || /aborted/i.test(String(err?.message || ''))
+      if (!isAbort) {
+        console.error('Send message error:', err)
+        setError(err)
         toast.error('Failed to send message. Please try again.')
-
         // Remove the optimistic user message on error
         setMessages(prev => prev.slice(0, -1))
       }
@@ -479,6 +495,7 @@ export default function ChatClient({
       setIsLoading(false)
       abortControllerRef.current = null
     }
+    return assistantTextReturn
   }, [selectedModel, chatId])
 
   const handleStop = useCallback(() => {
@@ -493,14 +510,10 @@ export default function ChatClient({
   if (isInitializing || effectiveModelsLoading) {
     return (
       <SidebarProvider>
-        <AppSidebar session={session} initialChats={initialChats} pinnedModels={pinnedModels} />
+        <AppSidebar session={session} initialChats={initialChats} pinnedModels={pinnedModels} timeZone={timeZone} />
         <SidebarInset>
           <div className="flex items-center justify-center h-full">
-            <AnimatedLoader 
-              size="lg" 
-              message="Loading chat..." 
-              className="text-center"
-            />
+            <Loader className="h-10 w-10 text-center" />
           </div>
         </SidebarInset>
       </SidebarProvider>
@@ -509,7 +522,7 @@ export default function ChatClient({
 
   return (
     <SidebarProvider>
-      <AppSidebar session={session} initialChats={initialChats} pinnedModels={pinnedModels} />
+      <AppSidebar session={session} initialChats={initialChats} pinnedModels={pinnedModels} timeZone={timeZone} />
       <SidebarInset>
         <div className="relative flex flex-col h-full">
           <ModelSelector
@@ -527,6 +540,7 @@ export default function ChatClient({
                 selectedModel={currentModel}
                 assistantDisplayName={assistantInfo.displayName}
                 assistantImageUrl={assistantInfo.imageUrl}
+                timeZone={timeZone}
               />
             </div>
             <div className="absolute bottom-0 left-0 right-0 z-10">

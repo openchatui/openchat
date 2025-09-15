@@ -1,4 +1,4 @@
-import { auth } from '@/lib/auth'
+import { auth } from '@/lib/auth/auth'
 import { SettingsKeys } from '@/components/settings/SettingsKeys'
 
 export default async function SettingsKeysPage() {

@@ -2,9 +2,9 @@
 
 import { createOpenAI } from '@ai-sdk/openai';
 import { streamText, UIMessage, convertToModelMessages, validateUIMessages, createIdGenerator } from 'ai';
-import { auth } from '@/lib/auth';
+import { auth } from '@/lib/auth/auth';
 import db from '@/lib/db';
-import { loadChat, saveChat, createChat as createChatInStore, chatExists as checkChatExists, getUserChats, ChatData } from '@/lib/chat-store';
+import { loadChat, saveChat, createChat as createChatInStore, chatExists as checkChatExists, getUserChats, ChatData } from '@/lib/chat/chat-store';
 import type { MessageMetadata } from '@/types/messages';
 import type { Model, ModelMeta, ModelsGroupedByOwner, UpdateModelData } from '@/types/models';
 import { revalidatePath } from 'next/cache';

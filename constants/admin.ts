@@ -1,4 +1,4 @@
-import { LucideIcon, Users, Link as LinkIcon, Box, LayoutGrid } from "lucide-react"
+import { LucideIcon, Users, Link as LinkIcon, Box, Mic } from "lucide-react"
 import { ReactSVGElement } from "react";
 import { CgScreen } from "react-icons/cg";
 import { IconTree, IconType } from "react-icons/lib";
@@ -28,6 +28,12 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
         label: "Models",
         icon: Box,
         href: "/admin/models"
+    },
+    {
+        id: "audio",
+        label: "Audio",
+        icon: Mic,
+        href: "/admin/audio"
     },
     {
         id: "ui",

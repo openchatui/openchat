@@ -1,0 +1,52 @@
+import { NextRequest, NextResponse } from 'next/server'
+import db from '@/lib/db'
+
+export async function POST(request: NextRequest) {
+  try {
+    const form = await request.formData()
+    const file = form.get('file') as File | null
+    const model = (form.get('model') as string | null) || 'nova-2'
+    if (!file) {
+      return NextResponse.json({ error: 'Missing file' }, { status: 400 })
+    }
+
+    // Resolve API key from config first, fallback to env
+    let apiKey: string | null = null
+    try {
+      const cfg = await (db as any).config.findUnique({ where: { id: 1 } })
+      const data = (cfg?.data || {}) as any
+      const keys: string[] = Array.isArray(data?.connections?.deepgram?.api_keys)
+        ? data.connections.deepgram.api_keys
+        : []
+      apiKey = typeof keys[0] === 'string' ? keys[0] : null
+    } catch {}
+    if (!apiKey) apiKey = process.env.DEEPGRAM_API_KEY || null
+    if (!apiKey) return NextResponse.json({ error: 'Deepgram API key not configured' }, { status: 400 })
+
+    const endpoint = `https://api.deepgram.com/v1/listen?model=${encodeURIComponent(model)}`
+
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        Authorization: `Token ${apiKey}`,
+        'Content-Type': (file as any).type || 'audio/webm'
+      },
+      body: file as any,
+    })
+
+    if (!res.ok) {
+      const text = await res.text().catch(() => '')
+      return NextResponse.json({ error: 'Deepgram transcription failed', details: text }, { status: res.status })
+    }
+
+    const data = await res.json()
+    // Extract transcript text
+    const text: string = data?.results?.channels?.[0]?.alternatives?.[0]?.transcript || ''
+    return NextResponse.json({ text, raw: data })
+  } catch (error) {
+    console.error('POST /api/v1/audio/stt/deepgram error:', error)
+    return NextResponse.json({ error: 'Failed to transcribe audio' }, { status: 500 })
+  }
+}
+
+

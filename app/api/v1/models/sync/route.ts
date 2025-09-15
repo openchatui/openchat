@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import db from '@/lib/db'
-import { auth } from '@/lib/auth'
+import { auth } from '@/lib/auth/auth'
 import fs from 'fs/promises'
 import path from 'path'
 
@@ -94,13 +94,13 @@ function computeModelNamespace(baseUrl: string): string {
   }
 }
 
-// Lazy-load and cache model logos mapping from public/model-logos.json
+// Lazy-load and cache local model logos mapping from public/model-logos-local.json
 let modelLogosCache: Record<string, string | null> | null = null
 
 async function loadModelLogos(): Promise<Record<string, string | null>> {
   if (modelLogosCache) return modelLogosCache
   try {
-    const filePath = path.join(process.cwd(), 'public', 'model-logos.json')
+    const filePath = path.join(process.cwd(), 'public', 'model-logos-local.json')
     const fileContent = await fs.readFile(filePath, 'utf-8')
     const parsed = JSON.parse(fileContent)
     if (parsed && typeof parsed === 'object') {
@@ -108,7 +108,7 @@ async function loadModelLogos(): Promise<Record<string, string | null>> {
       return modelLogosCache
     }
   } catch (err) {
-    console.error('Failed to load model-logos.json:', err)
+    console.error('Failed to load model-logos-local.json:', err)
   }
   modelLogosCache = {}
   return modelLogosCache

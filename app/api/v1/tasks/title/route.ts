@@ -2,23 +2,26 @@ import { NextResponse } from 'next/server'
 import { generateText } from 'ai'
 import { resolveAiProvider } from '@/lib/ai/provider'
 import db from '@/lib/db'
+import { auth } from '@/lib/auth/auth'
+import { loadChat, updateChatTitle } from '@/lib/chat/chat-store'
 
 export const maxDuration = 30
 export const runtime = 'nodejs'
 
 /**
  * POST /api/v1/tasks/title
- * Body: { title: string }
- * - Loads TASK_MODEL and TITLE_PROMPT from config
- * - Uses TITLE_PROMPT as system and provided title as prompt to generate a clean title
+ * Body: { title?: string, chatId?: string }
+ * - If chatId provided: auth required, loads chat, generates from latest user text, persists title
+ * - Else: cleans provided title string and returns it (no DB write)
  */
 export async function POST(req: Request) {
   try {
-    const body = await req.json()
-    const title: string | undefined = body?.title
+    const body = await req.json().catch(() => ({}))
+    const chatId: string | undefined = typeof body?.chatId === 'string' ? body.chatId : undefined
+    const title: string | undefined = typeof body?.title === 'string' ? body.title : undefined
 
-    if (!title || typeof title !== 'string') {
-      return NextResponse.json({ error: 'title is required' }, { status: 400 })
+    if (!chatId && (!title || typeof title !== 'string')) {
+      return NextResponse.json({ error: 'title or chatId is required' }, { status: 400 })
     }
 
     // Load tasks config (id = 1)
@@ -39,12 +42,46 @@ export async function POST(req: Request) {
     // Resolve provider + model handle from model string (by provider_id first)
     const { getModelHandle, providerModelId, providerName, baseUrl } = await resolveAiProvider({ model: taskModel })
 
+    // Determine seed text: from chat (auth + DB) or from provided title
+    let seed: string
+    let userId: string | null = null
+    if (chatId) {
+      const session = await auth()
+      if (!session?.user?.id) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      }
+      userId = session.user.id as string
+      const messages = await loadChat(chatId, userId)
+      if (!messages || messages.length === 0) {
+        return NextResponse.json({ error: 'No messages found' }, { status: 400 })
+      }
+      let found: string | null = null
+      for (let i = messages.length - 1; i >= 0; i--) {
+        const m = messages[i] as any
+        if (m?.role === 'user') {
+          const parts = Array.isArray(m.parts) ? m.parts : []
+          const text = parts
+            .filter((p: any) => p?.type === 'text')
+            .map((p: any) => String(p.text || ''))
+            .join(' ')
+            .trim()
+          if (text) { found = text; break }
+        }
+      }
+      if (!found) {
+        return NextResponse.json({ error: 'No user text to title' }, { status: 400 })
+      }
+      seed = found
+    } else {
+      seed = title as string
+    }
+
     // Generate a clean title using composed system prompt
     let result
     try {
       const systemPrefix = [
         'You are an expert title generator for chat sessions.',
-        'Create a concise 3-5 word title that starts with a single relevant emoji.',
+        'Create a concise 4-6 word title that starts with a single relevant emoji.',
         'Use title case. Do not include quotes or trailing punctuation.',
         'Return only the title string, nothing else, no explanation.',
         'using these specific requiements:'
@@ -53,7 +90,7 @@ export async function POST(req: Request) {
       result = await generateText({
         model: getModelHandle(providerModelId),
         system: composedSystem,
-        prompt: title,
+        prompt: seed,
       })
     } catch (err: any) {
       const causeName = (err?.cause as any)?.name || undefined
@@ -72,8 +109,13 @@ export async function POST(req: Request) {
       }, { status: 502 })
     }
 
-    const cleanTitle = String(result?.text ?? '').trim()
-    return NextResponse.json({ title: cleanTitle || title })
+    const cleanTitle = String(result?.text ?? '').trim() || seed.slice(0, 80)
+
+    if (chatId && userId) {
+      await updateChatTitle(chatId, userId, cleanTitle)
+    }
+
+    return NextResponse.json({ title: cleanTitle })
   } catch (error: any) {
     console.error('POST /api/v1/tasks/title error:', error)
     return NextResponse.json({ error: 'Failed to generate title' }, { status: 500 })

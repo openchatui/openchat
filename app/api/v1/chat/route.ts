@@ -1,10 +1,12 @@
-import { resolveAiProvider } from '@/lib/ai/provider';
-import { streamText, UIMessage, convertToModelMessages, validateUIMessages, createIdGenerator } from 'ai';
-import { auth } from '@/lib/auth';
-import db from '@/lib/db';
+import { streamText, UIMessage, convertToModelMessages, validateUIMessages, smoothStream } from 'ai';
+import { auth } from '@/lib/auth/auth';
 import { NextRequest } from 'next/server';
-import { loadChat, saveChat, createChat, chatExists } from '@/lib/chat-store';
+import { loadChat, createChat, chatExists } from '@/lib/chat/chat-store';
 import type { MessageMetadata } from '@/types/messages';
+import { withSSEHeaders } from '@/lib/api/sse';
+import { buildToUIMessageStreamArgs } from '@/lib/chat/stream';
+import { filterToTextParts, trimByCharBudget } from '@/lib/chat/messages';
+import { resolveModelInfoAndHandle } from '@/lib/chat/model-resolution';
 
 // Allow streaming responses up to 30 seconds
 export const maxDuration = 30;
@@ -12,110 +14,7 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const fetchCache = 'force-no-store';
 
-function withSSEHeaders(res: Response): Response {
-  const headers = new Headers(res.headers);
-  headers.set('Content-Type', 'text/event-stream; charset=utf-8');
-  headers.set('Cache-Control', 'no-cache, no-transform');
-  headers.set('Connection', 'keep-alive');
-  headers.set('X-Accel-Buffering', 'no');
-  return new Response(res.body, { status: 200, headers });
-}
-
-// ----- Helpers: streaming payload & persistence -----
-function buildMessageMetadataStart(selectedModelInfo: { id: string; name: string; profile_image_url?: string | null } | null): MessageMetadata | undefined {
-  if (!selectedModelInfo) return { createdAt: Date.now() };
-  return {
-    createdAt: Date.now(),
-    model: selectedModelInfo,
-    assistantDisplayName: selectedModelInfo.name,
-    assistantImageUrl: selectedModelInfo.profile_image_url || undefined,
-  } as MessageMetadata;
-}
-
-async function saveMessagesReplacingLastAssistant(
-  messages: UIMessage<MessageMetadata>[],
-  selectedModelInfo: { id: string; name: string; profile_image_url?: string | null } | null,
-  finalChatId: string,
-  userId: string,
-) {
-  const messagesWithModel = (() => {
-    if (!selectedModelInfo) return messages as UIMessage<MessageMetadata>[];
-    const lastIndex = messages.length - 1;
-    return messages.map((m, idx) => {
-      if (idx === lastIndex && m.role === 'assistant') {
-        return {
-          ...m,
-          metadata: {
-            ...(m as any).metadata,
-            model: selectedModelInfo,
-            assistantDisplayName: selectedModelInfo.name,
-            assistantImageUrl: selectedModelInfo.profile_image_url || undefined,
-          },
-        } as UIMessage<MessageMetadata>;
-      }
-      return m as UIMessage<MessageMetadata>;
-    });
-  })();
-
-  await saveChat({ chatId: finalChatId, userId, messages: messagesWithModel as unknown as UIMessage[] });
-}
-
-async function saveMessagesAppendAssistantFromTrimmed(
-  fullMessages: UIMessage<MessageMetadata>[],
-  streamedMessages: UIMessage<MessageMetadata>[],
-  selectedModelInfo: { id: string; name: string; profile_image_url?: string | null } | null,
-  finalChatId: string,
-  userId: string,
-) {
-  // Extract only last assistant from streamedMessages and append to fullMessages
-  const assistant = [...streamedMessages].reverse().find((m) => m.role === 'assistant') as UIMessage<MessageMetadata> | undefined;
-  const assistantWithModel = assistant
-    ? ({
-        ...assistant,
-        metadata: {
-          ...(assistant as any).metadata,
-          ...(selectedModelInfo ? { model: selectedModelInfo } : {}),
-        },
-      } as UIMessage<MessageMetadata>)
-    : undefined;
-
-  const toSave = assistantWithModel ? [...fullMessages, assistantWithModel] : fullMessages;
-  await saveChat({ chatId: finalChatId, userId, messages: toSave as unknown as UIMessage[] });
-}
-
-function buildToUIMessageStreamArgs(
-  originalMessages: UIMessage<MessageMetadata>[],
-  selectedModelInfo: { id: string; name: string; profile_image_url?: string | null } | null,
-  saveStrategy: 'replace_last' | 'append_from_trimmed',
-  persistParams: { finalChatId: string; userId: string; fullMessagesForTrimmed?: UIMessage<MessageMetadata>[] },
-) {
-  return {
-    originalMessages,
-    generateMessageId: createIdGenerator({ prefix: 'msg', size: 16 }),
-    messageMetadata: ({ part }: { part: any }) => {
-      if (part.type === 'start') {
-        return buildMessageMetadataStart(selectedModelInfo);
-      }
-      if (part.type === 'finish') {
-        return { totalTokens: part.totalUsage?.totalTokens } as MessageMetadata;
-      }
-      return undefined;
-    },
-    onFinish: async ({ messages }: { messages: UIMessage<MessageMetadata>[] }) => {
-      if (saveStrategy === 'replace_last') {
-        await saveMessagesReplacingLastAssistant(messages, selectedModelInfo, persistParams.finalChatId, persistParams.userId);
-      } else {
-        await saveMessagesAppendAssistantFromTrimmed(
-          persistParams.fullMessagesForTrimmed || [],
-          messages,
-          selectedModelInfo,
-          persistParams.finalChatId,
-          persistParams.userId,
-        );
-      }
-    },
-  } as const;
-}
+// ----- Helpers moved to shared modules under lib/chat and lib/api -----
 
 /**
  * @swagger
@@ -141,6 +40,44 @@ function buildToUIMessageStreamArgs(
  *                 type: string
  *               modelId:
  *                 type: string
+ *               temperature:
+ *                 type: number
+ *                 description: User-friendly generation control (0-2 typical)
+ *               topP:
+ *                 type: number
+ *                 description: Nucleus sampling (0-1)
+ *               maxOutputTokens:
+ *                 type: number
+ *                 description: Max tokens to generate
+ *               seed:
+ *                 type: number
+ *                 description: Deterministic sampling seed if supported
+ *               stopSequences:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 description: Sequences that stop generation
+ *               advanced:
+ *                 type: object
+ *                 description: Advanced model controls (for power users)
+ *                 properties:
+ *                   topK:
+ *                     type: number
+ *                   presencePenalty:
+ *                     type: number
+ *                   frequencyPenalty:
+ *                     type: number
+ *                   toolChoice:
+ *                     oneOf:
+ *                       - type: string
+ *                         enum: [auto, none, required]
+ *                       - type: object
+ *                         properties:
+ *                           type:
+ *                             type: string
+ *                             enum: [tool]
+ *                           toolName:
+ *                             type: string
  *     responses:
  *       200:
  *         description: Streams a response
@@ -160,11 +97,22 @@ export async function POST(req: NextRequest) {
       return new Response('Unauthorized', { status: 401 });
     }
 
-    const { messages, modelId, chatId, message }: { 
+    const { messages, modelId, chatId, message, temperature, topP, maxOutputTokens, seed, stopSequences, advanced }: { 
       messages?: UIMessage<MessageMetadata>[]; 
       modelId?: string; 
       chatId?: string;
       message?: UIMessage<MessageMetadata>;
+      temperature?: number;
+      topP?: number;
+      maxOutputTokens?: number;
+      seed?: number;
+      stopSequences?: string[];
+      advanced?: {
+        topK?: number;
+        presencePenalty?: number;
+        frequencyPenalty?: number;
+        toolChoice?: 'auto' | 'none' | 'required' | { type: 'tool'; toolName: string };
+      };
     } = await req.json();
 
     const userId = session.user.id;
@@ -205,140 +153,14 @@ export async function POST(req: NextRequest) {
 
     
 
-    // Determine the model to use
-    let modelName = 'gpt-4o'; // default
-    // Capture model info for metadata persistence
-    let selectedModelInfo: { id: string; name: string; profile_image_url?: string | null } | null = null;
+    // Determine the model to use via shared resolver
+    const { selectedModelInfo, modelName, modelContextTokens, modelHandle } = await resolveModelInfoAndHandle({
+      userId,
+      modelId,
+      messages: finalMessages as UIMessage<MessageMetadata>[],
+    });
     
-    let modelContextTokens: number | null = null;
-    if (modelId) {
-      // Get the model from the database to get its name
-      const model = await db.model.findFirst({
-        where: {
-          id: modelId,
-          userId: userId,
-        },
-        select: { id: true, name: true, meta: true }
-      });
-      
-      if (model) {
-        // Use the model name from the database
-        modelName = model.name;
-        selectedModelInfo = {
-          id: model.id,
-          name: model.name,
-          // meta may contain profile_image_url as used in ModelSelector
-          profile_image_url: (model as any).meta?.profile_image_url ?? null,
-        };
-        // Try to read context window tokens from meta
-        const m = (model as any).meta || {};
-        modelContextTokens =
-          m.context_window || m.contextWindow || m.context || m.max_context ||
-          m.details?.context_window || m.details?.context || null;
-      }
-    }
-
-    // Fallbacks to populate selectedModelInfo if not yet set
-    if (!selectedModelInfo) {
-      // 1) Try to read from the last user message metadata
-      for (let i = finalMessages.length - 1; i >= 0; i--) {
-        const m = finalMessages[i] as UIMessage<MessageMetadata>;
-        if (m.role === 'user' && m.metadata?.model) {
-          selectedModelInfo = m.metadata.model;
-          break;
-        }
-      }
-    }
-
-    if (!selectedModelInfo) {
-      // 2) Try to find a model by name in DB to get profile image url
-      const modelByName = await db.model.findFirst({
-        where: {
-          name: modelName,
-          userId: userId,
-        },
-        select: { id: true, name: true, meta: true },
-      });
-      if (modelByName) {
-        selectedModelInfo = {
-          id: modelByName.id,
-          name: modelByName.name,
-          profile_image_url: (modelByName as any).meta?.profile_image_url ?? null,
-        };
-      }
-    }
-
-    if (!selectedModelInfo) {
-      // 3) As a last resort, still attach model name with a synthetic id
-      selectedModelInfo = {
-        id: modelName,
-        name: modelName,
-        profile_image_url: null,
-      };
-    }
-
-    // Ensure the final modelName used for the provider matches the resolved selectedModelInfo
-    // This makes the provider call reflect the model chosen by the user (via modelId or metadata)
-    if (selectedModelInfo?.name) {
-      modelName = selectedModelInfo.name;
-    }
-
-    // Resolve provider/model handle via resolver (uses Models.provider_id and Connection.provider)
-    const { getModelHandle, providerModelId } = await resolveAiProvider({ model: modelId || modelName })
-    const modelHandle = getModelHandle(providerModelId)
-
-
-    // Filter to text-only parts for provider payload and cap per-message length (used for retry only)
-    const filterToTextParts = (msgs: UIMessage<MessageMetadata>[]) => {
-      const MAX_CHARS_PER_MESSAGE = 4000; // hard cap to avoid single-message blowups
-      return msgs
-        .map((m) => ({
-          ...m,
-          parts: (m.parts || [])
-            .filter((p: any) => p?.type === 'text')
-            .map((p: any) => ({ ...p, text: String(p.text || '').slice(0, MAX_CHARS_PER_MESSAGE) })),
-        }))
-        .filter((m) => Array.isArray(m.parts) && m.parts.length > 0);
-    };
-
-    // Trim history by an approximate character budget
-    const trimByCharBudget = (
-      msgs: UIMessage<MessageMetadata>[],
-      maxChars: number,
-      minTailMessages: number = 8
-    ) => {
-      if (msgs.length === 0) return msgs;
-      const systemMsg = msgs.find((m) => m.role === 'system');
-      const nonSystem = msgs.filter((m) => m !== systemMsg);
-      const countChars = (arr: UIMessage[]) =>
-        arr.reduce((sum, m) => {
-          const txt = (m.parts || [])
-            .filter((p: any) => p?.type === 'text')
-            .map((p: any) => p.text || '')
-            .join('');
-          return sum + (txt?.length || 0);
-        }, 0);
-      let tail = nonSystem.slice(-minTailMessages);
-      let head = nonSystem.slice(0, Math.max(0, nonSystem.length - tail.length));
-      const rebuilt: UIMessage<MessageMetadata>[] = [];
-      for (let i = tail.length - 1; i >= 0; i--) {
-        rebuilt.unshift(tail[i]);
-        if (countChars([...(systemMsg ? [systemMsg] : []), ...rebuilt]) > maxChars) {
-          rebuilt.shift();
-          break;
-        }
-      }
-      for (let i = head.length - 1; i >= 0; i--) {
-        const candidate = head[i];
-        const next = [candidate, ...rebuilt];
-        if (countChars([...(systemMsg ? [systemMsg] : []), ...next]) <= maxChars) {
-          rebuilt.unshift(candidate);
-        } else {
-          break;
-        }
-      }
-      return [...(systemMsg ? [systemMsg] : []), ...rebuilt];
-    };
+    // Filter and trim helpers are imported from shared module
 
     const approxCharsPerToken = 4;
     const defaultMaxTokens = 12000; // be conservative by default
@@ -351,26 +173,6 @@ export async function POST(req: NextRequest) {
     // First attempt uses the full conversation without trimming
     const fullMessages = finalMessages as UIMessage<MessageMetadata>[];
 
-    const attemptStream = async (
-      msgs: UIMessage<MessageMetadata>[]
-    ): Promise<Response> => {
-      const validatedMessages = await validateUIMessages({ messages: msgs });
-      const result = streamText({
-        model: modelHandle,
-        messages: convertToModelMessages(
-          validatedMessages as UIMessage<MessageMetadata>[]
-        ),
-        abortSignal: req.signal,
-      });
-      const toUIArgs = buildToUIMessageStreamArgs(
-        validatedMessages as UIMessage<MessageMetadata>[],
-        selectedModelInfo,
-        'replace_last',
-        { finalChatId, userId }
-      );
-      return withSSEHeaders(result.toUIMessageStreamResponse(toUIArgs));
-    };
-
     try {
       // First attempt: no trimming; if provider throws context error, we'll retry with trimmed payload
       const validatedFull = await validateUIMessages({ messages: fullMessages });
@@ -379,7 +181,20 @@ export async function POST(req: NextRequest) {
         messages: convertToModelMessages(
           validatedFull as UIMessage<MessageMetadata>[]
         ),
+        experimental_transform: smoothStream({
+          delayInMs: 10, // optional: defaults to 10ms
+          chunking: 'word', // optional: defaults to 'word'
+        }),
         abortSignal: req.signal,
+        temperature,
+        topP,
+        maxOutputTokens,
+        seed,
+        stopSequences,
+        topK: advanced?.topK,
+        presencePenalty: advanced?.presencePenalty,
+        frequencyPenalty: advanced?.frequencyPenalty,
+        toolChoice: advanced?.toolChoice,
       });
       const toUIArgs = buildToUIMessageStreamArgs(
         validatedFull as UIMessage<MessageMetadata>[],
@@ -407,6 +222,15 @@ export async function POST(req: NextRequest) {
           validatedTrimmed as UIMessage<MessageMetadata>[]
         ),
         abortSignal: req.signal,
+        temperature,
+        topP,
+        maxOutputTokens,
+        seed,
+        stopSequences,
+        topK: advanced?.topK,
+        presencePenalty: advanced?.presencePenalty,
+        frequencyPenalty: advanced?.frequencyPenalty,
+        toolChoice: advanced?.toolChoice,
       });
       try {
         const toUIArgs = buildToUIMessageStreamArgs(

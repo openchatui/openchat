@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { ChevronRight, MessageSquare, Trash2, MoreHorizontal } from "lucide-react"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 
 import {
   Collapsible,
@@ -27,78 +27,113 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { usePathname } from "next/navigation"
-import type { ChatData } from "@/lib/chat-store"
+import type { ChatData } from "@/lib/chat/chat-store"
 import { useChatTitles } from "@/hooks/useChatTitles"
+import { useTags } from "@/hooks/useTags"
 
 interface NavChatsProps {
   chats: ChatData[]
+  timeZone?: string
 }
 
-export function NavChats({ chats }: NavChatsProps) {
+export function NavChats({ chats, timeZone = 'UTC' }: NavChatsProps) {
   const [isOpen, setIsOpen] = useState(true)
+  const [mounted, setMounted] = useState(false)
   const pathname = usePathname()
   const { titles } = useChatTitles(chats)
+  // Trigger background tag generation like titles only on non-admin routes
+  const tagsEnabled = !(pathname || '').startsWith('/admin')
+  useTags(chats, { enabled: tagsEnabled })
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   // Group chats by date buckets: Today, Yesterday, Past 30 days, then by Month
   const sections = (() => {
-    // Ensure newest first
-    const sorted = [...chats].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+    // Ensure newest first (by created date)
+    const sorted = [...chats].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+
+    // Use a consistent timezone provided from the server to avoid flicker
+    const tz = timeZone || 'UTC'
+    const monthFormatter = new Intl.DateTimeFormat(undefined, { month: 'long', timeZone: tz })
+
+    const getZonedYMD = (date: Date) => {
+      try {
+        // Use Intl to format parts in the target time zone and extract Y/M/D
+        const parts = new Intl.DateTimeFormat(undefined, {
+          timeZone: tz,
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit'
+        }).formatToParts(date)
+        const y = Number(parts.find(p => p.type === 'year')?.value)
+        const m = Number(parts.find(p => p.type === 'month')?.value)
+        const d = Number(parts.find(p => p.type === 'day')?.value)
+        return { y, m, d }
+      } catch {
+        // Fallback to UTC if timezone unsupported
+        return { y: date.getUTCFullYear(), m: date.getUTCMonth() + 1, d: date.getUTCDate() }
+      }
+    }
+
+    const isSameZonedDay = (a: Date, b: Date) => {
+      const aa = getZonedYMD(a)
+      const bb = getZonedYMD(b)
+      return aa.y === bb.y && aa.m === bb.m && aa.d === bb.d
+    }
 
     const now = new Date()
-    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-    const startOfYesterday = new Date(startOfToday)
-    startOfYesterday.setDate(startOfYesterday.getDate() - 1)
-    const thirtyDaysAgo = new Date(startOfToday)
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
-
-    const isSameDay = (d1: Date, d2: Date) => d1.getFullYear() === d2.getFullYear() && d1.getMonth() === d2.getMonth() && d1.getDate() === d2.getDate()
+    const yesterday = new Date(now)
+    yesterday.setUTCDate(now.getUTCDate() - 1)
+    const thirtyDaysAgoAbs = new Date(now)
+    thirtyDaysAgoAbs.setUTCDate(now.getUTCDate() - 30)
 
     const buckets: Record<string, ChatData[]> = {
       Today: [],
       Yesterday: [],
       'Past 30 days': [],
     }
+    // Key month buckets by YYYY-MM for stable sorting
     const monthBuckets: Record<string, ChatData[]> = {}
 
     for (const chat of sorted) {
-      const d = new Date(chat.updatedAt)
-      if (isSameDay(d, startOfToday)) {
+      const d = new Date(chat.createdAt)
+      if (isSameZonedDay(d, now)) {
         buckets['Today'].push(chat)
         continue
       }
-      if (isSameDay(d, startOfYesterday)) {
+      if (isSameZonedDay(d, yesterday)) {
         buckets['Yesterday'].push(chat)
         continue
       }
-      if (d >= thirtyDaysAgo) {
+      if (d.getTime() >= thirtyDaysAgoAbs.getTime()) {
         buckets['Past 30 days'].push(chat)
         continue
       }
-      const monthName = d.toLocaleString(undefined, { month: 'long' })
-      const label = d.getFullYear() === now.getFullYear() ? `${monthName}` : `${monthName} ${d.getFullYear()}`
-      if (!monthBuckets[label]) monthBuckets[label] = []
-      monthBuckets[label].push(chat)
+      const { y, m } = getZonedYMD(d)
+      const monthKey = `${y}-${String(m).padStart(2, '0')}`
+      if (!monthBuckets[monthKey]) monthBuckets[monthKey] = []
+      monthBuckets[monthKey].push(chat)
     }
 
-    // Order: Today, Yesterday, Past 30 days, then months by recency
-    const monthLabels = Object.keys(monthBuckets)
-    monthLabels.sort((a, b) => {
-      // Parse labels back to month/year for ordering: most recent first
-      const [ma, ya] = a.split(' ')
-      const [mb, yb] = b.split(' ')
-      const yearA = Number.isFinite(Number(ya)) ? parseInt(ya) : now.getFullYear()
-      const yearB = Number.isFinite(Number(yb)) ? parseInt(yb) : now.getFullYear()
-      const dateA = new Date(`${ma} 1, ${yearA}`)
-      const dateB = new Date(`${mb} 1, ${yearB}`)
-      return dateB.getTime() - dateA.getTime()
-    })
+    // Order: Today, Yesterday, Past 30 days, then months by recency (using YYYY-MM keys)
+    const monthKeys = Object.keys(monthBuckets).sort((a, b) => b.localeCompare(a))
 
     const result: { label: string; items: ChatData[] }[] = []
     for (const key of ['Today', 'Yesterday', 'Past 30 days'] as const) {
       if (buckets[key].length > 0) result.push({ label: key, items: buckets[key] })
     }
-    for (const ml of monthLabels) {
-      result.push({ label: ml, items: monthBuckets[ml] })
+    for (const mk of monthKeys) {
+      const [yearStr, monthStr] = mk.split('-')
+      const year = parseInt(yearStr, 10)
+      const monthIndex = parseInt(monthStr, 10) - 1
+      // Construct a date for the first of the month in the target zone by formatting
+      const monthDate = new Date(Date.UTC(year, monthIndex, 1))
+      const monthName = monthFormatter.format(monthDate)
+      const sameYear = String(getZonedYMD(now).y) === yearStr
+      const label = sameYear ? `${monthName}` : `${monthName} ${year}`
+      result.push({ label, items: monthBuckets[mk] })
     }
     return result
   })()

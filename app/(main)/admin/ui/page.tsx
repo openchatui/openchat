@@ -1,10 +1,10 @@
 "use server"
 
-import { auth } from "@/lib/auth";
+import { auth } from "@/lib/auth/auth";
 import { redirect } from "next/navigation";
 import { AdminUI } from "@/components/admin/ui/AdminUI";
 import { adminGetModels } from "@/actions/chat";
-import { getUserChats } from "@/lib/chat-store";
+import { getUserChats } from "@/lib/chat/chat-store";
 
 export default async function AdminUIPage() {
     const session = await auth();

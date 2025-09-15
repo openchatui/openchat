@@ -42,6 +42,26 @@ function filterOllama(input: any) {
   return out
 }
 
+function filterDeepgram(input: any) {
+  const out: any = {}
+  if (typeof input.enable === 'boolean') out.enable = input.enable
+  if (Array.isArray(input.api_keys) && input.api_keys.every((v: any) => typeof v === 'string')) {
+    out.api_keys = input.api_keys
+  }
+  if (isPlainObject(input.api_configs)) out.api_configs = input.api_configs
+  return out
+}
+
+function filterElevenLabs(input: any) {
+  const out: any = {}
+  if (typeof input.enable === 'boolean') out.enable = input.enable
+  if (Array.isArray(input.api_keys) && input.api_keys.every((v: any) => typeof v === 'string')) {
+    out.api_keys = input.api_keys
+  }
+  if (isPlainObject(input.api_configs)) out.api_configs = input.api_configs
+  return out
+}
+
 // PUT /api/connections/config/update - upsert connections config
 export async function PUT(request: NextRequest) {
   try {
@@ -54,6 +74,8 @@ export async function PUT(request: NextRequest) {
     const updates: any = {}
     if (isPlainObject(incoming.openai)) updates.openai = filterOpenAI(incoming.openai)
     if (isPlainObject(incoming.ollama)) updates.ollama = filterOllama(incoming.ollama)
+    if (isPlainObject(incoming.deepgram)) updates.deepgram = filterDeepgram(incoming.deepgram)
+    if (isPlainObject(incoming.elevenlabs)) updates.elevenlabs = filterElevenLabs(incoming.elevenlabs)
 
     const existing = await (db as any).config.findUnique({ where: { id: 1 } })
     const currentData = (existing?.data || {}) as Record<string, unknown>

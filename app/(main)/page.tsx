@@ -1,9 +1,10 @@
 "use server";
 
 import InitialChatClient from "@/components/chat/InitialChatClient";
-import { auth } from "@/lib/auth";
+import { auth } from "@/lib/auth/auth";
 import { redirect } from "next/navigation";
 import { getInitialChats, getModels, getUserSettings, loadChatMessages } from "@/actions/chat";
+import { cookies } from "next/headers";
 
 export default async function Page() {
   const session = await auth();
@@ -15,6 +16,10 @@ export default async function Page() {
     getModels(),
     getUserSettings()
   ]);
+
+  // Resolve user timezone from cookie (fallback to UTC for deterministic SSR)
+  const cookieStore = await cookies()
+  const timeZone = cookieStore.get('tz')?.value || 'UTC'
 
   // Find the most recent chat with assistant messages and get its last model
   let lastUsedModelId: string | null = null;
@@ -91,6 +96,7 @@ export default async function Page() {
         initialUserSettings={userSettings as Record<string, any>}
         lastUsedModelId={lastUsedModelId}
         pinnedModels={pinnedModels}
+        timeZone={timeZone}
       />
     </>
   )
