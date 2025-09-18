@@ -100,7 +100,7 @@ let modelLogosCache: Record<string, string | null> | null = null
 async function loadModelLogos(): Promise<Record<string, string | null>> {
   if (modelLogosCache) return modelLogosCache
   try {
-    const filePath = path.join(process.cwd(), 'public', 'model-logos-local.json')
+    const filePath = path.join(process.cwd(), 'public', 'model-logos.json')
     const fileContent = await fs.readFile(filePath, 'utf-8')
     const parsed = JSON.parse(fileContent)
     if (parsed && typeof parsed === 'object') {

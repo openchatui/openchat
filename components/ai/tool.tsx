@@ -31,6 +31,7 @@ export const Tool = ({ className, ...props }: ToolProps) => (
 export type ToolHeaderProps = {
   type: ToolUIPart['type'];
   state: ToolUIPart['state'];
+  label?: string;
   className?: string;
 };
 
@@ -61,6 +62,7 @@ export const ToolHeader = ({
   className,
   type,
   state,
+  label,
   ...props
 }: ToolHeaderProps) => (
   <CollapsibleTrigger
@@ -72,7 +74,7 @@ export const ToolHeader = ({
   >
     <div className="flex items-center gap-2">
       <WrenchIcon className="size-4 text-muted-foreground" />
-      <span className="font-medium text-sm">{type}</span>
+      <span className="font-medium text-sm">{label}</span>
       {getStatusBadge(state)}
     </div>
     <ChevronDownIcon className="size-4 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />

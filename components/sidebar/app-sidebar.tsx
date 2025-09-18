@@ -22,6 +22,7 @@ import {
   SidebarFooter,
   SidebarHeader,
   SidebarRail,
+  useSidebar,
 } from "@/components/ui/sidebar"
 import { Session } from "next-auth"
 import type { Model } from "@/types/models"
@@ -104,10 +105,13 @@ interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
 }
 
 export function AppSidebar({ session, initialChats = [], pinnedModels = [], timeZone = 'UTC', ...props }: AppSidebarProps) {
+  const { state } = useSidebar()
   const user = {
     name: session?.user?.name || "User",
     email: session?.user?.email || "",
     avatar: session?.user?.image || undefined,
+    // Role comes from session.user.role via JWT; may be undefined for guests
+    role: (session as any)?.user?.role as string | undefined,
   }
 
   return (
@@ -118,8 +122,8 @@ export function AppSidebar({ session, initialChats = [], pinnedModels = [], time
       <SidebarContent className="[&::-webkit-scrollbar]:hidden [scrollbar-width:none] [-ms-overflow-style:none] gap-0">
         <NavMain items={data.mainButtons} />
         <NavModels pinnedModels={pinnedModels} />
-        <NavChannels items={data.sections} />
-        <NavChats chats={initialChats} timeZone={timeZone} />
+        {state === "expanded" && <NavChannels items={data.sections} />}
+        {state === "expanded" && <NavChats chats={initialChats} timeZone={timeZone} />}
       </SidebarContent>
       <SidebarFooter>
         <NavUser user={user}/>

@@ -638,12 +638,22 @@ export async function updateModel(modelId: string, data: UpdateModelData): Promi
       throw new Error('Model not found');
     }
 
-    // Update the model
+    // Merge meta JSON instead of overwriting the entire column
+    const mergedUpdate: any = {}
+    if (typeof data.name !== 'undefined') mergedUpdate.name = data.name
+    if (typeof data.isActive !== 'undefined') mergedUpdate.isActive = data.isActive
+    if (Object.prototype.hasOwnProperty.call(data, 'meta')) {
+      const currentMeta = (existingModel.meta as any) || {}
+      const incomingMeta = (data.meta as any) || {}
+      mergedUpdate.meta = { ...currentMeta, ...incomingMeta }
+    }
+    if (Object.prototype.hasOwnProperty.call(data, 'params')) {
+      mergedUpdate.params = (data as any).params
+    }
+
     const updatedModel = await db.model.update({
       where: { id: modelId },
-      data: {
-        ...data,
-      },
+      data: mergedUpdate,
     });
 
     revalidatePath('/admin/models');

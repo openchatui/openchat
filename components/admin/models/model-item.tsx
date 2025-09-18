@@ -5,14 +5,17 @@ import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
 import { Edit } from "lucide-react"
 import type { Model } from "@/types/models"
+import type { UpdateModelData } from "@/types/models"
+import { EditModelDialog } from "./edit-model-dialog"
 
 interface ModelItemProps {
   model: Model
   onToggleActive: (modelId: string, isActive: boolean) => void
+  onUpdateModel: (modelId: string, data: UpdateModelData) => Promise<void>
   isUpdating: boolean
 }
 
-export function ModelItem({ model, onToggleActive, isUpdating }: ModelItemProps) {
+export function ModelItem({ model, onToggleActive, onUpdateModel, isUpdating }: ModelItemProps) {
   const profileImageUrl = model.meta?.profile_image_url || "/OpenChat.png"
 
   return (
@@ -32,15 +35,21 @@ export function ModelItem({ model, onToggleActive, isUpdating }: ModelItemProps)
       </div>
 
       <div className="flex items-center space-x-3">
-        <Button variant="outline" size="sm">
-          <Edit className="h-4 w-4 mr-2" />
-          Edit
-        </Button>
+        <EditModelDialog model={model} isUpdating={isUpdating} onSave={onUpdateModel}>
+          <Button variant="outline" size="sm">
+            <Edit className="h-4 w-4 mr-2" />
+            Edit
+          </Button>
+        </EditModelDialog>
 
         <Switch
           checked={model.isActive}
-          onCheckedChange={(checked) => onToggleActive(model.id, checked)}
-          disabled={isUpdating}
+          onCheckedChange={(checked) => {
+            if (isUpdating) return
+            onToggleActive(model.id, checked)
+          }}
+          aria-disabled={isUpdating}
+          className={isUpdating ? "opacity-60" : undefined}
         />
       </div>
     </div>

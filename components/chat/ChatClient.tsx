@@ -188,7 +188,15 @@ export default function ChatClient({
                 if (model) {
                   // Send the message to get assistant response (pass model directly to avoid state timing issues)
                   hasSentInitialMessageRef.current = true
-                  handleSendMessage(textContent.text, { webSearch: true, image: false, codeInterpreter: false }, model, true)
+                  let webSearchFromStorage = false
+                  try {
+                    const raw = sessionStorage.getItem(`chat-input-${chatId}`)
+                    if (raw) {
+                      const data = JSON.parse(raw)
+                      webSearchFromStorage = Boolean(data?.webSearchEnabled)
+                    }
+                  } catch {}
+                  handleSendMessage(textContent.text, { webSearch: webSearchFromStorage, image: false, codeInterpreter: false }, model, true)
                   // Also update the selected model state for UI consistency
                   if (!selectedModel) {
                     setSelectedModel(model)
@@ -268,8 +276,8 @@ export default function ChatClient({
 
       // Build request body: use full messages for first auto-send to avoid duplication
       const requestBody = isAutoSend
-        ? { messages, chatId, modelId: providerModelId }
-        : { message: userMessage, chatId, modelId: providerModelId }
+        ? { messages, chatId, modelId: providerModelId, enableWebSearch: options.webSearch }
+        : { message: userMessage, chatId, modelId: providerModelId, enableWebSearch: options.webSearch }
 
       // Call the API route directly for streaming
       const response = await fetch('/api/v1/chat', {
@@ -299,6 +307,10 @@ export default function ChatClient({
       let assistantMessage: UIMessage<MessageMetadata> | null = null
       // Track assistant cumulative text to avoid duplicated tokens when both text and text-delta are emitted
       let assistantText = ''
+      let hasReceivedTextSnapshot = false
+      // Track reasoning cumulative text and snapshot guard as well
+      let reasoningTextCumulative = ''
+      let hasReceivedReasoningSnapshot = false
       const getNonOverlappingDelta = (existing: string, delta: string): string => {
         if (!delta) return ''
         // Find the longest suffix of existing that is a prefix of delta
@@ -363,6 +375,9 @@ export default function ChatClient({
                   }
                   setMessages(prev => [...prev, assistantMessage!])
                   assistantText = ''
+                  // reset reasoning trackers at the start of a step
+                  reasoningTextCumulative = ''
+                  hasReceivedReasoningSnapshot = false
                 } else if (isText) {
                   // Lazily create assistant message on first text chunk if needed
                   if (!assistantMessage) {
@@ -397,15 +412,18 @@ export default function ChatClient({
                         if (typeof incomingText === 'string') {
                           // Full snapshot mode from provider (authoritative)
                           assistantText = incomingText
+                          hasReceivedTextSnapshot = true
                           textPart.text = assistantText
                           try { streamHandlers?.onDelta?.('', assistantText) } catch {}
                         } else if (typeof incomingDelta === 'string') {
                           // Delta mode with overlap guard
-                          const append = getNonOverlappingDelta(assistantText, incomingDelta)
-                          if (append) {
-                            assistantText += append
-                            textPart.text = assistantText
-                            try { streamHandlers?.onDelta?.(append, assistantText) } catch {}
+                          if (!hasReceivedTextSnapshot) {
+                            const append = getNonOverlappingDelta(assistantText, incomingDelta)
+                            if (append) {
+                              assistantText += append
+                              textPart.text = assistantText
+                              try { streamHandlers?.onDelta?.(append, assistantText) } catch {}
+                            }
                           }
                         }
                       }
@@ -452,9 +470,16 @@ export default function ChatClient({
                       const rText: string | undefined = (parsed as any).text
                       const rDelta: string | undefined = (parsed as any).delta
                       if (typeof rText === 'string') {
-                        reasoningPart.text = rText
-                      } else if (typeof rDelta === 'string') {
-                        reasoningPart.text = (reasoningPart.text || '') + rDelta
+                        // full snapshot overrides incremental deltas
+                        reasoningTextCumulative = rText
+                        hasReceivedReasoningSnapshot = true
+                        reasoningPart.text = reasoningTextCumulative
+                      } else if (typeof rDelta === 'string' && !hasReceivedReasoningSnapshot) {
+                        const append = getNonOverlappingDelta(reasoningTextCumulative, rDelta)
+                        if (append) {
+                          reasoningTextCumulative += append
+                          reasoningPart.text = reasoningTextCumulative
+                        }
                       }
                     }
                     return newMessages
@@ -465,6 +490,81 @@ export default function ChatClient({
                   setIsLoading(false)
                   try { streamHandlers?.onFinish?.(assistantText) } catch {}
                   break
+                } else if (
+                  parsed?.type === 'tool-input-start' ||
+                  parsed?.type === 'tool-input-delta' ||
+                  parsed?.type === 'tool-input-available' ||
+                  parsed?.type === 'tool-output-available' ||
+                  parsed?.type === 'tool-input-error'
+                ) {
+                  // Ensure assistant message exists
+                  if (!assistantMessage) {
+                    assistantMessage = {
+                      id: `assistant_${Date.now()}`,
+                      role: 'assistant',
+                      parts: [{ type: 'text', text: '' }],
+                      metadata: {
+                        createdAt: Date.now(),
+                        model: {
+                          id: providerModelId,
+                          name: resolveModelDisplay(providerModelId, modelToUse).name,
+                          profile_image_url: resolveModelDisplay(providerModelId, modelToUse).image || null,
+                        },
+                        assistantDisplayName: resolveModelDisplay(providerModelId, modelToUse).name,
+                        assistantImageUrl: resolveModelDisplay(providerModelId, modelToUse).image || '/avatars/01.png',
+                      } as MessageMetadata
+                    }
+                    setMessages(prev => [...prev, assistantMessage!])
+                  }
+
+                  const toolName: string = String(parsed.toolName || '')
+                  const toolCallId: string = String(parsed.toolCallId || '')
+                  const partType = (`tool-${toolName}`) as any
+
+                  setMessages(prev => {
+                    const newMessages = [...prev]
+                    // Find last assistant message to update
+                    let idx = -1
+                    for (let i = newMessages.length - 1; i >= 0; i--) {
+                      if (newMessages[i].role === 'assistant') { idx = i; break }
+                    }
+                    if (idx === -1) return newMessages
+                    const msg: any = { ...newMessages[idx] }
+                    const parts: any[] = Array.isArray(msg.parts) ? [...msg.parts] : []
+                    // Find existing tool part by toolCallId
+                    let toolIdx = parts.findIndex((p: any) => typeof p?.toolCallId === 'string' && p.toolCallId === toolCallId)
+                    if (toolIdx === -1) {
+                      parts.push({ type: partType, toolCallId, state: 'input-streaming', input: undefined })
+                      toolIdx = parts.length - 1
+                    }
+                    const current = { ...(parts[toolIdx] || {}) }
+                    if (parsed.type === 'tool-input-available') {
+                      current.type = partType
+                      current.toolCallId = toolCallId
+                      current.state = 'input-available'
+                      current.input = parsed.input
+                    } else if (parsed.type === 'tool-output-available') {
+                      current.type = partType
+                      current.toolCallId = toolCallId
+                      current.state = 'output-available'
+                      // Keep previous input if present
+                      if (current.input === undefined && parsed.input !== undefined) current.input = parsed.input
+                      current.output = parsed.output
+                    } else if (parsed.type === 'tool-input-error') {
+                      current.type = partType
+                      current.toolCallId = toolCallId
+                      current.state = 'output-error'
+                      current.errorText = String(parsed.errorText || 'Tool error')
+                      if (parsed.input !== undefined) current.input = parsed.input
+                    } else if (parsed.type === 'tool-input-start' || parsed.type === 'tool-input-delta') {
+                      // Keep as streaming; wait for available event
+                      current.state = 'input-streaming'
+                    }
+                    parts[toolIdx] = current
+                    msg.parts = parts
+                    newMessages[idx] = msg
+                    return newMessages
+                  })
                 }
               } catch (e) {
                 // Ignore parse errors for incomplete JSON
@@ -549,6 +649,7 @@ export default function ChatClient({
                 disabled={false}
                 isStreaming={isLoading}
                 onStop={handleStop}
+                sessionStorageKey={`chat-input-${chatId}`}
               />
             </div>
           </div>

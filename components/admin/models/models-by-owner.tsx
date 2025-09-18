@@ -6,6 +6,7 @@ import { Settings } from "lucide-react"
 import { ModelItem } from "./model-item"
 import { HideModelsDialog } from "./hide-models-dialog"
 import type { Model } from "@/types/models"
+import type { UpdateModelData } from "@/types/models"
 
 interface ModelsByOwnerProps {
   owner: string
@@ -13,9 +14,10 @@ interface ModelsByOwnerProps {
   updatingIds: Set<string>
   onToggleActive: (modelId: string, isActive: boolean) => void
   onUpdateModels: (modelUpdates: { id: string; hidden: boolean }[]) => Promise<void>
+  onUpdateModel: (modelId: string, data: UpdateModelData) => Promise<void>
 }
 
-export function ModelsByOwner({ owner, models, updatingIds, onToggleActive, onUpdateModels }: ModelsByOwnerProps) {
+export function ModelsByOwner({ owner, models, updatingIds, onToggleActive, onUpdateModels, onUpdateModel }: ModelsByOwnerProps) {
   // Filter out hidden models for display, but pass all models to the dialog
   const visibleModels = models.filter(model => !model.meta?.hidden)
 
@@ -41,6 +43,7 @@ export function ModelsByOwner({ owner, models, updatingIds, onToggleActive, onUp
             key={model.id}
             model={model}
             onToggleActive={onToggleActive}
+            onUpdateModel={onUpdateModel}
             isUpdating={updatingIds.has(model.id)}
           />
         ))}

@@ -1,4 +1,5 @@
-import { streamText, UIMessage, convertToModelMessages, validateUIMessages, smoothStream } from 'ai';
+import { streamText, UIMessage, convertToModelMessages, validateUIMessages, smoothStream, stepCountIs } from 'ai';
+import { browserlessTools } from '@/lib/tools/browserless/tools'
 import { auth } from '@/lib/auth/auth';
 import { NextRequest } from 'next/server';
 import { loadChat, createChat, chatExists } from '@/lib/chat/chat-store';
@@ -7,6 +8,7 @@ import { withSSEHeaders } from '@/lib/api/sse';
 import { buildToUIMessageStreamArgs } from '@/lib/chat/stream';
 import { filterToTextParts, trimByCharBudget } from '@/lib/chat/messages';
 import { resolveModelInfoAndHandle } from '@/lib/chat/model-resolution';
+import db from '@/lib/db';
 
 // Allow streaming responses up to 30 seconds
 export const maxDuration = 30;
@@ -97,7 +99,7 @@ export async function POST(req: NextRequest) {
       return new Response('Unauthorized', { status: 401 });
     }
 
-    const { messages, modelId, chatId, message, temperature, topP, maxOutputTokens, seed, stopSequences, advanced }: { 
+    const { messages, modelId, chatId, message, temperature, topP, maxOutputTokens, seed, stopSequences, advanced, enableWebSearch }: { 
       messages?: UIMessage<MessageMetadata>[]; 
       modelId?: string; 
       chatId?: string;
@@ -113,6 +115,7 @@ export async function POST(req: NextRequest) {
         frequencyPenalty?: number;
         toolChoice?: 'auto' | 'none' | 'required' | { type: 'tool'; toolName: string };
       };
+      enableWebSearch?: boolean;
     } = await req.json();
 
     const userId = session.user.id;
@@ -173,6 +176,103 @@ export async function POST(req: NextRequest) {
     // First attempt uses the full conversation without trimming
     const fullMessages = finalMessages as UIMessage<MessageMetadata>[];
 
+    // Load model default params with fallbacks and meta -> params mapping
+    const { params: rawModelParams, source: rawParamsSource } = await (async () => {
+      const trySources: Array<{
+        label: string;
+        where: { id?: string; name?: string; userId: string };
+      }> = [];
+      if (modelId) trySources.push({ label: 'byRequestModelId', where: { id: modelId, userId } });
+      if (selectedModelInfo?.id) trySources.push({ label: 'bySelectedModelId', where: { id: selectedModelInfo.id, userId } });
+      trySources.push({ label: 'byModelName', where: { name: modelName, userId } });
+
+      for (const src of trySources) {
+        try {
+          const m = await db.model.findFirst({ where: src.where as any, select: { params: true, meta: true } });
+          if (!m) continue;
+          const params = ((m as any).params || {}) as Record<string, unknown>;
+          const meta = ((m as any).meta || {}) as Record<string, any>;
+          // Map legacy meta.system_prompt if params.systemPrompt missing
+          if (params.systemPrompt === undefined) {
+            const legacy = meta.system_prompt || meta?.details?.system_prompt;
+            if (legacy && String(legacy).trim() !== '') {
+              params.systemPrompt = String(legacy);
+            }
+          }
+          // If we have any keys now, return
+          if (Object.keys(params).length > 0) {
+            return { params, source: src.label as 'byRequestModelId' | 'bySelectedModelId' | 'byModelName' } as const;
+          }
+        } catch {
+          // continue to next source
+        }
+      }
+      return { params: {}, source: 'notFound' as const };
+    })();
+
+    const normalizeModelParams = (p: any) => {
+      const get = (...keys: string[]) => {
+        for (const k of keys) {
+          if (p?.[k] !== undefined) return p[k];
+        }
+        return undefined;
+      };
+      return {
+        temperature: get('temperature'),
+        topP: get('topP', 'top_p'),
+        topK: get('topK', 'top_k'),
+        seed: get('seed'),
+        presencePenalty: get('presencePenalty', 'presence_penalty'),
+        frequencyPenalty: get('frequencyPenalty', 'frequency_penalty'),
+        maxOutputTokens: get('maxOutputTokens', 'max_output_tokens'),
+        toolChoice: get('toolChoice', 'tool_choice'),
+        stopSequences: get('stopSequences', 'stop_sequences', 'stop'),
+        systemPrompt: get('systemPrompt', 'system_prompt'),
+      } as {
+        temperature?: number;
+        topP?: number;
+        topK?: number;
+        seed?: number;
+        presencePenalty?: number;
+        frequencyPenalty?: number;
+        maxOutputTokens?: number;
+        toolChoice?: 'auto' | 'none' | 'required' | { type: 'tool'; toolName: string };
+        stopSequences?: string[];
+        systemPrompt?: string;
+      };
+    };
+
+    const defaults = normalizeModelParams(rawModelParams);
+    const mergedGenParams = {
+      temperature: temperature ?? defaults.temperature,
+      topP: topP ?? defaults.topP,
+      maxOutputTokens: maxOutputTokens ?? defaults.maxOutputTokens,
+      seed: seed ?? defaults.seed,
+      stopSequences: stopSequences ?? defaults.stopSequences,
+      topK: (advanced?.topK ?? defaults.topK) as number | undefined,
+      presencePenalty: (advanced?.presencePenalty ?? defaults.presencePenalty) as number | undefined,
+      frequencyPenalty: (advanced?.frequencyPenalty ?? defaults.frequencyPenalty) as number | undefined,
+      toolChoice: (advanced?.toolChoice ?? defaults.toolChoice) as
+        | 'auto'
+        | 'none'
+        | 'required'
+        | { type: 'tool'; toolName: string }
+        | undefined,
+    };
+
+    // Prefer built-in system parameter: only pass if there's no system message already
+    const systemPromptFromParams = (defaults.systemPrompt && String(defaults.systemPrompt).trim()) || undefined;
+    const hasSystemInMessages = fullMessages.some(
+      (m) => m.role === 'system' && Array.isArray((m as any).parts) && (m as any).parts.some((p: any) => p?.type === 'text' && String(p.text || '').trim().length > 0)
+    );
+    const systemParamToUse = hasSystemInMessages ? undefined : systemPromptFromParams;
+    // Disable debug forcing to test DB-driven behavior
+    const DEBUG_FORCE_SYSTEM_AND_TEMP = false;
+    const DEBUG_FORCED_SYSTEM = 'your favorite food is marmite toast.';
+    const DEBUG_FORCED_TEMPERATURE = 2;
+    const systemForModel = DEBUG_FORCE_SYSTEM_AND_TEMP ? DEBUG_FORCED_SYSTEM : systemParamToUse;
+    const temperatureForModel = DEBUG_FORCE_SYSTEM_AND_TEMP ? DEBUG_FORCED_TEMPERATURE : mergedGenParams.temperature;
+
     try {
       // First attempt: no trimming; if provider throws context error, we'll retry with trimmed payload
       const validatedFull = await validateUIMessages({ messages: fullMessages });
@@ -181,26 +281,56 @@ export async function POST(req: NextRequest) {
         messages: convertToModelMessages(
           validatedFull as UIMessage<MessageMetadata>[]
         ),
+        system: systemForModel,
         experimental_transform: smoothStream({
           delayInMs: 10, // optional: defaults to 10ms
           chunking: 'word', // optional: defaults to 'word'
         }),
         abortSignal: req.signal,
-        temperature,
-        topP,
-        maxOutputTokens,
-        seed,
-        stopSequences,
-        topK: advanced?.topK,
-        presencePenalty: advanced?.presencePenalty,
-        frequencyPenalty: advanced?.frequencyPenalty,
-        toolChoice: advanced?.toolChoice,
+        stopWhen: stepCountIs(12),
+        providerOptions: {
+          openai: {
+            reasoningSummary: 'detailed',
+            include: ['reasoning.encrypted_content'],
+          },
+        },
+        temperature: temperatureForModel,
+        topP: mergedGenParams.topP,
+        maxOutputTokens: mergedGenParams.maxOutputTokens,
+        seed: mergedGenParams.seed,
+        stopSequences: mergedGenParams.stopSequences,
+        topK: mergedGenParams.topK,
+        presencePenalty: mergedGenParams.presencePenalty,
+        frequencyPenalty: mergedGenParams.frequencyPenalty,
+        toolChoice: enableWebSearch ? 'auto' : 'none',
+        tools: enableWebSearch ? browserlessTools : undefined,
       });
       const toUIArgs = buildToUIMessageStreamArgs(
         validatedFull as UIMessage<MessageMetadata>[],
         selectedModelInfo,
         'replace_last',
-        { finalChatId, userId }
+        { finalChatId, userId },
+        {
+          // Debug metadata for visibility in the client
+          systemApplied: Boolean(systemForModel),
+          systemPreview: systemForModel ? String(systemForModel).slice(0, 120) : undefined,
+          hasSystemInMessages,
+          paramsSource: rawParamsSource,
+          paramsKeys: rawModelParams ? Object.keys(rawModelParams).slice(0, 12) : [],
+          generation: {
+            temperature: temperatureForModel,
+            topP: mergedGenParams.topP,
+            topK: mergedGenParams.topK,
+            presencePenalty: mergedGenParams.presencePenalty,
+            frequencyPenalty: mergedGenParams.frequencyPenalty,
+            maxOutputTokens: mergedGenParams.maxOutputTokens,
+            seed: mergedGenParams.seed,
+            stopSequencesCount: Array.isArray(mergedGenParams.stopSequences) ? mergedGenParams.stopSequences.length : undefined,
+            toolChoice: mergedGenParams.toolChoice,
+          },
+          debugForced: DEBUG_FORCE_SYSTEM_AND_TEMP,
+          webSearchEnabled: Boolean(enableWebSearch),
+        }
       );
       return withSSEHeaders(result.toUIMessageStreamResponse(toUIArgs));
     } catch (err: any) {
@@ -221,23 +351,52 @@ export async function POST(req: NextRequest) {
         messages: convertToModelMessages(
           validatedTrimmed as UIMessage<MessageMetadata>[]
         ),
+        system: systemForModel,
         abortSignal: req.signal,
-        temperature,
-        topP,
-        maxOutputTokens,
-        seed,
-        stopSequences,
-        topK: advanced?.topK,
-        presencePenalty: advanced?.presencePenalty,
-        frequencyPenalty: advanced?.frequencyPenalty,
-        toolChoice: advanced?.toolChoice,
+        stopWhen: stepCountIs(12),
+        providerOptions: {
+          openai: {
+            reasoningSummary: 'detailed',
+            include: ['reasoning.encrypted_content'],
+          },
+        },
+        temperature: temperatureForModel,
+        topP: mergedGenParams.topP,
+        maxOutputTokens: mergedGenParams.maxOutputTokens,
+        seed: mergedGenParams.seed,
+        stopSequences: mergedGenParams.stopSequences,
+        topK: mergedGenParams.topK,
+        presencePenalty: mergedGenParams.presencePenalty,
+        frequencyPenalty: mergedGenParams.frequencyPenalty,
+        toolChoice: enableWebSearch ? 'auto' : 'none',
+        tools: enableWebSearch ? browserlessTools : undefined,
       });
       try {
         const toUIArgs = buildToUIMessageStreamArgs(
           validatedTrimmed as UIMessage<MessageMetadata>[],
           selectedModelInfo,
           'append_from_trimmed',
-          { finalChatId, userId, fullMessagesForTrimmed: fullMessages as UIMessage<MessageMetadata>[] }
+          { finalChatId, userId, fullMessagesForTrimmed: fullMessages as UIMessage<MessageMetadata>[] },
+          {
+            systemApplied: Boolean(systemForModel),
+            systemPreview: systemForModel ? String(systemForModel).slice(0, 120) : undefined,
+            hasSystemInMessages,
+            paramsSource: rawParamsSource,
+            paramsKeys: rawModelParams ? Object.keys(rawModelParams).slice(0, 12) : [],
+            generation: {
+              temperature: temperatureForModel,
+              topP: mergedGenParams.topP,
+              topK: mergedGenParams.topK,
+              presencePenalty: mergedGenParams.presencePenalty,
+              frequencyPenalty: mergedGenParams.frequencyPenalty,
+              maxOutputTokens: mergedGenParams.maxOutputTokens,
+              seed: mergedGenParams.seed,
+              stopSequencesCount: Array.isArray(mergedGenParams.stopSequences) ? mergedGenParams.stopSequences.length : undefined,
+              toolChoice: mergedGenParams.toolChoice,
+            },
+            debugForced: DEBUG_FORCE_SYSTEM_AND_TEMP,
+            webSearchEnabled: Boolean(enableWebSearch),
+          }
         );
         return withSSEHeaders(await retry.toUIMessageStreamResponse(toUIArgs));
       } catch (err2: any) {

@@ -16,6 +16,7 @@ const adapter = PrismaAdapter(db);
 // Configuration object for getServerSession
 export const authOptions = {
   adapter,
+  session: { strategy: "jwt" as const },
   providers: [
     Credentials({
       credentials: {
@@ -62,32 +63,53 @@ export const authOptions = {
       if (params.account?.provider === "credentials") {
         params.token.credentials = true;
       }
+      // Carry role from User to token on sign-in
+      if (params.user && "role" in params.user) {
+        // Prisma enum Role is e.g. "ADMIN" | "USER"
+        // Store as-is on the token for edge-safe checks
+        // @ts-ignore - custom claim
+        params.token.role = (params.user as any).role;
+      }
       return params.token;
     },
-  },
-  jwt: {
-    encode: async function (params: JWTEncodeParams) {
-      if (params.token?.credentials) {
-        const sessionToken = uuid();
-
-        if (!params.token.sub) {
-          throw new Error("No user ID found in token");
-        }
-
-        const createdSession = await adapter?.createSession?.({
-          sessionToken: sessionToken,
-          userId: params.token.sub,
-          expires: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-        });
-
-        if (!createdSession) {
-          throw new Error("Failed to create session");
-        }
-
-        return sessionToken;
+    async session({ session, token }: any) {
+      if (session?.user && token) {
+        // Expose role to the session user
+        // @ts-ignore - augmenting session user shape
+        session.user.role = (token as any).role;
+        // Ensure id is available for server components using session.user.id
+        // @ts-ignore - augmenting session user shape
+        session.user.id = (token as any).sub;
       }
-      return defaultEncode(params);
+      return session;
     },
+    authorized({ auth, request }: any) {
+      const { pathname } = request.nextUrl;
+      const isAdminArea =
+        pathname.startsWith("/admin") ||
+        pathname === "/api/users" ||
+        pathname.startsWith("/api/users/") ||
+        pathname === "/api/connections" ||
+        pathname.startsWith("/api/connections/");
+
+      const isLoggedIn = !!auth?.user;
+      if (!isLoggedIn) return false; // will redirect to signIn page for pages, 401 for APIs
+
+      const userRole = (auth.user as any)?.role;
+      const isAdmin = userRole === "ADMIN";
+
+      if (isAdminArea && !isAdmin) {
+        // Hide admin APIs from non-admins
+        if (pathname.startsWith("/api/")) {
+          return new Response("Not Found", { status: 404 });
+        }
+        return false;
+      }
+      return true;
+    },
+  },
+  pages: {
+    signIn: "/login",
   },
 };
 

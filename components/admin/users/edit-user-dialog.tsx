@@ -4,7 +4,6 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { AnimatedLoader } from "@/components/ui/loader"
 import { MESSAGES, PLACEHOLDERS, USER_ROLES, USER_GROUPS, getEmailInitials } from "@/constants/user"
 import type { User as UserType, EditUserForm } from "@/types/user"
 
@@ -167,11 +166,7 @@ export function EditUserDialog({
               disabled={isUpdating}
               className="flex items-center gap-2"
             >
-              {isUpdating ? (
-                <AnimatedLoader className="h-8 w-8" />
-              ) : (
-                <Trash2 className="h-4 w-4" />
-              )}
+              <Trash2 className="h-4 w-4" />
               {MESSAGES.DELETE}
             </Button>
 
@@ -180,11 +175,7 @@ export function EditUserDialog({
               disabled={isUpdating || !editForm.name.trim() || !editForm.email.trim()}
               className="flex items-center gap-2"
             >
-              {isUpdating ? (
-                <AnimatedLoader className="h-8 w-8" />
-              ) : (
-                <Save className="h-4 w-4" />
-              )}
+              <Save className="h-4 w-4" />
               {isUpdating ? MESSAGES.SAVING : MESSAGES.SAVE}
             </Button>
           </div>

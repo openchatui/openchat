@@ -22,6 +22,16 @@ import { EditUserDialog } from "./edit-user-dialog";
 import { MESSAGES, PLACEHOLDERS, getEmailInitials } from "@/constants/user";
 import type { User } from "@/types/user";
 import { useState, useMemo } from "react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 // Main Admin Users Component
 interface AdminUsersProps {
@@ -31,6 +41,7 @@ interface AdminUsersProps {
 
 export function AdminUsers({ session, initialChats = [] }: AdminUsersProps) {
   const [searchTerm, setSearchTerm] = useState("");
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
 
   const {
     users,
@@ -196,7 +207,7 @@ export function AdminUsers({ session, initialChats = [] }: AdminUsersProps) {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => deleteUser(user.id)}
+                          onClick={() => setConfirmDeleteId(user.id)}
                           disabled={deletingIds.has(user.id)}
                           className="h-8 w-8 p-0 text-destructive hover:text-destructive"
                           title={MESSAGES.DELETE}
@@ -215,6 +226,32 @@ export function AdminUsers({ session, initialChats = [] }: AdminUsersProps) {
             </TableBody>
           </Table>
         </div>
+
+        {/* Delete Confirmation */}
+        <AlertDialog open={confirmDeleteId !== null} onOpenChange={(open) => { if (!open) setConfirmDeleteId(null) }}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete user?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This action cannot be undone. This will permanently delete the user and remove their data.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setConfirmDeleteId(null)}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                disabled={confirmDeleteId ? deletingIds.has(confirmDeleteId) : false}
+                onClick={async () => {
+                  if (!confirmDeleteId) return
+                  await deleteUser(confirmDeleteId)
+                  setConfirmDeleteId(null)
+                }}
+              >
+                {confirmDeleteId && deletingIds.has(confirmDeleteId) ? 'Deleting…' : 'Delete'}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
         {/* Edit User Dialog */}
         <EditUserDialog

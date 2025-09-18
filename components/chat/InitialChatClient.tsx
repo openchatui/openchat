@@ -16,6 +16,7 @@ import type { Model } from "@/types/models"
 import type { ChatData } from "@/lib/chat/chat-store"
 import { createInitialChat, updateUserSettings } from "@/actions/chat"
 import ChatMessages from "./chat-messages"
+import PromptSuggestions from "./PromptSuggestions"
 
 interface InitialChatClientProps {
   session: Session | null
@@ -93,11 +94,18 @@ export default function InitialChatClient({ session, initialChats = [], initialM
       webSearch: boolean
       image: boolean
       codeInterpreter: boolean
+    },
+    overrideModel?: any,
+    isAutoSend?: boolean,
+    streamHandlers?: {
+      onStart?: () => void
+      onDelta?: (delta: string, fullText: string) => void
+      onFinish?: (finalText: string) => void
     }
-  ) => {
+  ): Promise<string | null> => {
     if (!selectedModel) {
       toast.error('Please select a model first.')
-      return
+      return null
     }
 
     setIsCreating(true)
@@ -114,11 +122,24 @@ export default function InitialChatClient({ session, initialChats = [], initialM
         }))
       }
 
+      // Copy session chat input state to chat-specific key and clear base key
+      try {
+        const baseKey = 'chat-input'
+        const chatKey = `chat-input-${result.chatId}`
+        const raw = sessionStorage.getItem(baseKey)
+        if (raw) {
+          sessionStorage.setItem(chatKey, raw)
+          sessionStorage.removeItem(baseKey)
+        }
+      } catch {}
+
       // Redirect to the chat page (no URL params needed since message is already stored)
       router.push(`/c/${result.chatId}`)
+      return null
     } catch (error) {
       console.error('Failed to create initial chat:', error)
       toast.error('Failed to start conversation. Please try again.')
+      return null
     } finally {
       setIsCreating(false)
     }
@@ -179,12 +200,26 @@ export default function InitialChatClient({ session, initialChats = [], initialM
                 )}
               </div>
 
+              
+
               {/* Centered chat input */}
               <div className="w-full">
                 <ChatInput
                   placeholder={isCreating ? "Creating conversation..." : "Ask me anything..."}
                   onSubmit={handleSendMessage}
                   disabled={isCreating}
+                  sessionStorageKey={'chat-input'}
+                />
+                <PromptSuggestions
+                  disabled={isCreating}
+                  onSelect={(prompt) => {
+                    void handleSendMessage(
+                      prompt,
+                      { webSearch: false, image: false, codeInterpreter: false },
+                      undefined,
+                      true
+                    )
+                  }}
                 />
               </div>
 
@@ -203,3 +238,4 @@ export default function InitialChatClient({ session, initialChats = [], initialM
     </SidebarProvider>
   )
 }
+

@@ -127,7 +127,7 @@ export async function resolveAiProvider(input: ProviderResolutionInput): Promise
   // Default to OpenAI-compatible
   const openai = createOpenAI({
     apiKey: connection?.apiKey || undefined,
-    baseURL: connection?.baseUrl || undefined,
+    baseURL: connection?.baseUrl || undefined
   })
   return {
     providerName: (inferredProvider === 'openai-compatible' ? 'openai-compatible' : 'openai'),

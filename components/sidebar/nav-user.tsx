@@ -46,6 +46,7 @@ export function NavUser({
     name: string
     email: string
     avatar: string | undefined
+    role?: string
   }
 }) {
   const { isMobile } = useSidebar()
@@ -100,12 +101,14 @@ export function NavUser({
                   Settings
                 </a>
               </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <a href="/admin">
-                  <CgProfile />
-                  Admin Panel
-                </a>
-              </DropdownMenuItem>
+              {user.role === 'ADMIN' && (
+                <DropdownMenuItem asChild>
+                  <a href="/admin">
+                    <CgProfile />
+                    Admin Panel
+                  </a>
+                </DropdownMenuItem>
+              )}
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={handleSignOut}>
               <LogOut />

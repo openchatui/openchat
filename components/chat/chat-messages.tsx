@@ -7,6 +7,9 @@ import { Message, MessageContent, MessageAvatar } from '@/components/ai/message'
 import { Response } from '@/components/ai/response'
 import { Reasoning, ReasoningContent, ReasoningTrigger } from '@/components/ai/reasoning'
 import type { UIMessage } from 'ai'
+import { isToolOrDynamicToolUIPart, getToolOrDynamicToolName } from 'ai'
+import { Tool, ToolHeader, ToolContent, ToolInput, ToolOutput } from '@/components/ai/tool'
+import { WebPreview, WebPreviewNavigation, WebPreviewUrl, WebPreviewBody } from '@/components/ai/web-preview'
 import type { MessageMetadata } from '@/types/messages'
 import type { Model } from '@/types/models'
 
@@ -182,7 +185,7 @@ export default function ChatMessages({
                   .filter((part) => part.type === 'text')
                   .map((part, index) => (
                     <div key={index}>
-                      <Response className="prose prose-2xl leading-loose prose-invert max-w-none prose-p:mt-8 prose-p:mb-8 prose-pre:my-5 prose-li:my-3">
+                      <Response className="prose prose-lg leading-normal prose-invert max-w-none prose-p:mt-2 prose-p:mb-2 prose-pre:my-3 prose-li:my-1">
                         {(part as any).text}
                       </Response>
                     </div>
@@ -233,51 +236,172 @@ export default function ChatMessages({
             })()}
             {/* Indent content to align with model name (avatar width + gap ~= ml-10) */}
             <div className="ml-10">
-              {/* Reasoning (collapsible) - supports explicit reasoning parts and <think> tags inside text */}
+              {(() => {
+                const meta: any = (message as any).metadata || {}
+                const webSearchEnabled = Boolean(meta?.webSearchEnabled)
+                if (!webSearchEnabled) return null
+                // find latest navigate tool call with an input URL
+                const toolParts = (message.parts || []).filter((p: any) => isToolOrDynamicToolUIPart(p as any))
+                const navigatePart = [...toolParts].reverse().find((p: any) => getToolOrDynamicToolName(p as any) === 'navigate' && p?.input && typeof p.input.url === 'string') as any
+                const url: string | undefined = navigatePart?.input?.url
+                if (!url) return null
+                return (
+                  <div className="mb-3 rounded-lg overflow-hidden border" style={{ height: '380px' }}>
+                    <WebPreview defaultUrl={url}>
+                      <WebPreviewNavigation>
+                        <WebPreviewUrl />
+                      </WebPreviewNavigation>
+                      <WebPreviewBody />
+                    </WebPreview>
+                  </div>
+                )
+              })()}
+              {/* Unified timeline: interleave reasoning steps and tool calls in chronological order */}
               {(() => {
                 const isLatestAssistant = lastAssistantMessageId === message.id
 
-                // Explicit reasoning parts (if any)
-                const reasoningParts = message.parts.filter(
-                  (p: any) => typeof p?.type === 'string' && p.type.toLowerCase().includes('reason')
-                ) as Array<{ type: string; text?: string }>
-                const explicitReasoning = reasoningParts
-                  .map((p) => (typeof p.text === 'string' ? p.text : ''))
-                  .filter(Boolean)
-                  .join('\n\n')
+                type TimelineItem =
+                  | { kind: 'tool'; part: any }
+                  | { kind: 'reason'; text: string; streamingCandidate?: boolean }
 
-                // Extract reasoning from <think> blocks within the combined text
-                const textOnly = (message.parts || [])
-                  .filter((p: any) => p?.type === 'text')
-                  .map((p: any) => String(p?.text || ''))
-                  .join('')
-                const { reasoningText: thinkReasoning, reasoningActive: thinkActive } = extractReasoningFromThink(textOnly)
+                const timeline: TimelineItem[] = []
+                const toolLabelByCallId = new Map<string, string>()
 
-                const reasoningText = explicitReasoning || thinkReasoning
-                const reasoningActive = Boolean((message as any).metadata?.reasoningActive) || thinkActive
-                const hasReasoning = (reasoningText && reasoningText.trim().length > 0) || (isLatestAssistant && reasoningActive)
-                if (!hasReasoning) return null
+                // Pre-scan to capture toolName by toolCallId from ANY tool part
+                for (const p of message.parts as any[]) {
+                  if (!isToolOrDynamicToolUIPart(p as any)) continue
+                  const callId: string | undefined = (p as any)?.toolCallId
+                  if (typeof callId !== 'string' || callId.length === 0) continue
+                  let nameCandidate: string | undefined =
+                    (p as any)?.toolName ||
+                    (p as any)?.name ||
+                    (p as any)?.tool ||
+                    (p as any)?.input?.toolName ||
+                    (p as any)?.input?.name ||
+                    (p as any)?.input?.tool ||
+                    undefined
+                  if (!nameCandidate) {
+                    try {
+                      const extracted = getToolOrDynamicToolName(p as any) as string
+                      if (typeof extracted === 'string' && extracted.trim().length > 0) {
+                        nameCandidate = extracted
+                      }
+                    } catch {}
+                  }
+                  if (typeof nameCandidate === 'string' && nameCandidate.trim().length > 0) {
+                    toolLabelByCallId.set(callId, nameCandidate.trim())
+                  }
+                }
+
+                for (const p of message.parts as any[]) {
+                  // Tool or dynamic tool UI parts
+                  if (isToolOrDynamicToolUIPart(p as any)) {
+                    timeline.push({ kind: 'tool', part: p })
+                    continue
+                  }
+
+                  // Explicit reasoning parts
+                  if (typeof p?.type === 'string' && p.type.toLowerCase().includes('reason')) {
+                    const text = typeof (p as any).text === 'string' ? (p as any).text : ''
+                    if (text) timeline.push({ kind: 'reason', text })
+                    continue
+                  }
+
+                  // Text parts: extract any <think>...</think> segments in-order as reasoning steps
+                  if (p?.type === 'text' && typeof (p as any).text === 'string') {
+                    const allText: string = (p as any).text
+                    const startTag = '<think>'
+                    const endTag = '</think>'
+                    const completeRegex = /<think>[\s\S]*?<\/think>/g
+                    let match: RegExpExecArray | null
+                    while ((match = completeRegex.exec(allText)) !== null) {
+                      const block = match[0]
+                      const reasonText = block.replace('<think>', '').replace('</think>', '').trim()
+                      if (reasonText) timeline.push({ kind: 'reason', text: reasonText })
+                    }
+                    // Streaming/partial reasoning: opening tag without closing tag
+                    if (allText.includes(startTag) && !allText.includes(endTag)) {
+                      const startIdx = allText.indexOf(startTag)
+                      if (startIdx >= 0) {
+                        const partial = allText.slice(startIdx + startTag.length)
+                        if (partial.trim().length > 0 || isLoading) {
+                          timeline.push({ kind: 'reason', text: partial.trim(), streamingCandidate: true })
+                        }
+                      }
+                    }
+                  }
+                }
+
+                // Determine if any reasoning is currently streaming for this message
+                const hasStreamingReasoning = Boolean(
+                  isLatestAssistant && isLoading && timeline.some((t) => t.kind === 'reason' && t.streamingCandidate)
+                ) || Boolean((message as any).metadata?.reasoningActive)
 
                 // Track per-message reasoning duration on client
                 const timers = reasoningTimersRef.current
                 const existing = timers.get(message.id) || {}
-                const isReasoningStreaming = Boolean(isLatestAssistant && isLoading && reasoningActive)
-                if (isReasoningStreaming && !existing.start) {
+                if (hasStreamingReasoning && !existing.start) {
                   timers.set(message.id, { ...existing, start: Date.now() })
                 }
-                if (!isLoading && (reasoningText?.trim().length > 0) && existing.start && !existing.duration) {
+                if (!isLoading && timeline.some((t) => t.kind === 'reason' && t.text.trim().length > 0) && existing.start && !existing.duration) {
                   const dur = Math.max(1, Math.round((Date.now() - existing.start) / 1000))
                   timers.set(message.id, { ...existing, duration: dur })
                 }
                 const measuredDuration = timers.get(message.id)?.duration || 0
+
+                if (timeline.length === 0) return null
+
                 return (
-                  <Reasoning isStreaming={isReasoningStreaming} defaultOpen={false} duration={measuredDuration}>
-                    <ReasoningTrigger />
-                    <ReasoningContent className='text-muted-foreground'>{reasoningText}</ReasoningContent>
-                  </Reasoning>
+                  <div className="flex flex-col gap-3">
+                    {timeline.map((item, idx) => {
+                      if (item.kind === 'tool') {
+                        const part = item.part
+                        const partType = (part as any).type as `tool-${string}` | 'dynamic-tool'
+                        const state = (part as any).state
+                        const input = (part as any).input
+                        const output = (part as any).output
+                        const errorText = (part as any).errorText
+                        const callId = (part as any)?.toolCallId as string | undefined
+                        let toolName: string | undefined = (callId && toolLabelByCallId.get(callId))
+                          || (part as any)?.toolName
+                          || (part as any)?.name
+                          || (part as any)?.tool
+                          || (part as any)?.input?.toolName
+                          || (part as any)?.input?.name
+                          || (part as any)?.input?.tool
+                        if (typeof toolName === 'string') {
+                          toolName = toolName.trim()
+                          if (!toolName) toolName = undefined
+                        }
+                        return (
+                          <Tool key={`${message.id}_timeline_tool_${idx}`} defaultOpen={false}>
+                            <ToolHeader type={partType as any} state={state} label={toolName} />
+                            <ToolContent>
+                              <ToolInput input={input} />
+                              <ToolOutput output={output} errorText={errorText} />
+                            </ToolContent>
+                          </Tool>
+                        )
+                      }
+                      // Reasoning block
+                      const isStreaming = Boolean(isLatestAssistant && isLoading && item.streamingCandidate)
+                      return (
+                        <Reasoning
+                          key={`${message.id}_timeline_reason_${idx}`}
+                          isStreaming={isStreaming}
+                          defaultOpen={false}
+                          duration={measuredDuration}
+                        >
+                          <ReasoningTrigger />
+                          <ReasoningContent className='text-muted-foreground'>{item.text}</ReasoningContent>
+                        </Reasoning>
+                      )
+                    })}
+                  </div>
                 )
               })()}
-              {/* AI message text below */}
+              {/* AI message text below */
+              }
               <div className="flex flex-col gap-3 text-foreground">
                 {(() => {
                   // Render text with <think> blocks removed
@@ -289,7 +413,7 @@ export default function ChatMessages({
                   if (!visibleText) return null
                   return (
                     <div>
-                      <Response className="prose prose-2xl leading-loose max-w-none prose-p:mt-8 prose-p:mb-8 prose-pre:my-5 prose-li:my-3">
+                      <Response className="prose prose-lg leading-normal max-w-none prose-p:mt-2 prose-p:mb-2 prose-pre:my-3 prose-li:my-1">
                         {visibleText}
                       </Response>
                     </div>

@@ -7,9 +7,11 @@ import { AdminSidebar } from "../AdminSidebar"
 import { Card, CardContent } from "@/components/ui/card"
 import { AnimatedLoader } from "@/components/ui/loader"
 import { ModelsByOwner } from "./models-by-owner"
-import { adminToggleModelActive, adminUpdateModelsVisibility } from "@/actions/chat"
+import { adminToggleModelActive, adminUpdateModelsVisibility, updateModel } from "@/actions/chat"
 import { useState, useCallback } from "react"
+import { toast } from "sonner"
 import type { Model } from "@/types/models"
+import type { UpdateModelData } from "@/types/models"
 
 // Main Admin Models Component
 interface AdminModelsProps {
@@ -22,17 +24,43 @@ interface AdminModelsProps {
 
 export function AdminModels({ session, initialModels = [], initialGroupedModels = {}, initialChats = [] }: AdminModelsProps) {
   const [updatingIds, setUpdatingIds] = useState<Set<string>>(new Set())
+  const [modelsByOwner, setModelsByOwner] = useState<Record<string, Model[]>>(initialGroupedModels)
 
-  // Use server-loaded models
-  const models = initialModels
-  const groupedModels = initialGroupedModels
-  const isLoading = false // Models are pre-loaded on server
+  // Models are pre-loaded on server
+  const isLoading = false
 
-  // Wrap server actions with loading state management
+  // Optimistic toggle for model active state
   const toggleModelActive = useCallback(async (modelId: string, isActive: boolean) => {
     setUpdatingIds(prev => new Set(prev).add(modelId))
+
+    // Optimistically update local state
+    let previousIsActive = false
+    setModelsByOwner(prev => {
+      const next: Record<string, Model[]> = {}
+      for (const owner in prev) {
+        next[owner] = prev[owner].map(m => {
+          if (m.id === modelId) {
+            previousIsActive = m.isActive
+            return { ...m, isActive }
+          }
+          return m
+        })
+      }
+      return next
+    })
+
     try {
       await adminToggleModelActive(modelId, isActive)
+    } catch (error) {
+      // Revert on failure and notify
+      setModelsByOwner(prev => {
+        const next: Record<string, Model[]> = {}
+        for (const owner in prev) {
+          next[owner] = prev[owner].map(m => (m.id === modelId ? { ...m, isActive: previousIsActive } : m))
+        }
+        return next
+      })
+      toast.error("Failed to update model status. Reverted change.")
     } finally {
       setUpdatingIds(prev => {
         const newSet = new Set(prev)
@@ -42,22 +70,131 @@ export function AdminModels({ session, initialModels = [], initialGroupedModels 
     }
   }, [])
 
+  // Optimistically update model visibility (hidden flag)
   const updateModelsVisibility = useCallback(async (modelUpdates: { id: string; hidden: boolean }[]) => {
+    const updatedIds = modelUpdates.map(update => update.id)
+    const hiddenById = new Map(modelUpdates.map(u => [u.id, u.hidden]))
+
     // Add all model IDs to updating set
-    setUpdatingIds(prev => new Set([...prev, ...modelUpdates.map(update => update.id)]))
+    setUpdatingIds(prev => new Set([...prev, ...updatedIds]))
+
+    // Capture previous values and apply optimistic update
+    const previousHiddenById = new Map<string, boolean>()
+    setModelsByOwner(prev => {
+      const next: Record<string, Model[]> = {}
+      for (const owner in prev) {
+        next[owner] = prev[owner].map(m => {
+          if (hiddenById.has(m.id)) {
+            previousHiddenById.set(m.id, !!m.meta?.hidden)
+            return { ...m, meta: { ...m.meta, hidden: hiddenById.get(m.id)! } }
+          }
+          return m
+        })
+      }
+      return next
+    })
+
     try {
       await adminUpdateModelsVisibility(modelUpdates)
+    } catch (error) {
+      // Revert on failure and notify
+      setModelsByOwner(prev => {
+        const next: Record<string, Model[]> = {}
+        for (const owner in prev) {
+          next[owner] = prev[owner].map(m => {
+            if (previousHiddenById.has(m.id)) {
+              return { ...m, meta: { ...m.meta, hidden: previousHiddenById.get(m.id)! } }
+            }
+            return m
+          })
+        }
+        return next
+      })
+      toast.error("Failed to update model visibility. Reverted change.")
     } finally {
-      // Remove all model IDs from updating set
       setUpdatingIds(prev => {
         const newSet = new Set(prev)
-        modelUpdates.forEach(update => newSet.delete(update.id))
+        updatedIds.forEach(id => newSet.delete(id))
         return newSet
       })
     }
   }, [])
 
-  const ownerKeys = Object.keys(groupedModels).filter(owner => (groupedModels[owner] || []).length > 0).sort()
+  const ownerKeys = Object.keys(modelsByOwner).filter(owner => (modelsByOwner[owner] || []).length > 0).sort()
+  const totalModels = ownerKeys.reduce((acc, owner) => acc + (modelsByOwner[owner]?.length || 0), 0)
+
+  // Optimistic update for model name/image
+  const updateModelDetails = useCallback(async (modelId: string, data: UpdateModelData) => {
+    setUpdatingIds(prev => new Set(prev).add(modelId))
+
+    // Snapshot previous values and apply optimistic update
+    let previous: { name?: string; profile_image_url?: string; tags?: string[]; system_prompt?: string; params?: any } | null = null
+    setModelsByOwner(prev => {
+      const next: Record<string, Model[]> = {}
+      for (const owner in prev) {
+        next[owner] = prev[owner].map(m => {
+          if (m.id === modelId) {
+            previous = { name: m.name, profile_image_url: m.meta?.profile_image_url, tags: m.meta?.tags, system_prompt: (m.meta as any)?.system_prompt, params: m.params }
+
+            const nextMeta = { ...m.meta }
+            if (data.meta) {
+              if (Object.prototype.hasOwnProperty.call(data.meta, 'profile_image_url')) {
+                ;(nextMeta as any).profile_image_url = (data.meta as any).profile_image_url
+              }
+              if (Object.prototype.hasOwnProperty.call(data.meta, 'tags')) {
+                ;(nextMeta as any).tags = (data.meta as any).tags
+              }
+              if (Object.prototype.hasOwnProperty.call(data.meta, 'system_prompt')) {
+                ;(nextMeta as any).system_prompt = (data.meta as any).system_prompt
+              }
+            }
+
+            const updated: Model = {
+              ...m,
+              ...(data.name ? { name: data.name } : {}),
+              meta: nextMeta as any,
+              ...(Object.prototype.hasOwnProperty.call(data, 'params') ? { params: (data as any).params } : {}),
+            }
+            return updated
+          }
+          return m
+        })
+      }
+      return next
+    })
+
+    try {
+      await updateModel(modelId, data)
+    } catch (error) {
+      // Revert on failure
+      if (previous) {
+        setModelsByOwner(prev => {
+          const next: Record<string, Model[]> = {}
+          for (const owner in prev) {
+            next[owner] = prev[owner].map(m => {
+              if (m.id === modelId) {
+                return {
+                  ...m,
+                  ...(previous?.name ? { name: previous.name } : {}),
+                  meta: { ...m.meta, profile_image_url: previous?.profile_image_url, tags: previous?.tags, system_prompt: previous?.system_prompt },
+                  ...(Object.prototype.hasOwnProperty.call(previous, 'params') ? { params: previous?.params } : {}),
+                }
+              }
+              return m
+            })
+          }
+          return next
+        })
+      }
+      toast.error("Failed to save changes. Reverted.")
+    } finally {
+      setUpdatingIds(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(modelId)
+        return newSet
+      })
+    }
+  }, [])
 
     return (
         <AdminSidebar session={session} activeTab="models" initialChats={initialChats}>
@@ -80,7 +217,7 @@ export function AdminModels({ session, initialModels = [], initialGroupedModels 
               <AnimatedLoader className="h-10 w-10" message="Loading models..." />
             </CardContent>
           </Card>
-        ) : models.length === 0 ? (
+        ) : totalModels === 0 ? (
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-12">
               <div className="text-center space-y-4">
@@ -97,10 +234,11 @@ export function AdminModels({ session, initialModels = [], initialGroupedModels 
               <ModelsByOwner
                 key={owner}
                 owner={owner}
-                models={groupedModels[owner] || []}
+                models={modelsByOwner[owner] || []}
                 updatingIds={updatingIds}
                 onToggleActive={toggleModelActive}
                 onUpdateModels={updateModelsVisibility}
+                onUpdateModel={updateModelDetails}
               />
             ))}
           </div>

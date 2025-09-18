@@ -75,17 +75,10 @@ export const Reasoning = memo(
       }
     }, [isStreaming, startTime, setDuration]);
 
-    // Auto-open when streaming starts, auto-close when streaming ends (once only)
+    // Auto-open when streaming starts; keep open after streaming ends so full thought remains visible
     useEffect(() => {
       if (isStreaming && !isOpen) {
         setIsOpen(true);
-      } else if (!isStreaming && isOpen && !defaultOpen && !hasAutoClosedRef) {
-        // Add a small delay before closing to allow user to see the content
-        const timer = setTimeout(() => {
-          setIsOpen(false);
-          setHasAutoClosedRef(true);
-        }, AUTO_CLOSE_DELAY);
-        return () => clearTimeout(timer);
       }
     }, [isStreaming, isOpen, defaultOpen, setIsOpen, hasAutoClosedRef]);
 
@@ -163,18 +156,32 @@ export type ReasoningContentProps = ComponentProps<
 };
 
 export const ReasoningContent = memo(
-  ({ className, children, ...props }: ReasoningContentProps) => (
-    <CollapsibleContent
-      className={cn(
-        'mt-4 text-sm',
-        'data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-top-2 data-[state=open]:slide-in-from-top-2 text-popover-foreground outline-none data-[state=closed]:animate-out data-[state=open]:animate-in',
-        className
-      )}
-      {...props}
-    >
-      <Response className="grid gap-2">{children}</Response>
-    </CollapsibleContent>
-  )
+  ({ className, children, ...props }: ReasoningContentProps) => {
+    const { isStreaming } = useReasoning();
+    return (
+      <CollapsibleContent
+        className={cn(
+          'mt-4 text-sm',
+          'data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-top-2 data-[state=open]:slide-in-from-top-2 text-popover-foreground outline-none data-[state=closed]:animate-out data-[state=open]:animate-in',
+          className
+        )}
+        {...props}
+      >
+        {isStreaming ? (
+          <div className="relative">
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-6 bg-gradient-to-b from-background to-transparent" />
+            <div className="font-mono text-xs leading-5 h-[9rem] overflow-hidden flex flex-col justify-end whitespace-pre-wrap">
+              {children}
+            </div>
+          </div>
+        ) : (
+          <div className="font-mono text-xs leading-5 whitespace-pre-wrap">
+            {children}
+          </div>
+        )}
+      </CollapsibleContent>
+    );
+  }
 );
 
 Reasoning.displayName = 'Reasoning';

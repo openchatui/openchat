@@ -18,11 +18,14 @@ export interface ModelMeta {
   ownedBy: string
   details?: any
   hidden?: boolean
+  system_prompt?: string
 }
 
 export interface UpdateModelData {
+  name?: string
   isActive?: boolean
   meta?: Partial<ModelMeta>
+  params?: any
 }
 
 export interface ModelsState {

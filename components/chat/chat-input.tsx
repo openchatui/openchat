@@ -44,6 +44,7 @@ interface ChatInputProps {
       onFinish?: (finalText: string) => void
     }
   ) => Promise<string | null> | void;
+  sessionStorageKey?: string;
 }
 
 export function ChatInput({
@@ -53,9 +54,10 @@ export function ChatInput({
   isStreaming = false,
   onStop,
   onSubmit,
+  sessionStorageKey,
 }: ChatInputProps) {
   const [value, setValue] = useState("");
-  const [webSearch, setWebSearch] = useState(true);
+  const [webSearch, setWebSearch] = useState(false);
   const [image, setImage] = useState(false);
   const [codeInterpreter, setCodeInterpreter] = useState(false);
   const [isLive, setIsLive] = useState(false);
@@ -92,6 +94,47 @@ export function ChatInput({
   useEffect(() => {
     isLiveRef.current = isLive
   }, [isLive])
+
+  // Load initial state from sessionStorage if provided
+  useEffect(() => {
+    try {
+      if (!sessionStorageKey) return
+      const raw = sessionStorage.getItem(sessionStorageKey)
+      const defaults = {
+        prompt: "",
+        files: [] as any[],
+        selectedToolIds: [] as string[],
+        selectedFilterIds: [] as string[],
+        imageGenerationEnabled: false,
+        webSearchEnabled: false,
+        codeInterpreterEnabled: false,
+      }
+      const data = raw ? { ...defaults, ...JSON.parse(raw) } : defaults
+      if (typeof data.prompt === 'string') setValue(data.prompt)
+      if (typeof data.webSearchEnabled === 'boolean') setWebSearch(data.webSearchEnabled)
+    } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionStorageKey])
+
+  // Persist prompt to sessionStorage
+  useEffect(() => {
+    try {
+      if (!sessionStorageKey) return
+      const raw = sessionStorage.getItem(sessionStorageKey)
+      const defaults = {
+        prompt: "",
+        files: [] as any[],
+        selectedToolIds: [] as string[],
+        selectedFilterIds: [] as string[],
+        imageGenerationEnabled: false,
+        webSearchEnabled: false,
+        codeInterpreterEnabled: false,
+      }
+      const data = raw ? { ...defaults, ...JSON.parse(raw) } : defaults
+      data.prompt = value
+      sessionStorage.setItem(sessionStorageKey, JSON.stringify(data))
+    } catch {}
+  }, [value, sessionStorageKey])
 
   // Auto-resize the textarea as content grows (with a sensible max height)
   const resizeTextarea = () => {
@@ -411,7 +454,29 @@ export function ChatInput({
                     </Button>
                     <Pill
                       active={webSearch}
-                      onClick={() => setWebSearch((v) => !v)}
+                      onClick={() => {
+                        setWebSearch((prev) => {
+                          const next = !prev
+                          try {
+                            if (sessionStorageKey) {
+                              const raw = sessionStorage.getItem(sessionStorageKey)
+                              const defaults = {
+                                prompt: "",
+                                files: [] as any[],
+                                selectedToolIds: [] as string[],
+                                selectedFilterIds: [] as string[],
+                                imageGenerationEnabled: false,
+                                webSearchEnabled: false,
+                                codeInterpreterEnabled: false,
+                              }
+                              const data = raw ? { ...defaults, ...JSON.parse(raw) } : defaults
+                              data.webSearchEnabled = next
+                              sessionStorage.setItem(sessionStorageKey, JSON.stringify(data))
+                            }
+                          } catch {}
+                          return next
+                        })
+                      }}
                       icon={<Globe className="h-3.5 w-3.5" />}
                       label="Web search"
                     />
@@ -509,12 +574,11 @@ function Pill({
       <TooltipTrigger asChild>
         <Button
           type="button"
-          variant="outline"
+          variant={active ? 'default' : 'outline'}
           size="sm"
           onClick={onClick}
           className={cn(
-            "rounded-full h-7 px-3 gap-0",
-            active && "border-primary text-primary bg-primary/10"
+            "rounded-full h-7 px-3 gap-0"
           )}
           aria-pressed={active}
           aria-label={label || "Toggle"}

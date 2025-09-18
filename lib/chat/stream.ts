@@ -9,13 +9,16 @@ export function buildToUIMessageStreamArgs(
   selectedModelInfo: { id: string; name: string; profile_image_url?: string | null } | null,
   saveStrategy: 'replace_last' | 'append_from_trimmed',
   persistParams: { finalChatId: string; userId: string; fullMessagesForTrimmed?: UIMessage<MessageMetadata>[] },
+  extraStartMetadata?: Record<string, unknown>,
 ) {
   return {
     originalMessages,
     generateMessageId: createIdGenerator({ prefix: 'msg', size: 16 }),
     messageMetadata: ({ part }: { part: any }) => {
       if (part.type === 'start') {
-        return buildMessageMetadataStart(selectedModelInfo);
+        const base = buildMessageMetadataStart(selectedModelInfo) as Record<string, unknown> | undefined;
+        if (!extraStartMetadata) return base as MessageMetadata | undefined;
+        return { ...(base || {}), ...extraStartMetadata } as MessageMetadata;
       }
       if (part.type === 'finish') {
         return { totalTokens: part.totalUsage?.totalTokens } as MessageMetadata;
