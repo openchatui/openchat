@@ -1,5 +1,4 @@
-import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
-import { AppSidebar } from "@/components/sidebar/app-sidebar"
+import { SidebarInset } from "@/components/ui/sidebar"
 import { Session } from "next-auth"
 import { ADMIN_NAV_ITEMS, AdminTab, AdminNavItem } from "@/constants/admin"
 import { ReactNode } from "react"
@@ -17,23 +16,20 @@ interface AdminLayoutProps {
 export function AdminSidebar({ session, activeTab, children, initialChats = [] }: AdminLayoutProps) {
 
     return (
-        <SidebarProvider>
-            <AppSidebar session={session} initialChats={initialChats} />
-            <SidebarInset>
-                <div className="flex h-screen bg-background">
-                    {/* Admin Navigation Sidebar */}
-                    <div className="w-64 bg-background border-r border-border p-4">
-                        <NavLinks items={ADMIN_NAV_ITEMS} activeTab={activeTab} />
-                    </div>
+        <SidebarInset>
+            <div className="flex h-screen bg-background">
+                {/* Admin Navigation Sidebar */}
+                <div className="w-64 bg-background border-r border-border p-4">
+                    <NavLinks items={ADMIN_NAV_ITEMS} activeTab={activeTab} />
+                </div>
 
-                    {/* Main Content Area */}
-                    <div className="flex-1 overflow-hidden">
-                        <div className="h-full p-6 overflow-auto">
-                            {children}
-                        </div>
+                {/* Main Content Area */}
+                <div className="flex-1 overflow-hidden">
+                    <div className="h-full p-6 overflow-auto">
+                        {children}
                     </div>
                 </div>
-            </SidebarInset>
-        </SidebarProvider>
+            </div>
+        </SidebarInset>
     )
 }

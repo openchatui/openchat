@@ -3,10 +3,8 @@
 import { useState, useEffect, useCallback, useRef } from "react"
 import { UIMessage } from 'ai';
 import { useRouter, useSearchParams } from "next/navigation"
-import { AppSidebar } from "@/components/sidebar/app-sidebar"
 import {
   SidebarInset,
-  SidebarProvider,
 } from "@/components/ui/sidebar"
 import { ChatInput } from "@/components/chat/chat-input"
 import { ModelSelector } from "@/components/chat/model-selector"
@@ -615,55 +613,49 @@ export default function ChatClient({
   // Show loading state during initialization
   if (isInitializing || effectiveModelsLoading) {
     return (
-      <SidebarProvider>
-        <AppSidebar session={session} initialChats={initialChats} pinnedModels={pinnedModels} timeZone={timeZone} />
-        <SidebarInset>
-          <div className="flex items-center justify-center h-full">
-            <Loader className="h-10 w-10 text-center" />
-          </div>
-        </SidebarInset>
-      </SidebarProvider>
+      <SidebarInset>
+        <div className="flex items-center justify-center h-full">
+          <Loader className="h-10 w-10 text-center" />
+        </div>
+      </SidebarInset>
     )
   }
 
   return (
-    <SidebarProvider>
-      <AppSidebar session={session} initialChats={initialChats} pinnedModels={pinnedModels} timeZone={timeZone} />
-      <SidebarInset>
-        <div className="relative flex flex-col h-full">
-          <ModelSelector
-            selectedModelId={currentModel?.id}
-            onModelSelect={handleModelSelect}
-            models={effectiveModels}
-          />
+    <SidebarInset>
+      <div className="relative flex flex-col h-full">
+        <ModelSelector
+          selectedModelId={currentModel?.id}
+          onModelSelect={handleModelSelect}
+          models={effectiveModels}
+        />
 
-          <div className="flex-1 relative overflow-hidden">
-            <div className="absolute inset-0">
-              <ChatMessages
-                messages={messages}
-                isLoading={isLoading}
-                error={error}
-                selectedModel={currentModel}
-                assistantDisplayName={assistantInfo.displayName}
-                assistantImageUrl={assistantInfo.imageUrl}
-                timeZone={timeZone}
-              />
-            </div>
-            <div className="absolute bottom-0 left-0 right-0 z-10">
-              <ChatInput
-                onSubmit={handleSendMessage}
-                disabled={false}
-                isStreaming={isLoading}
-                onStop={handleStop}
-                sessionStorageKey={`chat-input-${chatId}`}
-                webSearchAvailable={webSearchAvailable}
-                imageAvailable={imageAvailable}
-              />
-            </div>
+        <div className="flex-1 relative overflow-hidden">
+          <div className="absolute inset-0">
+            <ChatMessages
+              messages={messages}
+              isLoading={isLoading}
+              error={error}
+              selectedModel={currentModel}
+              assistantDisplayName={assistantInfo.displayName}
+              assistantImageUrl={assistantInfo.imageUrl}
+              timeZone={timeZone}
+            />
+          </div>
+          <div className="absolute bottom-0 left-0 right-0 z-10">
+            <ChatInput
+              onSubmit={handleSendMessage}
+              disabled={false}
+              isStreaming={isLoading}
+              onStop={handleStop}
+              sessionStorageKey={`chat-input-${chatId}`}
+              webSearchAvailable={webSearchAvailable}
+              imageAvailable={imageAvailable}
+            />
           </div>
         </div>
-      </SidebarInset>
-    </SidebarProvider>
+      </div>
+    </SidebarInset>
   )
 }
 

@@ -4,10 +4,8 @@ import { useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { Session } from "next-auth"
 import { toast } from 'sonner'
-import { AppSidebar } from "@/components/sidebar/app-sidebar"
 import {
   SidebarInset,
-  SidebarProvider,
 } from "@/components/ui/sidebar"
 import { ChatInput } from "@/components/chat/chat-input"
 import { ModelSelector } from "@/components/chat/model-selector"
@@ -148,98 +146,93 @@ export default function InitialChatClient({ session, initialChats = [], initialM
   }, [selectedModel, router])
 
   return (
-    <SidebarProvider>
-      <AppSidebar session={session} initialChats={initialChats} pinnedModels={pinnedModels} timeZone={timeZone} />
-      <SidebarInset>
-        <div className="flex flex-col h-full">
-          {/* Header with model selector */}
-          <div className="border-b">
-            <ModelSelector
-              selectedModelId={currentSelectedModel?.id}
-              onModelSelect={handleModelSelect}
-              models={models}
-            />
-          </div>
+    <SidebarInset>
+      <div className="flex flex-col h-full">
+        {/* Header with model selector */}
+        <div className="border-b">
+          <ModelSelector
+            selectedModelId={currentSelectedModel?.id}
+            onModelSelect={handleModelSelect}
+            models={models}
+          />
+        </div>
 
-          {/* Centered content area */}
-          <div className="flex-1 flex flex-col items-center justify-center px-4">
-            <div className="w-full max-w-4xl mx-auto">
-              {/* Hidden ChatMessages for initial render - will be empty but hydrated */}
-              <div style={{ display: 'none' }}>
-                <ChatMessages
-                  messages={[]}
-                  isLoading={false}
-                  assistantDisplayName={currentSelectedModel?.name || 'AI Assistant'}
-                  assistantImageUrl={currentSelectedModel?.meta?.profile_image_url || '/avatars/01.png'}
-                />
-              </div>
-              {/* Welcome / Model info */}
-              <div className="text-center mb-8">
-                {currentSelectedModel ? (
-                  <div className="flex items-center justify-center gap-4">
-                    <Avatar className="h-12 w-12">
-                      <AvatarImage
-                        src={currentSelectedModel.meta?.profile_image_url || "/OpenChat.png"}
-                        alt={currentSelectedModel.name}
-                      />
-                      <AvatarFallback>
-                        {currentSelectedModel.name.charAt(0).toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="text-3xl font-semibold mb-3.5">
-                      {currentSelectedModel.name}
-                    </div>
+        {/* Centered content area */}
+        <div className="flex-1 flex flex-col items-center justify-center px-4">
+          <div className="w-full max-w-4xl mx-auto">
+            {/* Hidden ChatMessages for initial render - will be empty but hydrated */}
+            <div style={{ display: 'none' }}>
+              <ChatMessages
+                messages={[]}
+                isLoading={false}
+                assistantDisplayName={currentSelectedModel?.name || 'AI Assistant'}
+                assistantImageUrl={currentSelectedModel?.meta?.profile_image_url || '/avatars/01.png'}
+              />
+            </div>
+            {/* Welcome / Model info */}
+            <div className="text-center mb-8">
+              {currentSelectedModel ? (
+                <div className="flex items-center justify-center gap-4">
+                  <Avatar className="h-12 w-12">
+                    <AvatarImage
+                      src={currentSelectedModel.meta?.profile_image_url || "/OpenChat.png"}
+                      alt={currentSelectedModel.name}
+                    />
+                    <AvatarFallback>
+                      {currentSelectedModel.name.charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="text-3xl font-semibold mb-3.5">
+                    {currentSelectedModel.name}
                   </div>
-                ) : (
-                  <>
-                    <h1 className="text-4xl font-semibold mb-4">
-                      How can I help you today?
-                    </h1>
-                    <p className="text-muted-foreground text-lg">
-                      Start a conversation with AI
-                    </p>
-                  </>
-                )}
-              </div>
-
-              
-
-              {/* Centered chat input */}
-              <div className="w-full">
-                <ChatInput
-                  placeholder={isCreating ? "Creating conversation..." : "Ask me anything..."}
-                  onSubmit={handleSendMessage}
-                  disabled={isCreating}
-                  sessionStorageKey={'chat-input'}
-                  webSearchAvailable={webSearchAvailable}
-                  imageAvailable={imageAvailable}
-                />
-                <PromptSuggestions
-                  disabled={isCreating}
-                  onSelect={(prompt) => {
-                    void handleSendMessage(
-                      prompt,
-                      { webSearch: false, image: false, codeInterpreter: false },
-                      undefined,
-                      true
-                    )
-                  }}
-                />
-              </div>
-
-              {/* Model selection hint */}
-              {!currentSelectedModel && (
-                <div className="text-center mt-4">
-                  <p className="text-sm text-muted-foreground">
-                    Please select a model from the dropdown above to get started.
-                  </p>
                 </div>
+              ) : (
+                <>
+                  <h1 className="text-4xl font-semibold mb-4">
+                    How can I help you today?
+                  </h1>
+                  <p className="text-muted-foreground text-lg">
+                    Start a conversation with AI
+                  </p>
+                </>
               )}
             </div>
+
+            {/* Centered chat input */}
+            <div className="w-full">
+              <ChatInput
+                placeholder={isCreating ? "Creating conversation..." : "Ask me anything..."}
+                onSubmit={handleSendMessage}
+                disabled={isCreating}
+                sessionStorageKey={'chat-input'}
+                webSearchAvailable={webSearchAvailable}
+                imageAvailable={imageAvailable}
+              />
+              <PromptSuggestions
+                disabled={isCreating}
+                onSelect={(prompt) => {
+                  void handleSendMessage(
+                    prompt,
+                    { webSearch: false, image: false, codeInterpreter: false },
+                    undefined,
+                    true
+                  )
+                }}
+              />
+            </div>
+
+            {/* Model selection hint */}
+            {!currentSelectedModel && (
+              <div className="text-center mt-4">
+                <p className="text-sm text-muted-foreground">
+                  Please select a model from the dropdown above to get started.
+                </p>
+              </div>
+            )}
           </div>
         </div>
-      </SidebarInset>
-    </SidebarProvider>
+      </div>
+    </SidebarInset>
   )
 }
 

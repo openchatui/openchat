@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { ChevronRight, MessageSquare, Trash2, MoreHorizontal } from "lucide-react"
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 
 import {
   Collapsible,
@@ -40,17 +40,19 @@ export function NavChats({ chats, timeZone = 'UTC' }: NavChatsProps) {
   const [isOpen, setIsOpen] = useState(true)
   const [mounted, setMounted] = useState(false)
   const pathname = usePathname()
-  const { titles } = useChatTitles(chats)
+  // Avoid scanning large chat arrays when collapsed by passing empty list to the hook
+  const effectiveChatsForTitles = isOpen ? chats : []
+  const { titles } = useChatTitles(effectiveChatsForTitles)
   // Trigger background tag generation like titles only on non-admin routes
   const tagsEnabled = !(pathname || '').startsWith('/admin')
-  useTags(chats, { enabled: tagsEnabled })
+  useTags(chats, { enabled: tagsEnabled && isOpen })
 
   useEffect(() => {
     setMounted(true)
   }, [])
 
   // Group chats by date buckets: Today, Yesterday, Past 30 days, then by Month
-  const sections = (() => {
+  const sections = useMemo(() => {
     // Ensure newest first (by created date)
     const sorted = [...chats].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
 
@@ -136,7 +138,7 @@ export function NavChats({ chats, timeZone = 'UTC' }: NavChatsProps) {
       result.push({ label, items: monthBuckets[mk] })
     }
     return result
-  })()
+  }, [chats, timeZone])
 
   return (
     <SidebarGroup className="pt-0">

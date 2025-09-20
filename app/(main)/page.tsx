@@ -3,7 +3,7 @@
 import InitialChatClient from "@/components/chat/InitialChatClient";
 import { auth } from "@/lib/auth/auth";
 import { redirect } from "next/navigation";
-import { getInitialChats, getModels, getUserSettings, loadChatMessages } from "@/actions/chat";
+import { getInitialChats, getModels, getUserSettings } from "@/actions/chat";
 import { cookies } from "next/headers";
 import { getWebSearchEnabled, getImageGenerationAvailable, getAudioConfig } from "@/lib/server/config";
 import { AppConfigProvider } from "@/components/providers/AppConfigProvider";
@@ -30,36 +30,7 @@ export default async function Page() {
   const cookieStore = await cookies()
   const timeZone = cookieStore.get('tz')?.value || 'UTC'
 
-  // Find the most recent chat with assistant messages and get its last model
-  let lastUsedModelId: string | null = null;
-
-  if (chats.length > 0) {
-    // Try to find the most recent chat that has assistant messages (chats are already sorted by updatedAt desc)
-    for (const chat of chats) {
-      try {
-        const messages = await loadChatMessages(chat.id);
-        // Check if this chat has any assistant messages
-        const hasAssistantMessages = messages.some(msg => msg.role === 'assistant');
-        if (hasAssistantMessages) {
-          // Find the last assistant message
-          for (let i = messages.length - 1; i >= 0; i--) {
-            const message = messages[i];
-            if (message.role === 'assistant') {
-              const meta = (message as any).metadata;
-              if (meta?.model?.id) {
-                lastUsedModelId = meta.model.id;
-                break;
-              }
-            }
-          }
-          if (lastUsedModelId) break; // Found a model, no need to check other chats
-        }
-      } catch (error) {
-        // Skip this chat if loading fails
-        console.error(`Failed to load messages for chat ${chat.id}:`, error);
-      }
-    }
-  }
+  // Avoid expensive per-chat message loading; model will default from settings or first active
 
   // Extract critical images for preloading
   const criticalImages: string[] = [];
@@ -114,7 +85,6 @@ export default async function Page() {
           initialChats={chats}
           initialModels={models}
           initialUserSettings={userSettings as Record<string, any>}
-          lastUsedModelId={lastUsedModelId}
           pinnedModels={pinnedModels}
           timeZone={timeZone}
           webSearchAvailable={webSearchAvailable}
