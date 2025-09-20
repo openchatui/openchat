@@ -12,7 +12,7 @@
     "db:reset": "prisma migrate reset && prisma migrate dev && npx prisma generate",
     "db:studio": "prisma studio",
     "db:seed": "tsx prisma/seed.ts",
-    "prisma:gen:sqlite": "prisma generate --schema prisma/schema.prisma",
+    "prisma:gen:sqlite": "prisma generate --schema prisma/schema.sqlite.prisma",
     "prisma:gen:pg": "prisma generate --schema prisma/schema.postgres.prisma",
     "db:push:sqlite": "prisma db push --schema prisma/schema.prisma",
     "db:push:pg": "prisma db push --schema prisma/schema.postgres.prisma",

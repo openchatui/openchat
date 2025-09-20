@@ -11,7 +11,7 @@ export async function buildTools(options: { enableWebSearch?: boolean; enableIma
   if (enableWebSearch) {
     const ws = await getWebSearchConfigAction()
     const bl = ws.browserless || {}
-    const token = String(bl.apiKey || ws.browserless?.ENV_API_KEY || '')
+    const token = String(bl.apiKey || '')
     const tools = createBrowserlessTools({
       token,
       stealth: bl.stealth !== false,
