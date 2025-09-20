@@ -2,22 +2,18 @@ import { chromium, type Browser, type Page, type BrowserContext } from 'playwrig
 import { tool } from 'ai'
 import { z } from 'zod'
 
-const BROWSERLESS_TOKEN = process.env.BROWSERLESS_API_KEY || ''
+export interface BrowserlessAdvancedParams {
+  token: string
+  route?: string
+  stealth?: boolean
+  stealthRoute?: boolean
+  blockAds?: boolean
+  headless?: boolean
+  locale?: string
+  timezone?: string
+  userAgent?: string
+}
 
-// Build Browserless WS endpoint with optional anti-bot flags
-const wsParams = new URLSearchParams()
-if (BROWSERLESS_TOKEN) wsParams.set('token', BROWSERLESS_TOKEN)
-// Enable stealth by default; can disable via env
-if (process.env.BROWSERLESS_STEALTH !== 'false') wsParams.set('stealth', 'true')
-// Optionally block ads/trackers to reduce noisy third-party scripts
-if (process.env.BROWSERLESS_BLOCK_ADS === 'true') wsParams.set('blockAds', 'true')
-// Allow opting into headful sessions when supported by the provider
-if (process.env.BROWSERLESS_HEADLESS === 'false') wsParams.set('headless', 'false')
-// Use chromium route; optionally enable stealth route (requires plan support)
-const BROWSERLESS_ROUTE = process.env.BROWSERLESS_ROUTE || (
-  process.env.BROWSERLESS_STEALTH_ROUTE === 'true' ? 'chromium/stealth' : 'chromium'
-)
-const BROWSERLESS_WS = `wss://production-sfo.browserless.io/${BROWSERLESS_ROUTE}?${wsParams.toString()}`
 const DEFAULT_TIMEOUT_MS = 30_000
 const VIEWPORT_CANDIDATES = [
   { width: 1366, height: 768 },
@@ -28,14 +24,8 @@ const VIEWPORT_CANDIDATES = [
 ]
 
 // Locale/timezone and UA tuning to reduce bot detection
-const LOCALE = process.env.BROWSERLESS_LOCALE || 'en-US'
-const TIMEZONE = process.env.BROWSERLESS_TIMEZONE || 'America/Los_Angeles'
-const OVERRIDE_UA = process.env.BROWSERLESS_USER_AGENT
-const UNBLOCK_BASE = 'https://production-sfo.browserless.io/chromium/unblock'
-const DEFAULT_UNBLOCK_TIMEOUT_MS = Number(process.env.BROWSERLESS_UNBLOCK_TIMEOUT_MS || 300000)
-const DEFAULT_PROXY = process.env.BROWSERLESS_PROXY // e.g. 'residential' | 'datacenter'
-const DEFAULT_PROXY_COUNTRY = process.env.BROWSERLESS_PROXY_COUNTRY // e.g. 'us','gb'
-const DEFAULT_PROXY_STICKY = process.env.BROWSERLESS_PROXY_STICKY === 'true'
+function resolveLocale(p?: string) { return p || 'en-US' }
+function resolveTimezone(p?: string) { return p || 'America/Los_Angeles' }
 
 const USER_AGENTS: string[] = [
   // Recent stable Chrome on Windows
@@ -46,8 +36,8 @@ const USER_AGENTS: string[] = [
   'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36',
 ]
 
-function chooseUserAgent(): string {
-  if (OVERRIDE_UA) return OVERRIDE_UA
+function chooseUserAgent(overrideUA?: string): string {
+  if (overrideUA) return overrideUA
   const index = Math.floor(Math.random() * USER_AGENTS.length)
   return USER_AGENTS[index]
 }
@@ -57,8 +47,8 @@ function chooseViewport() {
   return VIEWPORT_CANDIDATES[index]
 }
 
-async function applyStealth(context: BrowserContext) {
-  if (process.env.BROWSERLESS_STEALTH === 'false') return
+async function applyStealth(context: BrowserContext, enabled: boolean) {
+  if (!enabled) return
   await context.addInitScript(() => {
     // webdriver flag
     Object.defineProperty(navigator, 'webdriver', { get: () => false })
@@ -102,36 +92,50 @@ async function applyStealth(context: BrowserContext) {
   })
 }
 
-let sharedBrowser: Browser | null = null
-let sharedPage: Page | null = null
-let sharedLiveURL: string | null = null
+export function createBrowserlessTools(params: BrowserlessAdvancedParams) {
+  const token = String(params.token || '')
+  const wsParams = new URLSearchParams()
+  if (token) wsParams.set('token', token)
+  if (params.stealth !== false) wsParams.set('stealth', 'true')
+  if (params.blockAds) wsParams.set('blockAds', 'true')
+  if (params.headless === false) wsParams.set('headless', 'false')
+  const route = params.route || (params.stealthRoute ? 'chromium/stealth' : 'chromium')
+  const BROWSERLESS_WS = `wss://production-sfo.browserless.io/${route}?${wsParams.toString()}`
 
-async function ensurePage(): Promise<Page> {
-  if (!BROWSERLESS_TOKEN) {
-    throw new Error('Missing BROWSERLESS_API_KEY environment variable')
+  const LOCALE = resolveLocale(params.locale)
+  const TIMEZONE = resolveTimezone(params.timezone)
+  const OVERRIDE_UA = params.userAgent
+
+  let sharedBrowser: Browser | null = null
+  let sharedPage: Page | null = null
+  let sharedLiveURL: string | null = null
+
+  async function ensurePage(): Promise<Page> {
+    if (!token) {
+      throw new Error('Missing Browserless token')
+    }
+    if (!sharedBrowser) {
+      sharedBrowser = await chromium.connectOverCDP(BROWSERLESS_WS)
+    }
+    if (!sharedPage) {
+      const ctx = sharedBrowser.contexts()[0] || await sharedBrowser.newContext({
+        userAgent: chooseUserAgent(OVERRIDE_UA || undefined),
+        locale: LOCALE,
+        timezoneId: TIMEZONE,
+        viewport: chooseViewport(),
+        deviceScaleFactor: [1, 1.25, 1.5, 2][Math.floor(Math.random() * 4)],
+        hasTouch: Math.random() < 0.2,
+        extraHTTPHeaders: {
+          'Accept-Language': LOCALE,
+          'Sec-CH-UA-Platform': '"Windows"',
+        },
+      })
+      await applyStealth(ctx, params.stealth !== false)
+      sharedPage = await ctx.newPage()
+      sharedPage.setDefaultTimeout(DEFAULT_TIMEOUT_MS)
+    }
+    return sharedPage
   }
-  if (!sharedBrowser) {
-    sharedBrowser = await chromium.connectOverCDP(BROWSERLESS_WS)
-  }
-  if (!sharedPage) {
-    const ctx = sharedBrowser.contexts()[0] || await sharedBrowser.newContext({
-      userAgent: chooseUserAgent(),
-      locale: LOCALE,
-      timezoneId: TIMEZONE,
-      viewport: chooseViewport(),
-      deviceScaleFactor: [1, 1.25, 1.5, 2][Math.floor(Math.random() * 4)],
-      hasTouch: Math.random() < 0.2,
-      extraHTTPHeaders: {
-        'Accept-Language': LOCALE,
-        'Sec-CH-UA-Platform': '"Windows"',
-      },
-    })
-    await applyStealth(ctx)
-    sharedPage = await ctx.newPage()
-    sharedPage.setDefaultTimeout(DEFAULT_TIMEOUT_MS)
-  }
-  return sharedPage
-}
 
 function randomInt(min: number, max: number) {
   return Math.floor(Math.random() * (max - min + 1)) + min
@@ -153,7 +157,7 @@ async function humanizePageInteraction(page: Page) {
   }
 }
 
-async function ensureLiveURL(options?: { timeoutMs?: number; showBrowserInterface?: boolean; quality?: number; resizable?: boolean }): Promise<string> {
+  async function ensureLiveURL(options?: { timeoutMs?: number; showBrowserInterface?: boolean; quality?: number; resizable?: boolean }): Promise<string> {
   if (sharedLiveURL && typeof sharedLiveURL === 'string' && sharedLiveURL.length > 0) {
     return sharedLiveURL
   }
@@ -170,9 +174,9 @@ async function ensureLiveURL(options?: { timeoutMs?: number; showBrowserInterfac
     return liveURL
   }
   throw new Error('Browserless.liveURL did not return a URL')
-}
+  }
 
-export const browserlessTools = {
+  return {
   navigate: tool({
     description: 'Navigate the browser to a specific URL and wait for network to be idle',
     inputSchema: z.object({ url: z.string().url() }),
@@ -735,7 +739,8 @@ export const browserlessTools = {
   //     return { summary, url: liveURL || currentUrl, details: { matches } as any }
   //   },
   // })
+  }
 }
 
-export type BrowserlessTools = typeof browserlessTools
+export type BrowserlessTools = ReturnType<typeof createBrowserlessTools>
 

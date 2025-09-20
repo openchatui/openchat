@@ -148,7 +148,7 @@ export async function POST(req: NextRequest) {
 
     const openaiProviderOptions: Record<string, any> = resolveOpenAIProviderOptions(modelName)
 
-    const mergedTools = buildTools({ enableWebSearch, enableImage })
+    const mergedTools = await buildTools({ enableWebSearch, enableImage })
     const toolsEnabled = Boolean(mergedTools)
 
     try {

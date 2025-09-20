@@ -20,7 +20,17 @@ interface AdminWebSearchProps {
   initialSystemPrompt?: string
   envSystemPrompt?: string
   initialGooglePse?: { apiKey?: string; engineId?: string; resultCount?: number; domainFilters?: string[] }
-  initialBrowserless?: { apiKey?: string; ENV_API_KEY?: string | null }
+  initialBrowserless?: {
+    apiKey?: string
+    stealth?: boolean
+    stealthRoute?: boolean
+    blockAds?: boolean
+    headless?: boolean
+    locale?: string
+    timezone?: string
+    userAgent?: string
+    route?: string
+  }
 }
 
 export function AdminWebSearch({ session, initialChats = [], initialEnabled = false, initialProvider = 'browserless', initialSystemPrompt = '', envSystemPrompt = '', initialGooglePse, initialBrowserless }: AdminWebSearchProps) {
@@ -111,7 +121,16 @@ export function AdminWebSearch({ session, initialChats = [], initialEnabled = fa
                 isGlobalLoading={isLoading}
                 error={error}
                 initialApiKey={initialBrowserless?.apiKey}
-                envApiKey={initialBrowserless?.ENV_API_KEY ?? null}
+                initialAdvanced={{
+                  stealth: initialBrowserless?.stealth,
+                  stealthRoute: initialBrowserless?.stealthRoute,
+                  blockAds: initialBrowserless?.blockAds,
+                  headless: initialBrowserless?.headless,
+                  locale: initialBrowserless?.locale,
+                  timezone: initialBrowserless?.timezone,
+                  userAgent: initialBrowserless?.userAgent,
+                  route: initialBrowserless?.route,
+                }}
               />
             </CardContent>
           </Card>

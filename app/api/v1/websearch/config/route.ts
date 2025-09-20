@@ -31,7 +31,6 @@ export async function GET() {
     const BL = isPlainObject(websearch.browserless) ? (websearch.browserless as any) : {}
     const BROWSERLESS = {
       apiKey: typeof BL.apiKey === 'string' ? BL.apiKey : '',
-      ENV_API_KEY: typeof process.env.BROWSERLESS_API_KEY === 'string' ? process.env.BROWSERLESS_API_KEY : null,
     }
     const ENV_SYSTEM_PROMPT = typeof process.env.BROWSERLESS_SYSTEM_PROMPT === 'string' ? process.env.BROWSERLESS_SYSTEM_PROMPT : null
 

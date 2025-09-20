@@ -11,7 +11,13 @@
     "db:migrate": "npx prisma migrate dev && npx prisma generate",
     "db:reset": "prisma migrate reset && prisma migrate dev && npx prisma generate",
     "db:studio": "prisma studio",
-    "db:seed": "tsx prisma/seed.ts"
+    "db:seed": "tsx prisma/seed.ts",
+    "prisma:gen:sqlite": "prisma generate --schema prisma/schema.prisma",
+    "prisma:gen:pg": "prisma generate --schema prisma/schema.postgres.prisma",
+    "db:push:sqlite": "prisma db push --schema prisma/schema.prisma",
+    "db:push:pg": "prisma db push --schema prisma/schema.postgres.prisma",
+    "migrate:dev:pg": "prisma migrate dev --schema prisma/schema.postgres.prisma",
+    "migrate:deploy:pg": "prisma migrate deploy --schema prisma/schema.postgres.prisma"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^2.0.17",

@@ -7,7 +7,17 @@ export interface WebSearchConfig {
   SYSTEM_PROMPT: string
   ENV_SYSTEM_PROMPT: string
   PROVIDER: 'browserless' | 'googlepse'
-  browserless: { apiKey?: string; ENV_API_KEY?: string | null }
+  browserless: {
+    apiKey?: string
+    stealth?: boolean
+    stealthRoute?: boolean
+    blockAds?: boolean
+    headless?: boolean
+    locale?: string
+    timezone?: string
+    userAgent?: string
+    route?: string
+  }
   googlepse: { apiKey?: string; engineId?: string; resultCount?: number; domainFilters?: string[] }
 }
 
@@ -22,13 +32,22 @@ export async function getWebSearchConfigAction(): Promise<WebSearchConfig> {
   const browserless = (ws.browserless && typeof ws.browserless === 'object') ? ws.browserless as any : {}
   const googlepse = (ws.googlepse && typeof ws.googlepse === 'object') ? ws.googlepse as any : {}
   const envPrompt = process.env.WEBSEARCH_SYSTEM_PROMPT || ''
-  const envBlKey = process.env.BROWSERLESS_API_KEY || null
   return {
     ENABLED: enabled,
     SYSTEM_PROMPT: prompt,
     ENV_SYSTEM_PROMPT: envPrompt,
     PROVIDER: provider,
-    browserless: { apiKey: typeof browserless.apiKey === 'string' ? String(browserless.apiKey) : undefined, ENV_API_KEY: envBlKey },
+    browserless: {
+      apiKey: typeof browserless.apiKey === 'string' ? String(browserless.apiKey) : undefined,
+      stealth: browserless.stealth !== false,
+      stealthRoute: browserless.stealthRoute === true,
+      blockAds: browserless.blockAds === true,
+      headless: browserless.headless !== false,
+      locale: typeof browserless.locale === 'string' ? String(browserless.locale) : undefined,
+      timezone: typeof browserless.timezone === 'string' ? String(browserless.timezone) : undefined,
+      userAgent: typeof browserless.userAgent === 'string' ? String(browserless.userAgent) : undefined,
+      route: typeof browserless.route === 'string' ? String(browserless.route) : undefined,
+    },
     googlepse: {
       apiKey: typeof googlepse.apiKey === 'string' ? String(googlepse.apiKey) : undefined,
       engineId: typeof googlepse.engineId === 'string' ? String(googlepse.engineId) : undefined,

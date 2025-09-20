@@ -27,7 +27,17 @@ export default async function AdminWebSearchPage() {
         resultCount: ws.googlepse.resultCount,
         domainFilters: ws.googlepse.domainFilters,
       }}
-      initialBrowserless={{ apiKey: ws.browserless.apiKey, ENV_API_KEY: ws.browserless.ENV_API_KEY }}
+      initialBrowserless={{
+        apiKey: ws.browserless.apiKey,
+        stealth: ws.browserless.stealth,
+        stealthRoute: ws.browserless.stealthRoute,
+        blockAds: ws.browserless.blockAds,
+        headless: ws.browserless.headless,
+        locale: ws.browserless.locale,
+        timezone: ws.browserless.timezone,
+        userAgent: ws.browserless.userAgent,
+        route: ws.browserless.route,
+      }}
     />
   )
 }
