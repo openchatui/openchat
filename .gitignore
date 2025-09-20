@@ -42,3 +42,6 @@ prisma/*_data.csv
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+public/profiles/*
+public/images/*

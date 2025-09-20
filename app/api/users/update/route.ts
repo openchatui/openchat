@@ -55,7 +55,7 @@ export async function PUT(request: NextRequest) {
   try {
 
     const body: UpdateUserData = await request.json()
-    const { id, name, email, role, userGroup, password } = body
+    const { id, name, email, role, userGroup, password, image } = body
 
     // Validate required fields
     if (!id) {
@@ -97,6 +97,7 @@ export async function PUT(request: NextRequest) {
     if (name !== undefined) updateData.name = name
     if (email !== undefined) updateData.email = email
     if (role !== undefined) updateData.role = reverseRoleMap[role as keyof typeof reverseRoleMap] || 'USER'
+    if (image !== undefined) updateData.image = image
 
     // Handle password update
     if (password && password.trim()) {

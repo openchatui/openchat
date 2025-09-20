@@ -37,7 +37,7 @@ export type ReasoningProps = ComponentProps<typeof Collapsible> & {
   duration?: number;
 };
 
-const AUTO_CLOSE_DELAY = 1000;
+const AUTO_CLOSE_DELAY = 0;
 
 export const Reasoning = memo(
   ({
@@ -75,12 +75,31 @@ export const Reasoning = memo(
       }
     }, [isStreaming, startTime, setDuration]);
 
-    // Auto-open when streaming starts; keep open after streaming ends so full thought remains visible
+    // Auto-open when streaming starts and reset auto-close guard for this session
     useEffect(() => {
       if (isStreaming && !isOpen) {
         setIsOpen(true);
       }
+      if (isStreaming && hasAutoClosedRef) {
+        setHasAutoClosedRef(false);
+      }
     }, [isStreaming, isOpen, defaultOpen, setIsOpen, hasAutoClosedRef]);
+
+    // Auto-close immediately when streaming ends; don't display full thought while open
+    useEffect(() => {
+      if (!isStreaming && isOpen && !hasAutoClosedRef) {
+        if (AUTO_CLOSE_DELAY > 0) {
+          const t = setTimeout(() => {
+            setIsOpen(false);
+            setHasAutoClosedRef(true);
+          }, AUTO_CLOSE_DELAY);
+          return () => clearTimeout(t);
+        } else {
+          setIsOpen(false);
+          setHasAutoClosedRef(true);
+        }
+      }
+    }, [isStreaming, isOpen, hasAutoClosedRef, setIsOpen]);
 
     const handleOpenChange = (newOpen: boolean) => {
       setIsOpen(newOpen);
@@ -170,7 +189,7 @@ export const ReasoningContent = memo(
         {isStreaming ? (
           <div className="relative">
             <div className="pointer-events-none absolute inset-x-0 top-0 h-6 bg-gradient-to-b from-background to-transparent" />
-            <div className="font-mono text-xs leading-5 h-[9rem] overflow-hidden flex flex-col justify-end whitespace-pre-wrap">
+            <div className="font-mono text-xs leading-5 h-[9rem] overflow-hidden whitespace-pre-wrap">
               {children}
             </div>
           </div>

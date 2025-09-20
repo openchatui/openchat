@@ -11,10 +11,10 @@ import type {
 } from '@/types/user'
 import { API_ENDPOINTS, TOAST_MESSAGES, MESSAGES } from '@/constants/user'
 
-export function useUsers() {
+export function useUsers(initialUsers?: User[]) {
   const [usersState, setUsersState] = useState<UsersState>({
-    users: [],
-    isLoading: true,
+    users: initialUsers ?? [],
+    isLoading: initialUsers ? false : true,
     isSaving: false,
     deletingIds: new Set()
   })
@@ -32,29 +32,7 @@ export function useUsers() {
     showPassword: false
   })
 
-  // Load users from API
-  const loadUsers = useCallback(async () => {
-    try {
-      setUsersState(prev => ({ ...prev, isLoading: true }))
-
-      const response = await fetch(API_ENDPOINTS.USERS)
-      if (!response.ok) {
-        throw new Error('Failed to load users')
-      }
-
-      const users = await response.json()
-      setUsersState(prev => ({
-        ...prev,
-        users,
-        isLoading: false
-      }))
-
-    } catch (error) {
-      console.error('Error loading users:', error)
-      setUsersState(prev => ({ ...prev, isLoading: false }))
-      toast.error(TOAST_MESSAGES.USER_LOAD_FAILED)
-    }
-  }, [])
+  // No client-side user loading when initialUsers are provided
 
   // Initialize form for editing
   const handleEditUser = useCallback((user: User) => {
@@ -130,6 +108,49 @@ export function useUsers() {
     }
   }, [editState.editingUser, editState.editForm])
 
+  // Save only profile image URL
+  const updateUserImage = useCallback(async (url: string) => {
+    if (!editState.editingUser) return
+    const userId = editState.editingUser.id
+    const prevUrl = editState.editingUser.profilePicture
+
+    // Optimistic update
+    setEditState(prev => prev.editingUser ? ({
+      ...prev,
+      editingUser: { ...prev.editingUser, profilePicture: url }
+    }) : prev)
+
+    try {
+      const response = await fetch(API_ENDPOINTS.USER_UPDATE, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: userId, image: url } satisfies UpdateUserData)
+      })
+      if (!response.ok) throw new Error('Failed to update user image')
+      const updatedUser: User = await response.json()
+
+      // Sync into users list and editing user
+      setUsersState(prev => ({
+        ...prev,
+        users: prev.users.map(u => u.id === userId ? updatedUser : u)
+      }))
+      setEditState(prev => prev.editingUser ? ({
+        ...prev,
+        editingUser: { ...updatedUser },
+        // keep current form intact
+        editForm: prev.editForm
+      }) : prev)
+    } catch (error) {
+      console.error(error)
+      // Revert optimistic change
+      setEditState(prev => prev.editingUser ? ({
+        ...prev,
+        editingUser: { ...prev.editingUser, profilePicture: prevUrl }
+      }) : prev)
+      toast.error(TOAST_MESSAGES.USER_UPDATE_FAILED)
+    }
+  }, [editState.editingUser])
+
   // Delete user
   const deleteUser = useCallback(async (userId: string) => {
     try {
@@ -172,10 +193,7 @@ export function useUsers() {
     }))
   }, [])
 
-  // Load users on mount
-  useEffect(() => {
-    loadUsers()
-  }, [loadUsers])
+  // No client fetch on mount; users are provided from server
 
   return {
     // State
@@ -189,10 +207,10 @@ export function useUsers() {
     showPassword: editState.showPassword,
 
     // Actions
-    loadUsers,
     handleEditUser,
     updateEditForm,
     updateUser,
+    updateUserImage,
     deleteUser,
     togglePasswordVisibility,
     setEditState

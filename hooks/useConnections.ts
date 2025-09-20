@@ -1,7 +1,16 @@
 import { useState, useEffect, useCallback } from 'react'
 import { toast } from 'sonner'
-import { connectionsApi } from '@/lib/connections'
-import { DEFAULT_OPENAI_CONNECTION, DEFAULT_OLLAMA_CONNECTION, API_ENDPOINTS, TOAST_MESSAGES } from '@/constants/connections'
+import { DEFAULT_OPENAI_CONNECTION, DEFAULT_OLLAMA_CONNECTION, TOAST_MESSAGES } from '@/constants/connections'
+import {
+  getConnections,
+  getConnectionsConfig,
+  createConnections,
+  updateConnectionAction,
+  deleteConnectionAction,
+  updateConnectionsConfig,
+  testConnectionAction,
+  syncModelsAction,
+} from '@/actions/connections'
 import type {
   Connection,
   CreateConnectionData,
@@ -12,10 +21,10 @@ import type {
   ConnectionsConfig
 } from '@/types/connections'
 
-export function useConnections() {
+export function useConnections(initialConnections: Connection[] = [], initialConfig: ConnectionsConfig | null = null) {
   const [connectionsState, setConnectionsState] = useState<ConnectionsState>({
-    connections: [],
-    isLoading: true,
+    connections: initialConnections,
+    isLoading: initialConnections.length === 0,
     isSaving: false,
     testingConnections: new Set(),
     successfulConnections: new Set(),
@@ -24,7 +33,10 @@ export function useConnections() {
 
   const [formState, setFormState] = useState<ConnectionFormState>({
     newConnections: [DEFAULT_OPENAI_CONNECTION],
-    newOllamaConnections: [], // Will be populated in loadConnections based on existing connections
+    newOllamaConnections: (() => {
+      const hasOllama = initialConnections.some(c => c.type === 'ollama')
+      return hasOllama ? [] : [DEFAULT_OLLAMA_CONNECTION]
+    })(),
     visibleApiKeys: new Set(),
     visibleNewApiKeys: new Set()
   })
@@ -36,17 +48,17 @@ export function useConnections() {
     showEditApiKey: false
   })
 
-  const [connectionsConfig, setConnectionsConfig] = useState<ConnectionsConfig | null>(null)
+  const [connectionsConfig, setConnectionsConfig] = useState<ConnectionsConfig | null>(initialConfig)
 
   const loadConnections = useCallback(async () => {
     try {
       setConnectionsState(prev => ({ ...prev, isLoading: true }))
       const [data, cfg] = await Promise.all([
-        connectionsApi.getAll(),
-        connectionsApi.getConfig().catch(() => null)
+        getConnections(),
+        getConnectionsConfig().then(r => r.connections).catch(() => null)
       ])
       setConnectionsState(prev => ({ ...prev, connections: data as Connection[] }))
-      if (cfg && (cfg as any).connections) setConnectionsConfig((cfg as any).connections as ConnectionsConfig)
+      if (cfg) setConnectionsConfig(cfg as ConnectionsConfig)
 
       // Update form state based on existing connections
       const hasOllamaConnection = (data as Connection[]).some((conn) => conn.type === 'ollama')
@@ -68,27 +80,7 @@ export function useConnections() {
     apiKey?: string
   ) => {
     try {
-      const response = await fetch(API_ENDPOINTS.MODELS_SYNC, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          baseUrl: baseUrl.trim(),
-          type,
-          apiKey: apiKey || null,
-          // Provide an explicit namespace label for local ollama providers
-          ollama: type === 'ollama' ? 'ollama' : undefined,
-        }),
-      })
-
-      if (!response.ok) {
-        throw new Error(`Failed to sync models: ${response.status}`)
-      }
-
-      const result = await response.json()
-      console.log(`Synced ${result.count} models for ${type} connection`)
-      return result
+      return await syncModelsAction({ baseUrl: baseUrl.trim(), type, apiKey })
     } catch (error) {
       console.error('Error syncing models:', error)
       return null
@@ -99,7 +91,7 @@ export function useConnections() {
     try {
       setConnectionsState(prev => ({ ...prev, isSaving: true }))
 
-      await connectionsApi.create(connectionsToCreate)
+      await createConnections(connectionsToCreate)
       await loadConnections()
 
       // Reset forms
@@ -129,7 +121,7 @@ export function useConnections() {
     try {
       setEditState(prev => ({ ...prev, isUpdating: true }))
 
-      await connectionsApi.update(editState.editingConnection.id, {
+      await updateConnectionAction(editState.editingConnection.id, {
         type: editState.editingConnection.type,
         baseUrl: editState.editForm.baseUrl.trim(),
         apiKey: editState.editingConnection.type === 'openai-api' ? editState.editForm.apiKey.trim() : undefined
@@ -158,7 +150,7 @@ export function useConnections() {
 
     try {
       setEditState(prev => ({ ...prev, isUpdating: true }))
-      await connectionsApi.delete(editState.editingConnection!.id)
+      await deleteConnectionAction(editState.editingConnection!.id)
       await loadConnections()
 
       // If we deleted an Ollama connection, show the new connection input
@@ -269,8 +261,9 @@ export function useConnections() {
   const toggleOpenAIConnectionEnabledAt = useCallback(async (index: number, enabled: boolean) => {
     try {
       const payload = { connections: { openai: { api_configs: { [String(index)]: { enable: enabled } } } } }
-      const result = await connectionsApi.updateConfig(payload)
-      if ((result as any).connections) setConnectionsConfig((result as any).connections as ConnectionsConfig)
+      await updateConnectionsConfig(payload)
+      const cfg = await getConnectionsConfig().then(r => r.connections).catch(() => null)
+      if (cfg) setConnectionsConfig(cfg as ConnectionsConfig)
     } catch (error) {
       console.error('Failed to update OpenAI config enable:', error)
     }
@@ -279,8 +272,9 @@ export function useConnections() {
   const toggleOllamaEnabled = useCallback(async (enabled: boolean) => {
     try {
       const payload = { connections: { ollama: { enable: enabled } } }
-      const result = await connectionsApi.updateConfig(payload)
-      if ((result as any).connections) setConnectionsConfig((result as any).connections as ConnectionsConfig)
+      await updateConnectionsConfig(payload)
+      const cfg = await getConnectionsConfig().then(r => r.connections).catch(() => null)
+      if (cfg) setConnectionsConfig(cfg as ConnectionsConfig)
     } catch (error) {
       console.error('Failed to update Ollama enable:', error)
     }
@@ -314,15 +308,7 @@ export function useConnections() {
         })()
       }))
 
-      const response = await fetch(API_ENDPOINTS.CONNECTIONS_TEST, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ baseUrl: baseUrl.trim() }),
-      })
-
-      const result = await response.json()
+      const result = await testConnectionAction(baseUrl.trim())
 
       if (result.success && result.status === 200) {
         // Mark as successful and don't show toast for 200 responses
@@ -350,7 +336,7 @@ export function useConnections() {
                 baseUrl: baseUrl.trim()
               }]
 
-              await connectionsApi.create(connectionsToCreate)
+              await createConnections(connectionsToCreate)
               await loadConnections()
               toast.success(TOAST_MESSAGES.CONNECTION_SAVED)
               await syncModels(baseUrl.trim(), 'ollama')
@@ -389,10 +375,12 @@ export function useConnections() {
     }
   }, [loadConnections, syncModels, connectionsState.connections])
 
-  // Load connections on mount
+  // Load on mount only if not provided by server
   useEffect(() => {
-    loadConnections()
-  }, [loadConnections])
+    if (initialConnections.length === 0) {
+      loadConnections()
+    }
+  }, [loadConnections, initialConnections.length])
 
   return {
     // State

@@ -9,7 +9,7 @@ import { PrismaAdapter } from "@auth/prisma-adapter";
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { schema } from "@/lib/auth/schema";
-import bcrypt from "bcryptjs";
+// Avoid top-level import of bcryptjs to keep this module edge-safe when merely importing `auth()`
 
 const adapter = PrismaAdapter(db);
 
@@ -40,7 +40,11 @@ export const authOptions = {
           throw new Error("Invalid credentials.");
         }
 
-        const passwordMatch = await bcrypt.compare(validatedCredentials.password, user.hashedPassword);
+        const bcrypt = await import("bcryptjs");
+        const passwordMatch = await bcrypt.compare(
+          validatedCredentials.password,
+          user.hashedPassword
+        );
 
         if (!passwordMatch) {
           throw new Error("Invalid credentials.");
@@ -80,32 +84,20 @@ export const authOptions = {
         // Ensure id is available for server components using session.user.id
         // @ts-ignore - augmenting session user shape
         session.user.id = (token as any).sub;
+        // Keep user image in sync with DB each time the session is fetched
+        try {
+          const userId = (token as any).sub as string | undefined
+          if (userId) {
+            const dbUser = await db.user.findUnique({ where: { id: userId }, select: { image: true } })
+            if (dbUser?.image) {
+              session.user.image = dbUser.image
+            }
+          }
+        } catch (err) {
+          // ignore image sync errors
+        }
       }
       return session;
-    },
-    authorized({ auth, request }: any) {
-      const { pathname } = request.nextUrl;
-      const isAdminArea =
-        pathname.startsWith("/admin") ||
-        pathname === "/api/users" ||
-        pathname.startsWith("/api/users/") ||
-        pathname === "/api/connections" ||
-        pathname.startsWith("/api/connections/");
-
-      const isLoggedIn = !!auth?.user;
-      if (!isLoggedIn) return false; // will redirect to signIn page for pages, 401 for APIs
-
-      const userRole = (auth.user as any)?.role;
-      const isAdmin = userRole === "ADMIN";
-
-      if (isAdminArea && !isAdmin) {
-        // Hide admin APIs from non-admins
-        if (pathname.startsWith("/api/")) {
-          return new Response("Not Found", { status: 404 });
-        }
-        return false;
-      }
-      return true;
     },
   },
   pages: {

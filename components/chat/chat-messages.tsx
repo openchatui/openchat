@@ -3,15 +3,16 @@
 import { useRef, useEffect } from 'react'
 import { Bot, CopyIcon } from 'lucide-react'
 import { Actions, Action, SpeakAction } from '@/components/ai/actions'
-import { Message, MessageContent, MessageAvatar } from '@/components/ai/message'
+import { Message, MessageAvatar } from '@/components/ai/message'
 import { Response } from '@/components/ai/response'
 import { Reasoning, ReasoningContent, ReasoningTrigger } from '@/components/ai/reasoning'
 import type { UIMessage } from 'ai'
 import { isToolOrDynamicToolUIPart, getToolOrDynamicToolName } from 'ai'
 import { Tool, ToolHeader, ToolContent, ToolInput, ToolOutput } from '@/components/ai/tool'
 import { WebPreview, WebPreviewNavigation, WebPreviewUrl, WebPreviewBody } from '@/components/ai/web-preview'
-import type { MessageMetadata } from '@/types/messages'
 import type { Model } from '@/types/models'
+import { Loader } from '@/components/ui/loader'
+import { Image } from '@/components/ai/image'
 
 interface ChatMessagesProps {
   messages: UIMessage[]
@@ -28,13 +29,27 @@ export default function ChatMessages({
   messages,
   isLoading,
   error,
-  selectedModel,
   assistantDisplayName = 'AI Assistant',
   assistantImageUrl = '/avatars/01.png',
   timeZone = 'UTC'
 }: ChatMessagesProps) {
   const scrollAreaRef = useRef<HTMLDivElement>(null)
-  const reasoningTimersRef = useRef<Map<string, { start?: number; duration?: number }>>(new Map())
+  // Simplified: no timers or progress bookkeeping; render streamed reasoning succinctly
+  const toolNameCacheRef = useRef<Map<string, string>>(new Map())
+
+  function formatToolLabel(raw?: string): string {
+    const input = String(raw || '').trim()
+    if (!input) return 'Tool'
+    // Normalize separators to spaces
+    let s = input.replace(/[._-]+/g, ' ')
+    // Insert spaces between camelCase or PascalCase boundaries
+    s = s.replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    // Collapse multiple spaces
+    s = s.replace(/\s+/g, ' ').trim()
+    // Lowercase all then capitalize first word
+    s = s.toLowerCase()
+    return s.charAt(0).toUpperCase() + s.slice(1)
+  }
 
   // Use pre-computed values - no client-side computation needed
   const getAssistantDisplayName = () => assistantDisplayName
@@ -95,6 +110,44 @@ export default function ChatMessages({
       reasoningText: reasoningText.trim(),
       reasoningActive,
     }
+  }
+
+  // Build reasoning text for a message from <think> blocks and any explicit reasoning parts
+  function buildReasoningText(message: UIMessage, isStreaming: boolean): { complete: string; streamingCombined: string; hasAny: boolean } {
+    const parts = (message.parts || []) as any[]
+    const completeBlocks: string[] = []
+    let streamingTail: string = ''
+
+    for (const p of parts) {
+      if (p?.type === 'text' && typeof p.text === 'string') {
+        const allText: string = p.text
+        const completeRegex = /<think>[\s\S]*?<\/think>/g
+        const matches = allText.match(completeRegex)
+        if (matches && matches.length > 0) {
+          for (const block of matches) {
+            const reasonText = block.replace('<think>', '').replace('</think>', '').trim()
+            if (reasonText) completeBlocks.push(reasonText)
+          }
+        }
+        if (isStreaming && allText.includes('<think>') && !allText.includes('</think>')) {
+          const startIdx = allText.lastIndexOf('<think>')
+          if (startIdx >= 0) streamingTail = allText.slice(startIdx + '<think>'.length)
+        }
+      } else if (typeof p?.type === 'string' && p.type.toLowerCase().includes('reason')) {
+        const text = typeof p?.text === 'string' ? p.text.trim() : ''
+        if (text) completeBlocks.push(text)
+      }
+    }
+
+    const complete = completeBlocks.join('\n\n').trim()
+    const streamingCombined = (complete + (streamingTail ? (complete ? '\n\n' : '') + streamingTail : '')).trim()
+    return { complete, streamingCombined, hasAny: Boolean(streamingCombined.length > 0) }
+  }
+
+  function lastNLines(input: string, n: number): string {
+    const lines = input.split(/\r?\n/)
+    if (lines.length <= n) return input
+    return lines.slice(-n).join('\n')
   }
 
   function formatTimestampLabel(createdAt?: number): { label: string; tooltip: string } | null {
@@ -236,165 +289,144 @@ export default function ChatMessages({
             })()}
             {/* Indent content to align with model name (avatar width + gap ~= ml-10) */}
             <div className="ml-10">
+            {(() => {
+              // Prefer rendering images directly for image tools; fall back to web preview for other URLs
+              const toolParts = (message.parts || []).filter((p: any) => isToolOrDynamicToolUIPart(p as any)) as any[]
+
+              const getToolName = (p: any): string => {
+                try {
+                  const extracted = getToolOrDynamicToolName(p as any) as string
+                  if (typeof extracted === 'string' && extracted.trim().length > 0) return extracted.trim()
+                } catch {}
+                const candidates = [p?.toolName, p?.name, p?.tool, p?.input?.toolName, p?.input?.name, p?.input?.tool]
+                for (const c of candidates) {
+                  if (typeof c === 'string' && c.trim().length > 0) return c.trim()
+                }
+                return ''
+              }
+
+              const isImageToolPart = (p: any) => {
+                const name = getToolName(p)
+                if (name === 'generateImage') return true
+                const summary = typeof p?.output?.summary === 'string' ? p.output.summary.toLowerCase() : ''
+                // Heuristic: our image tool summaries start with 'image generated'
+                if (summary.includes('image generated')) return true
+                const detailsModel = (p?.output?.details && typeof p.output.details.model === 'string') ? String(p.output.details.model).toLowerCase() : ''
+                if (detailsModel === 'gpt-image-1' || detailsModel === 'dall-e-3') return true
+                return false
+              }
+
+              const latestImagePart = [...toolParts].reverse().find(p => isImageToolPart(p) && typeof p?.output?.url === 'string') as any
+              if (latestImagePart && typeof latestImagePart?.output?.url === 'string') {
+                // Image will be rendered in the timeline for the corresponding tool part; avoid duplicate preview here
+                return null
+              }
+
+              const latestWithUrl = [...toolParts].reverse().find((p: any) => {
+                if (isImageToolPart(p)) return false // handled above
+                const outUrl = (p as any)?.output && typeof (p as any).output?.url === 'string' && (p as any).output.url
+                const inUrl = (p as any)?.input && typeof (p as any).input?.url === 'string' && (p as any).input.url
+                return Boolean(outUrl || inUrl)
+              }) as any
+              const url: string | undefined = (latestWithUrl?.output?.url as string) || (latestWithUrl?.input?.url as string)
+              if (!url) return null
+              return (
+                <div className="mb-3 rounded-lg overflow-hidden border max-h-[600px]">
+                  <WebPreview defaultUrl={url}>
+                    <WebPreviewNavigation>
+                      <WebPreviewUrl />
+                    </WebPreviewNavigation>
+                    <WebPreviewBody />
+                  </WebPreview>
+                </div>
+              )
+            })()}
+              {/* Simplified reasoning: show last lines with fade while streaming; full after */}
               {(() => {
-                const meta: any = (message as any).metadata || {}
-                const webSearchEnabled = Boolean(meta?.webSearchEnabled)
-                if (!webSearchEnabled) return null
-                // find latest navigate tool call with an input URL
-                const toolParts = (message.parts || []).filter((p: any) => isToolOrDynamicToolUIPart(p as any))
-                const navigatePart = [...toolParts].reverse().find((p: any) => getToolOrDynamicToolName(p as any) === 'navigate' && p?.input && typeof p.input.url === 'string') as any
-                const url: string | undefined = navigatePart?.input?.url
-                if (!url) return null
+                const isLatestAssistant = lastAssistantMessageId === message.id
+                const isStreaming = Boolean(isLatestAssistant && isLoading)
+                const { complete, streamingCombined, hasAny } = buildReasoningText(message as any, isStreaming)
+                if (!hasAny) return null
+                const STREAMING_MAX_LINES = 12
+                const displayed = isStreaming ? lastNLines(streamingCombined, STREAMING_MAX_LINES) : complete
                 return (
-                  <div className="mb-3 rounded-lg overflow-hidden border" style={{ height: '380px' }}>
-                    <WebPreview defaultUrl={url}>
-                      <WebPreviewNavigation>
-                        <WebPreviewUrl />
-                      </WebPreviewNavigation>
-                      <WebPreviewBody />
-                    </WebPreview>
+                  <div className="relative mb-3">
+                    <Reasoning isStreaming={isStreaming} defaultOpen>
+                      <ReasoningTrigger />
+                      <ReasoningContent className='text-muted-foreground whitespace-pre-wrap'>
+                        {displayed}
+                      </ReasoningContent>
+                    </Reasoning>
                   </div>
                 )
               })()}
-              {/* Unified timeline: interleave reasoning steps and tool calls in chronological order */}
+
+              {/* Render tool UI parts (non-image) in order, simplified */}
               {(() => {
-                const isLatestAssistant = lastAssistantMessageId === message.id
+                const parts = (message.parts || []) as any[]
+                const toolPartsOnly = parts.filter((p: any) => isToolOrDynamicToolUIPart(p as any))
+                if (toolPartsOnly.length === 0) return null
 
-                type TimelineItem =
-                  | { kind: 'tool'; part: any }
-                  | { kind: 'reason'; text: string; streamingCandidate?: boolean }
-
-                const timeline: TimelineItem[] = []
-                const toolLabelByCallId = new Map<string, string>()
-
-                // Pre-scan to capture toolName by toolCallId from ANY tool part
-                for (const p of message.parts as any[]) {
-                  if (!isToolOrDynamicToolUIPart(p as any)) continue
-                  const callId: string | undefined = (p as any)?.toolCallId
-                  if (typeof callId !== 'string' || callId.length === 0) continue
-                  let nameCandidate: string | undefined =
-                    (p as any)?.toolName ||
-                    (p as any)?.name ||
-                    (p as any)?.tool ||
-                    (p as any)?.input?.toolName ||
-                    (p as any)?.input?.name ||
-                    (p as any)?.input?.tool ||
-                    undefined
-                  if (!nameCandidate) {
-                    try {
-                      const extracted = getToolOrDynamicToolName(p as any) as string
-                      if (typeof extracted === 'string' && extracted.trim().length > 0) {
-                        nameCandidate = extracted
-                      }
-                    } catch {}
+                const resolveToolName = (part: any): string | undefined => {
+                  const direct = typeof part?.toolName === 'string' ? part.toolName : undefined
+                  if (direct && direct.trim()) return direct.trim()
+                  const fromProvider = typeof part?.providerMetadata?.openai?.toolName === 'string' ? part.providerMetadata.openai.toolName : undefined
+                  if (fromProvider && fromProvider.trim()) return fromProvider.trim()
+                  const fromInput = typeof part?.input?.toolName === 'string' ? part.input.toolName : undefined
+                  if (fromInput && fromInput.trim()) return fromInput.trim()
+                  const fromOutput = typeof part?.output?.toolName === 'string' ? part.output.toolName : undefined
+                  if (fromOutput && fromOutput.trim()) return fromOutput.trim()
+                  const candidates = [part?.name, part?.tool, part?.input?.name, part?.input?.tool]
+                  for (const c of candidates) {
+                    if (typeof c === 'string' && c.trim().length > 0) return c.trim()
                   }
-                  if (typeof nameCandidate === 'string' && nameCandidate.trim().length > 0) {
-                    toolLabelByCallId.set(callId, nameCandidate.trim())
-                  }
+                  try {
+                    const extracted = getToolOrDynamicToolName(part as any) as string
+                    if (typeof extracted === 'string' && extracted.trim().length > 0) return extracted.trim()
+                  } catch {}
+                  return undefined
                 }
-
-                for (const p of message.parts as any[]) {
-                  // Tool or dynamic tool UI parts
-                  if (isToolOrDynamicToolUIPart(p as any)) {
-                    timeline.push({ kind: 'tool', part: p })
-                    continue
-                  }
-
-                  // Explicit reasoning parts
-                  if (typeof p?.type === 'string' && p.type.toLowerCase().includes('reason')) {
-                    const text = typeof (p as any).text === 'string' ? (p as any).text : ''
-                    if (text) timeline.push({ kind: 'reason', text })
-                    continue
-                  }
-
-                  // Text parts: extract any <think>...</think> segments in-order as reasoning steps
-                  if (p?.type === 'text' && typeof (p as any).text === 'string') {
-                    const allText: string = (p as any).text
-                    const startTag = '<think>'
-                    const endTag = '</think>'
-                    const completeRegex = /<think>[\s\S]*?<\/think>/g
-                    let match: RegExpExecArray | null
-                    while ((match = completeRegex.exec(allText)) !== null) {
-                      const block = match[0]
-                      const reasonText = block.replace('<think>', '').replace('</think>', '').trim()
-                      if (reasonText) timeline.push({ kind: 'reason', text: reasonText })
-                    }
-                    // Streaming/partial reasoning: opening tag without closing tag
-                    if (allText.includes(startTag) && !allText.includes(endTag)) {
-                      const startIdx = allText.indexOf(startTag)
-                      if (startIdx >= 0) {
-                        const partial = allText.slice(startIdx + startTag.length)
-                        if (partial.trim().length > 0 || isLoading) {
-                          timeline.push({ kind: 'reason', text: partial.trim(), streamingCandidate: true })
-                        }
-                      }
-                    }
-                  }
-                }
-
-                // Determine if any reasoning is currently streaming for this message
-                const hasStreamingReasoning = Boolean(
-                  isLatestAssistant && isLoading && timeline.some((t) => t.kind === 'reason' && t.streamingCandidate)
-                ) || Boolean((message as any).metadata?.reasoningActive)
-
-                // Track per-message reasoning duration on client
-                const timers = reasoningTimersRef.current
-                const existing = timers.get(message.id) || {}
-                if (hasStreamingReasoning && !existing.start) {
-                  timers.set(message.id, { ...existing, start: Date.now() })
-                }
-                if (!isLoading && timeline.some((t) => t.kind === 'reason' && t.text.trim().length > 0) && existing.start && !existing.duration) {
-                  const dur = Math.max(1, Math.round((Date.now() - existing.start) / 1000))
-                  timers.set(message.id, { ...existing, duration: dur })
-                }
-                const measuredDuration = timers.get(message.id)?.duration || 0
-
-                if (timeline.length === 0) return null
-
                 return (
                   <div className="flex flex-col gap-3">
-                    {timeline.map((item, idx) => {
-                      if (item.kind === 'tool') {
-                        const part = item.part
-                        const partType = (part as any).type as `tool-${string}` | 'dynamic-tool'
-                        const state = (part as any).state
-                        const input = (part as any).input
-                        const output = (part as any).output
-                        const errorText = (part as any).errorText
-                        const callId = (part as any)?.toolCallId as string | undefined
-                        let toolName: string | undefined = (callId && toolLabelByCallId.get(callId))
-                          || (part as any)?.toolName
-                          || (part as any)?.name
-                          || (part as any)?.tool
-                          || (part as any)?.input?.toolName
-                          || (part as any)?.input?.name
-                          || (part as any)?.input?.tool
-                        if (typeof toolName === 'string') {
-                          toolName = toolName.trim()
-                          if (!toolName) toolName = undefined
-                        }
-                        return (
-                          <Tool key={`${message.id}_timeline_tool_${idx}`} defaultOpen={false}>
-                            <ToolHeader type={partType as any} state={state} label={toolName} />
-                            <ToolContent>
-                              <ToolInput input={input} />
-                              <ToolOutput output={output} errorText={errorText} />
-                            </ToolContent>
-                          </Tool>
-                        )
+                    {toolPartsOnly.map((part: any, idx: number) => {
+                      const partType = (part as any).type as `tool-${string}` | 'dynamic-tool'
+                      const state = (part as any).state
+                      const input = (part as any).input
+                      const output = (part as any).output
+                      const errorText = (part as any).errorText
+                      const callId = (part as any)?.toolCallId as string | undefined
+                      let toolName: string | undefined = callId ? toolNameCacheRef.current.get(callId) : undefined
+                      if (!toolName) toolName = resolveToolName(part)
+                      if (!toolName && typeof partType === 'string') toolName = partType.replace(/^tool-/, '')
+                      if (!toolName) toolName = 'Tool'
+                      if (callId && toolName) {
+                        toolNameCacheRef.current.set(callId, toolName)
                       }
-                      // Reasoning block
-                      const isStreaming = Boolean(isLatestAssistant && isLoading && item.streamingCandidate)
+
+                      // Special handling for image tool: skip here (already previewed above)
+                      const summary = typeof (output as any)?.summary === 'string' ? String((output as any).summary).toLowerCase() : ''
+                      const detailsModel = (output as any)?.details && typeof (output as any).details?.model === 'string'
+                        ? String((output as any).details.model).toLowerCase()
+                        : ''
+                      if (toolName === 'generateImage' || summary.includes('image generated') || detailsModel === 'gpt-image-1' || detailsModel === 'dall-e-3') {
+                        return null
+                      }
+
                       return (
-                        <Reasoning
-                          key={`${message.id}_timeline_reason_${idx}`}
-                          isStreaming={isStreaming}
-                          defaultOpen={false}
-                          duration={measuredDuration}
-                        >
-                          <ReasoningTrigger />
-                          <ReasoningContent className='text-muted-foreground'>{item.text}</ReasoningContent>
-                        </Reasoning>
+                        <Tool key={`${message.id}_tool_${callId || idx}`} defaultOpen={state === 'output-error'}>
+                          <ToolHeader type={partType as any} state={state} label={formatToolLabel(toolName)} />
+                          <ToolContent>
+                            <ToolInput input={input} />
+                            {(() => {
+                              const displayedOutput = (output && typeof output === 'object' && 'summary' in (output as any))
+                                ? (output as any).summary
+                                : output
+                              return (
+                                <ToolOutput output={displayedOutput} errorText={errorText} />
+                              )
+                            })()}
+                          </ToolContent>
+                        </Tool>
                       )
                     })}
                   </div>

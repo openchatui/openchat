@@ -3,52 +3,27 @@
 import { useEffect, useState } from "react"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { setDeepgramApiKey } from "@/actions/connections"
 
-export function DeepgramSttConnectionForm() {
+interface DeepgramSttConnectionFormProps {
+  initialApiKey?: string
+}
+
+export function DeepgramSttConnectionForm({ initialApiKey = "" }: DeepgramSttConnectionFormProps) {
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
-  const [apiKey, setApiKey] = useState("")
+  const [apiKey, setApiKey] = useState(initialApiKey)
   const [savedOk, setSavedOk] = useState(false)
 
   useEffect(() => {
-    let active = true
-    ;(async () => {
-      try {
-        const res = await fetch("/api/connections/config", { cache: "no-store" })
-        if (!res.ok) return
-        const data = await res.json()
-        const dg = (data?.connections?.deepgram ?? {}) as any
-        const existingKey = Array.isArray(dg.api_keys) ? dg.api_keys[0] : undefined
-        if (active && typeof existingKey === 'string') {
-          setApiKey(existingKey)
-          if (existingKey.length > 0) setSavedOk(true)
-        }
-      } catch {}
-      finally {
-        if (active) setIsLoading(false)
-      }
-    })()
-    return () => { active = false }
-  }, [])
+    setSavedOk(Boolean(initialApiKey))
+    setIsLoading(false)
+  }, [initialApiKey])
 
   const onSave = async (keyToSave: string) => {
     setIsSaving(true)
     try {
-      // Load current to preserve other entries
-      const currentRes = await fetch("/api/connections/config", { cache: "no-store" })
-      const currentData = currentRes.ok ? await currentRes.json() : {}
-      const dg = (currentData?.connections?.deepgram ?? {}) as any
-      const keys: string[] = Array.isArray(dg.api_keys) ? [...dg.api_keys] : []
-      if (keys.length > 0) keys[0] = keyToSave
-      else keys.push(keyToSave)
-
-      const payload = { connections: { deepgram: { api_keys: keys, api_configs: { ...((dg && dg.api_configs) || {}) } } } }
-      const res = await fetch("/api/connections/config/update", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      })
-      if (!res.ok) throw new Error('Failed to save Deepgram key')
+      await setDeepgramApiKey(keyToSave)
       setSavedOk(true)
     } finally {
       setIsSaving(false)

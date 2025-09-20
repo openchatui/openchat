@@ -1,5 +1,3 @@
-"use server"
-
 import { auth } from "@/lib/auth/auth";
 import { redirect } from "next/navigation";
 import { AdminModels } from "@/components/admin/models/AdminModels";

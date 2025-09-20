@@ -8,6 +8,7 @@ import { loadChat, saveChat, createChat as createChatInStore, chatExists as chec
 import type { MessageMetadata } from '@/types/messages';
 import type { Model, ModelMeta, ModelsGroupedByOwner, UpdateModelData } from '@/types/models';
 import { revalidatePath } from 'next/cache';
+import { getConnectionsConfig as getConnectionsConfigAction } from '@/actions/connections';
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -15,11 +16,9 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 
 async function getConnectionsConfig(): Promise<any> {
   try {
-    const row = await (db as any).config.findUnique({ where: { id: 1 } })
-    const data = (row?.data || {}) as any
-    const connections = isPlainObject(data.connections) ? (data.connections as any) : {}
-    const openai = isPlainObject(connections.openai) ? (connections.openai as any) : {}
-    const ollama = isPlainObject(connections.ollama) ? (connections.ollama as any) : {}
+    const { connections } = await getConnectionsConfigAction()
+    const openai = (connections as any)?.openai || {}
+    const ollama = (connections as any)?.ollama || {}
     return { openai, ollama }
   } catch {
     return { openai: {}, ollama: {} }

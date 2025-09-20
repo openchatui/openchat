@@ -6,6 +6,8 @@ import { redirect } from "next/navigation";
 import { chatExists, createChat, getUserChats } from "@/lib/chat/chat-store";
 import { getActiveModels, loadChatMessages } from "@/actions/chat";
 import { cookies } from "next/headers";
+import { getWebSearchEnabled, getImageGenerationAvailable, getAudioConfig } from "@/lib/server/config";
+import { AppConfigProvider } from "@/components/providers/AppConfigProvider";
 
 interface ChatPageProps {
   params: Promise<{ id: string }>;
@@ -36,9 +38,12 @@ export default async function ChatPage({ params }: ChatPageProps) {
   }
 
   // Load all data in parallel for better performance
-  const [initialChats, initialModels] = await Promise.all([
+  const [initialChats, initialModels, webSearchAvailable, imageAvailable, audioConfig] = await Promise.all([
     getUserChats(userId),
-    getActiveModels()
+    getActiveModels(),
+    getWebSearchEnabled(),
+    getImageGenerationAvailable(),
+    getAudioConfig(),
   ]);
 
   // Extract assistant display info from the most recent assistant message
@@ -90,16 +95,30 @@ export default async function ChatPage({ params }: ChatPageProps) {
         />
       ))}
 
-      <ChatClient
-        session={session}
-        chatId={chatId}
-        initialMessages={initialMessages}
-        initialChats={initialChats}
-        initialModels={initialModels}
-        assistantDisplayName={assistantDisplayName}
-        assistantImageUrl={assistantImageUrl}
-        timeZone={timeZone}
-      />
+      <AppConfigProvider initial={{
+        webSearchAvailable,
+        imageAvailable,
+        audio: {
+          ttsEnabled: audioConfig.ttsEnabled,
+          sttEnabled: audioConfig.sttEnabled,
+          ttsProvider: audioConfig.tts.provider,
+          sttProvider: audioConfig.stt.provider as any,
+          whisperWebModel: audioConfig.stt.whisperWeb.model,
+        }
+      }}>
+        <ChatClient
+          session={session}
+          chatId={chatId}
+          initialMessages={initialMessages}
+          initialChats={initialChats}
+          initialModels={initialModels}
+          assistantDisplayName={assistantDisplayName}
+          assistantImageUrl={assistantImageUrl}
+          timeZone={timeZone}
+          webSearchAvailable={webSearchAvailable}
+          imageAvailable={imageAvailable}
+        />
+      </AppConfigProvider>
     </>
   );
 }

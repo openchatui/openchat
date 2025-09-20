@@ -45,6 +45,8 @@ interface ChatInputProps {
     }
   ) => Promise<string | null> | void;
   sessionStorageKey?: string;
+  webSearchAvailable?: boolean;
+  imageAvailable?: boolean;
 }
 
 export function ChatInput({
@@ -55,6 +57,8 @@ export function ChatInput({
   onStop,
   onSubmit,
   sessionStorageKey,
+  webSearchAvailable = true,
+  imageAvailable = true,
 }: ChatInputProps) {
   const [value, setValue] = useState("");
   const [webSearch, setWebSearch] = useState(false);
@@ -112,9 +116,12 @@ export function ChatInput({
       const data = raw ? { ...defaults, ...JSON.parse(raw) } : defaults
       if (typeof data.prompt === 'string') setValue(data.prompt)
       if (typeof data.webSearchEnabled === 'boolean') setWebSearch(data.webSearchEnabled)
+      if (typeof data.imageGenerationEnabled === 'boolean') setImage(data.imageGenerationEnabled)
     } catch {}
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionStorageKey])
+
+  // webSearchAvailable is provided by the server page to avoid client-side secrets exposure
 
   // Persist prompt to sessionStorage
   useEffect(() => {
@@ -452,40 +459,66 @@ export function ChatInput({
                     >
                       <Plus className="h-5 w-5" />
                     </Button>
-                    <Pill
-                      active={webSearch}
-                      onClick={() => {
-                        setWebSearch((prev) => {
-                          const next = !prev
-                          try {
-                            if (sessionStorageKey) {
-                              const raw = sessionStorage.getItem(sessionStorageKey)
-                              const defaults = {
-                                prompt: "",
-                                files: [] as any[],
-                                selectedToolIds: [] as string[],
-                                selectedFilterIds: [] as string[],
-                                imageGenerationEnabled: false,
-                                webSearchEnabled: false,
-                                codeInterpreterEnabled: false,
+                    {webSearchAvailable && (
+                      <Pill
+                        active={webSearch}
+                        onClick={() => {
+                          setWebSearch((prev) => {
+                            const next = !prev
+                            try {
+                              if (sessionStorageKey) {
+                                const raw = sessionStorage.getItem(sessionStorageKey)
+                                const defaults = {
+                                  prompt: "",
+                                  files: [] as any[],
+                                  selectedToolIds: [] as string[],
+                                  selectedFilterIds: [] as string[],
+                                  imageGenerationEnabled: false,
+                                  webSearchEnabled: false,
+                                  codeInterpreterEnabled: false,
+                                }
+                                const data = raw ? { ...defaults, ...JSON.parse(raw) } : defaults
+                                data.webSearchEnabled = next
+                                sessionStorage.setItem(sessionStorageKey, JSON.stringify(data))
                               }
-                              const data = raw ? { ...defaults, ...JSON.parse(raw) } : defaults
-                              data.webSearchEnabled = next
-                              sessionStorage.setItem(sessionStorageKey, JSON.stringify(data))
-                            }
-                          } catch {}
-                          return next
-                        })
-                      }}
-                      icon={<Globe className="h-3.5 w-3.5" />}
-                      label="Web search"
-                    />
-                    <Pill
-                      active={image}
-                      onClick={() => setImage((v) => !v)}
-                      icon={<ImageIcon className="h-3.5 w-3.5" />}
-                      label="Image input"
-                    />
+                            } catch {}
+                            return next
+                          })
+                        }}
+                        icon={<Globe className="h-3.5 w-3.5" />}
+                        label="Web search"
+                      />
+                    )}
+                    {imageAvailable && (
+                      <Pill
+                        active={image}
+                        onClick={() => {
+                          setImage((prev) => {
+                            const next = !prev
+                            try {
+                              if (sessionStorageKey) {
+                                const raw = sessionStorage.getItem(sessionStorageKey)
+                                const defaults = {
+                                  prompt: "",
+                                  files: [] as any[],
+                                  selectedToolIds: [] as string[],
+                                  selectedFilterIds: [] as string[],
+                                  imageGenerationEnabled: false,
+                                  webSearchEnabled: false,
+                                  codeInterpreterEnabled: false,
+                                }
+                                const data = raw ? { ...defaults, ...JSON.parse(raw) } : defaults
+                                data.imageGenerationEnabled = next
+                                sessionStorage.setItem(sessionStorageKey, JSON.stringify(data))
+                              }
+                            } catch {}
+                            return next
+                          })
+                        }}
+                        icon={<ImageIcon className="h-3.5 w-3.5" />}
+                        label="Image input"
+                      />
+                    )}
                     <Pill
                       active={codeInterpreter}
                       onClick={() => setCodeInterpreter((v) => !v)}

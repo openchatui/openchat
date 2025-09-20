@@ -29,28 +29,3 @@ export async function saveMessagesReplacingLastAssistant(
 
   await saveChat({ chatId: finalChatId, userId, messages: messagesWithModel as unknown as UIMessage[] });
 }
-
-export async function saveMessagesAppendAssistantFromTrimmed(
-  fullMessages: UIMessage<MessageMetadata>[],
-  streamedMessages: UIMessage<MessageMetadata>[],
-  selectedModelInfo: { id: string; name: string; profile_image_url?: string | null } | null,
-  finalChatId: string,
-  userId: string,
-) {
-  // Extract only last assistant from streamedMessages and append to fullMessages
-  const assistant = [...streamedMessages].reverse().find((m) => m.role === 'assistant') as UIMessage<MessageMetadata> | undefined;
-  const assistantWithModel = assistant
-    ? ({
-        ...assistant,
-        metadata: {
-          ...(assistant as any).metadata,
-          ...(selectedModelInfo ? { model: selectedModelInfo } : {}),
-        },
-      } as UIMessage<MessageMetadata>)
-    : undefined;
-
-  const toSave = assistantWithModel ? [...fullMessages, assistantWithModel] : fullMessages;
-  await saveChat({ chatId: finalChatId, userId, messages: toSave as unknown as UIMessage[] });
-}
-
-

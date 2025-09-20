@@ -4,7 +4,7 @@ import { Session } from "next-auth"
 import { AdminSidebar } from "../AdminSidebar"
 
 // Users Panel Content (from users.tsx)
-import { Loader2, MessageCircle, Edit, Trash2, Search } from "lucide-react";
+import { MessageCircle, Edit, Trash2, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -22,6 +22,7 @@ import { EditUserDialog } from "./edit-user-dialog";
 import { MESSAGES, PLACEHOLDERS, getEmailInitials } from "@/constants/user";
 import type { User } from "@/types/user";
 import { useState, useMemo } from "react";
+import { deleteUserAction } from "@/actions/users";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -37,27 +38,25 @@ import {
 interface AdminUsersProps {
     session: Session | null
     initialChats?: any[]
+    initialUsers?: User[]
 }
 
-export function AdminUsers({ session, initialChats = [] }: AdminUsersProps) {
+export function AdminUsers({ session, initialChats = [], initialUsers = [] }: AdminUsersProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
 
   const {
     users,
     isLoading,
-    deletingIds,
     editingUser,
     editForm,
-    isUpdating,
     showPassword,
     handleEditUser,
     updateEditForm,
-    updateUser,
-    deleteUser,
     togglePasswordVisibility,
     setEditState,
-  } = useUsers();
+    updateUserImage,
+  } = useUsers(initialUsers);
 
   // Filter users based on search term
   const filteredUsers = useMemo(() => {
@@ -73,11 +72,13 @@ export function AdminUsers({ session, initialChats = [] }: AdminUsersProps) {
 
   const formatDate = (dateString?: string) => {
     if (!dateString) return "Never";
-    return new Date(dateString).toLocaleDateString("en-US", {
+    const date = new Date(dateString)
+    return new Intl.DateTimeFormat("en-US", {
       year: "numeric",
       month: "short",
       day: "numeric",
-    });
+      timeZone: "UTC",
+    }).format(date)
   };
 
   const getRoleBadgeVariant = (role: string) => {
@@ -91,10 +92,7 @@ export function AdminUsers({ session, initialChats = [] }: AdminUsersProps) {
     }
   };
 
-  const handleDeleteUser = async () => {
-    if (!editingUser) return;
-    await deleteUser(editingUser.id);
-  };
+  const handleDeleteUser = async () => {};
 
   const handleViewChats = (userId: string) => {
     // TODO: Implement view chats functionality
@@ -164,7 +162,7 @@ export function AdminUsers({ session, initialChats = [] }: AdminUsersProps) {
                       <div className="flex items-center space-x-3">
                         <Avatar className="h-8 w-8">
                           <AvatarImage
-                            src={user.profilePicture || undefined}
+                            src={user.image || user.profilePicture || undefined}
                             alt={user.name}
                           />
                           <AvatarFallback className="text-xs">
@@ -208,15 +206,10 @@ export function AdminUsers({ session, initialChats = [] }: AdminUsersProps) {
                           variant="ghost"
                           size="sm"
                           onClick={() => setConfirmDeleteId(user.id)}
-                          disabled={deletingIds.has(user.id)}
                           className="h-8 w-8 p-0 text-destructive hover:text-destructive"
                           title={MESSAGES.DELETE}
                         >
-                          {deletingIds.has(user.id) ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <Trash2 className="h-4 w-4" />
-                          )}
+                          <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
                     </TableCell>
@@ -238,17 +231,12 @@ export function AdminUsers({ session, initialChats = [] }: AdminUsersProps) {
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel onClick={() => setConfirmDeleteId(null)}>Cancel</AlertDialogCancel>
-              <AlertDialogAction
-                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                disabled={confirmDeleteId ? deletingIds.has(confirmDeleteId) : false}
-                onClick={async () => {
-                  if (!confirmDeleteId) return
-                  await deleteUser(confirmDeleteId)
-                  setConfirmDeleteId(null)
-                }}
-              >
-                {confirmDeleteId && deletingIds.has(confirmDeleteId) ? 'Deleting…' : 'Delete'}
-              </AlertDialogAction>
+              <form action={deleteUserAction}>
+                <input type="hidden" name="id" value={confirmDeleteId ?? ''} />
+                <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" type="submit">
+                  Delete
+                </AlertDialogAction>
+              </form>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
@@ -257,13 +245,14 @@ export function AdminUsers({ session, initialChats = [] }: AdminUsersProps) {
         <EditUserDialog
           editingUser={editingUser}
           editForm={editForm}
-          isUpdating={isUpdating}
+          isUpdating={false}
           showPassword={showPassword}
           onClose={() => setEditState((prev) => ({ ...prev, editingUser: null }))}
           onUpdateForm={updateEditForm}
           onTogglePasswordVisibility={togglePasswordVisibility}
-          onUpdateUser={updateUser}
-          onDeleteUser={handleDeleteUser}
+          onUpdateUser={() => {}}
+          onDeleteUser={() => {}}
+          onProfileImageUploaded={(url) => { if (url) updateUserImage(url) }}
         />
       </div>
     </AdminSidebar>

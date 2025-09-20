@@ -16,7 +16,7 @@ import {
 import { cn } from '@/lib/utils';
 import { ChevronDownIcon } from 'lucide-react';
 import type { ComponentProps, ReactNode } from 'react';
-import { createContext, useContext, useState } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 
 export type WebPreviewContextValue = {
   url: string;
@@ -50,6 +50,13 @@ export const WebPreview = ({
   const [url, setUrl] = useState(defaultUrl);
   const [consoleOpen, setConsoleOpen] = useState(false);
 
+  // Sync internal URL when defaultUrl prop changes
+  useEffect(() => {
+    if (typeof defaultUrl === 'string' && defaultUrl && defaultUrl !== url) {
+      setUrl(defaultUrl);
+    }
+  }, [defaultUrl]);
+
   const handleUrlChange = (newUrl: string) => {
     setUrl(newUrl);
     onUrlChange?.(newUrl);
@@ -66,9 +73,10 @@ export const WebPreview = ({
     <WebPreviewContext.Provider value={contextValue}>
       <div
         className={cn(
-          'flex size-full flex-col rounded-lg border bg-card',
+          'w-full flex flex-col rounded-lg border bg-card',
           className
         )}
+        style={{ aspectRatio: '2 / 3' }}
         {...props}
       >
         {children}
@@ -186,7 +194,7 @@ export const WebPreviewBody = ({
   return (
     <div className="flex-1">
       <iframe
-        className={cn('size-full', className)}
+        className={cn('h-[600px] w-full', className)}
         sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-presentation"
         src={(src ?? url) || undefined}
         title="Preview"

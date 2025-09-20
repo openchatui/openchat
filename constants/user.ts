@@ -18,7 +18,6 @@ export const PLACEHOLDERS = {
 } as const
 
 export const API_ENDPOINTS = {
-  USERS: '/api/users',
   USER_UPDATE: '/api/users/update',
   USER_DELETE: '/api/users/delete'
 } as const

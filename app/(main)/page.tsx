@@ -5,6 +5,8 @@ import { auth } from "@/lib/auth/auth";
 import { redirect } from "next/navigation";
 import { getInitialChats, getModels, getUserSettings, loadChatMessages } from "@/actions/chat";
 import { cookies } from "next/headers";
+import { getWebSearchEnabled, getImageGenerationAvailable, getAudioConfig } from "@/lib/server/config";
+import { AppConfigProvider } from "@/components/providers/AppConfigProvider";
 
 export default async function Page() {
   const session = await auth();
@@ -16,6 +18,13 @@ export default async function Page() {
     getModels(),
     getUserSettings()
   ]);
+
+  // Load feature availability on the server
+  const [webSearchAvailable, imageAvailable, audioConfig] = await Promise.all([
+    getWebSearchEnabled(),
+    getImageGenerationAvailable(),
+    getAudioConfig(),
+  ])
 
   // Resolve user timezone from cookie (fallback to UTC for deterministic SSR)
   const cookieStore = await cookies()
@@ -89,15 +98,29 @@ export default async function Page() {
         />
       ))}
 
-      <InitialChatClient
-        session={session}
-        initialChats={chats}
-        initialModels={models}
-        initialUserSettings={userSettings as Record<string, any>}
-        lastUsedModelId={lastUsedModelId}
-        pinnedModels={pinnedModels}
-        timeZone={timeZone}
-      />
+      <AppConfigProvider initial={{
+        webSearchAvailable,
+        imageAvailable,
+        audio: {
+          ttsEnabled: audioConfig.ttsEnabled,
+          sttEnabled: audioConfig.sttEnabled,
+          ttsProvider: audioConfig.tts.provider,
+          sttProvider: audioConfig.stt.provider as any,
+          whisperWebModel: audioConfig.stt.whisperWeb.model,
+        }
+      }}>
+        <InitialChatClient
+          session={session}
+          initialChats={chats}
+          initialModels={models}
+          initialUserSettings={userSettings as Record<string, any>}
+          lastUsedModelId={lastUsedModelId}
+          pinnedModels={pinnedModels}
+          timeZone={timeZone}
+          webSearchAvailable={webSearchAvailable}
+          imageAvailable={imageAvailable}
+        />
+      </AppConfigProvider>
     </>
   )
 }

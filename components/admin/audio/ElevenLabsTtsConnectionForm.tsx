@@ -1,87 +1,40 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { ApiKeyField } from "@/components/admin/ApiKeyField"
+import { setElevenLabsApiKey } from "@/actions/connections"
+import { updateAudioConfigAction } from "@/actions/audio"
 
-export function ElevenLabsTtsConnectionForm() {
+interface ElevenLabsTtsConnectionFormProps {
+  initialApiKey?: string
+  initialVoiceId?: string
+  initialModelId?: string
+}
+
+export function ElevenLabsTtsConnectionForm({ initialApiKey = "", initialVoiceId = "", initialModelId = "" }: ElevenLabsTtsConnectionFormProps) {
   const [isLoading, setIsLoading] = useState(true)
-  const [isSaving, setIsSaving] = useState(false)
-  const [apiKey, setApiKey] = useState("")
+  const [apiKey, setApiKey] = useState(initialApiKey)
   const [savedOk, setSavedOk] = useState(false)
   const [voices, setVoices] = useState<Array<{ id: string; name: string }>>([])
   const [models, setModels] = useState<Array<{ id: string; name: string }>>([])
   const [voicesLoading, setVoicesLoading] = useState(false)
   const [modelsLoading, setModelsLoading] = useState(false)
-  const [selectedVoice, setSelectedVoice] = useState<string>("")
-  const [selectedModel, setSelectedModel] = useState<string>("")
+  const [selectedVoice, setSelectedVoice] = useState<string>(initialVoiceId)
+  const [selectedModel, setSelectedModel] = useState<string>(initialModelId)
 
   useEffect(() => {
-    let active = true
-    ;(async () => {
-      try {
-        const res = await fetch("/api/connections/config", { cache: "no-store" })
-        if (!res.ok) return
-        const data = await res.json()
-        const el = (data?.connections?.elevenlabs ?? {}) as any
-        const existingKey = Array.isArray(el.api_keys) ? el.api_keys[0] : undefined
-        if (active && typeof existingKey === 'string') {
-          setApiKey(existingKey)
-          if (existingKey.length > 0) setSavedOk(true)
-        }
-        // Load current audio TTS selections
-        try {
-          const audioRes = await fetch('/api/v1/audio/config', { cache: 'no-store' })
-          if (audioRes.ok) {
-            const aJson = await audioRes.json()
-            const aTts = (aJson?.audio?.tts ?? {}) as any
-            if (active && typeof aTts.voiceId === 'string') setSelectedVoice(aTts.voiceId)
-            if (active && typeof aTts.modelId === 'string') setSelectedModel(aTts.modelId)
-          }
-        } catch {}
-      } catch {}
-      finally {
-        if (active) setIsLoading(false)
-      }
-    })()
-    return () => { active = false }
-  }, [])
+    // Set initial state from server-provided props
+    setSavedOk(Boolean(initialApiKey))
+    setIsLoading(false)
+  }, [initialApiKey])
 
   const onSave = async (keyToSave: string) => {
-    setIsSaving(true)
-    try {
-      // Load current to preserve other entries
-      const currentRes = await fetch("/api/connections/config", { cache: "no-store" })
-      const currentData = currentRes.ok ? await currentRes.json() : {}
-      const el = (currentData?.connections?.elevenlabs ?? {}) as any
-      const keys: string[] = Array.isArray(el.api_keys) ? [...el.api_keys] : []
-      if (keys.length > 0) keys[0] = keyToSave
-      else keys.push(keyToSave)
-
-      const payload = { connections: { elevenlabs: { api_keys: keys, api_configs: { ...((el && el.api_configs) || {}) } } } }
-      const res = await fetch("/api/connections/config/update", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      })
-      if (!res.ok) throw new Error('Failed to save ElevenLabs key')
-      setSavedOk(true)
-    } finally {
-      setIsSaving(false)
-    }
+    await setElevenLabsApiKey(keyToSave)
   }
 
-  // Auto-save on input with debounce
-  useEffect(() => {
-    if (isLoading) return
-    setSavedOk(false)
-    const handle = setTimeout(() => {
-      // Save even if empty to allow clearing the key
-      onSave(apiKey)
-    }, 600)
-    return () => clearTimeout(handle)
-  }, [apiKey, isLoading])
+  // Auto-save handled by ApiKeyField
 
   // Load ElevenLabs voices and models after a valid key is saved
   useEffect(() => {
@@ -121,41 +74,25 @@ export function ElevenLabsTtsConnectionForm() {
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-        <div className="space-y-2">
-          <Label>ElevenLabs API Key</Label>
-          <div className="relative">
-            <Input
-              type="password"
-              placeholder="eleven_..."
-              value={apiKey}
-              onChange={e => setApiKey(e.target.value)}
-              disabled={isLoading}
-              className="pr-10"
-            />
-            {!isSaving && savedOk && apiKey.length > 0 && (
-              <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center">
-                <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-green-500 text-white">
-                  <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M20 6L9 17l-5-5" />
-                  </svg>
-                </span>
-              </div>
-            )}
-          </div>
-        </div>
+        <ApiKeyField
+          label="ElevenLabs API Key"
+          value={apiKey}
+          onChange={setApiKey}
+          onSave={onSave}
+          isLoading={isLoading}
+          placeholder="eleven_..."
+          initiallySaved={savedOk}
+          onSavedChange={(ok, val) => setSavedOk(ok && val.length > 0)}
+        />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
           <div className="space-y-2">
             <Label>Voices</Label>
             <Select
               value={selectedVoice}
-              onValueChange={async (val) => {
+                onValueChange={async (val) => {
                 setSelectedVoice(val)
                 try {
-                  await fetch('/api/v1/audio/config/update', {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ audio: { tts: { voiceId: val } } }),
-                  })
+                  await updateAudioConfigAction({ audio: { tts: { voiceId: val } } })
                 } catch {}
               }}
               disabled={!savedOk || voicesLoading}
@@ -174,14 +111,10 @@ export function ElevenLabsTtsConnectionForm() {
             <Label>Models</Label>
             <Select
               value={selectedModel}
-              onValueChange={async (val) => {
+                onValueChange={async (val) => {
                 setSelectedModel(val)
                 try {
-                  await fetch('/api/v1/audio/config/update', {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ audio: { tts: { modelId: val } } }),
-                  })
+                  await updateAudioConfigAction({ audio: { tts: { modelId: val } } })
                 } catch {}
               }}
               disabled={!savedOk || modelsLoading}

@@ -1,0 +1,36 @@
+import { auth } from "@/lib/auth/auth"
+import { redirect } from "next/navigation"
+import { AdminWebSearch } from "@/components/admin/websearch/AdminWebSearch"
+import { getUserChats } from "@/lib/chat/chat-store"
+import { getWebSearchConfigAction } from "@/actions/websearch"
+
+export default async function AdminWebSearchPage() {
+  const session = await auth()
+  if (!session || !session.user?.id) redirect("/login")
+
+  const [chats, ws] = await Promise.all([
+    getUserChats(session.user.id),
+    getWebSearchConfigAction(),
+  ])
+
+  return (
+    <AdminWebSearch
+      session={session}
+      initialChats={chats}
+      initialEnabled={ws.ENABLED}
+      initialProvider={ws.PROVIDER}
+      initialSystemPrompt={ws.SYSTEM_PROMPT}
+      envSystemPrompt={ws.ENV_SYSTEM_PROMPT}
+      initialGooglePse={{
+        apiKey: ws.googlepse.apiKey,
+        engineId: ws.googlepse.engineId,
+        resultCount: ws.googlepse.resultCount,
+        domainFilters: ws.googlepse.domainFilters,
+      }}
+      initialBrowserless={{ apiKey: ws.browserless.apiKey, ENV_API_KEY: ws.browserless.ENV_API_KEY }}
+    />
+  )
+}
+
+
+

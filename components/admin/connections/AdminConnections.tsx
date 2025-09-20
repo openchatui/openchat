@@ -2,22 +2,32 @@
 
 import { Session } from "next-auth"
 import { AdminSidebar } from "../AdminSidebar"
+import { useRouter } from "next/navigation"
 
 // Connections Panel Content (from connections.tsx)
 import { Loader2 } from "lucide-react"
 import { useConnections } from "@/hooks/useConnections"
+import type { Connection, ConnectionsConfig, CreateConnectionData } from "@/types/connections"
 import { OpenAIConnectionForm } from "./openai-connection-form"
 import { OllamaConnectionForm } from "./ollama-connection-form"
 import { EditConnectionDialog } from "./edit-connection-dialog"
 import { MESSAGES } from "@/constants/connections"
+import { createConnections, 
+  updateConnectionAction, 
+  deleteConnectionAction, 
+  updateConnectionsConfig, 
+  syncModelsAction } from "@/actions/connections"
 
 // Main Admin Connections Component
 interface AdminConnectionsProps {
     session: Session | null
     initialChats?: any[]
+    initialConnections?: Connection[]
+    initialConnectionsConfig?: ConnectionsConfig | null
 }
 
-export function AdminConnections({ session, initialChats = [] }: AdminConnectionsProps) {
+export function AdminConnections({ session, initialChats = [], initialConnections = [], initialConnectionsConfig = null }: AdminConnectionsProps) {
+  const router = useRouter()
   const {
     connections,
     isLoading,
@@ -32,7 +42,6 @@ export function AdminConnections({ session, initialChats = [] }: AdminConnection
     editForm,
     isUpdating,
     showEditApiKey,
-    saveConnections,
     addNewConnectionRow,
     removeNewConnectionRow,
     updateNewConnection,
@@ -42,13 +51,10 @@ export function AdminConnections({ session, initialChats = [] }: AdminConnection
     toggleNewApiKeyVisibility,
     handleEditConnection,
     connectionsConfig,
-    toggleOpenAIConnectionEnabledAt,
-    toggleOllamaEnabled,
-    updateConnection,
-    deleteConnection,
     testConnection,
-    setEditState
-  } = useConnections()
+    setEditState,
+    setConnectionsState
+  } = useConnections(initialConnections, initialConnectionsConfig)
 
   const handleUpdateEditForm = (field: 'baseUrl' | 'apiKey', value: string) => {
     setEditState(prev => ({
@@ -71,6 +77,66 @@ export function AdminConnections({ session, initialChats = [] }: AdminConnection
     return !!cfg?.enable
   })
   const ollamaEnabled = !!connectionsConfig?.ollama?.enable
+
+  // Server Action-backed handlers
+  const handleSaveOpenAIConnections = async (connectionsToCreate: CreateConnectionData[]) => {
+    try {
+      setConnectionsState(prev => ({ ...prev, isSaving: true }))
+      await createConnections(connectionsToCreate)
+      // Sync models for created connections
+      for (const conn of connectionsToCreate) {
+        await syncModelsAction({ baseUrl: conn.baseUrl, type: 'openai-api', apiKey: conn.apiKey })
+      }
+      // Reset local form rows
+      handleClearAll()
+    } finally {
+      setConnectionsState(prev => ({ ...prev, isSaving: false }))
+      router.refresh()
+    }
+  }
+
+  const handleToggleOpenAIConnectionEnabledAt = async (index: number, enabled: boolean) => {
+    await updateConnectionsConfig({ connections: { openai: { api_configs: { [String(index)]: { enable: enabled } } } } })
+    router.refresh()
+  }
+
+  const handleToggleOllamaEnabledAction = async (enabled: boolean) => {
+    await updateConnectionsConfig({ connections: { ollama: { enable: enabled } } })
+    router.refresh()
+  }
+
+  const handleUpdateConnectionAction = async () => {
+    if (!editingConnection) return
+    try {
+      setEditState(prev => ({ ...prev, isUpdating: true }))
+      await updateConnectionAction(editingConnection.id, {
+        type: editingConnection.type,
+        baseUrl: editForm.baseUrl,
+        apiKey: editingConnection.type === 'openai-api' ? editForm.apiKey : undefined
+      })
+      await syncModelsAction({
+        baseUrl: editForm.baseUrl,
+        type: editingConnection.type as 'openai-api' | 'ollama',
+        apiKey: editingConnection.type === 'openai-api' ? editForm.apiKey : undefined
+      })
+      setEditState(prev => ({ ...prev, editingConnection: null }))
+    } finally {
+      setEditState(prev => ({ ...prev, isUpdating: false }))
+      router.refresh()
+    }
+  }
+
+  const handleDeleteConnectionAction = async () => {
+    if (!editingConnection) return
+    try {
+      setEditState(prev => ({ ...prev, isUpdating: true }))
+      await deleteConnectionAction(editingConnection.id)
+      setEditState(prev => ({ ...prev, editingConnection: null }))
+    } finally {
+      setEditState(prev => ({ ...prev, isUpdating: false }))
+      router.refresh()
+    }
+  }
 
   return (
     <AdminSidebar session={session} activeTab="connections" initialChats={initialChats}>
@@ -101,11 +167,11 @@ export function AdminConnections({ session, initialChats = [] }: AdminConnection
               onUpdateConnection={updateNewConnection}
               onToggleApiKeyVisibility={toggleApiKeyVisibility}
               onToggleNewApiKeyVisibility={toggleNewApiKeyVisibility}
-              onSave={saveConnections}
+              onSave={handleSaveOpenAIConnections}
               onClearAll={handleClearAll}
               onEditConnection={handleEditConnection}
               enableStatuses={openaiEnableStatuses}
-              onToggleEnable={(index, enabled) => toggleOpenAIConnectionEnabledAt(index, enabled)}
+              onToggleEnable={(index, enabled) => handleToggleOpenAIConnectionEnabledAt(index, enabled)}
             />
 
             {/* Ollama Connection Form */}
@@ -118,7 +184,7 @@ export function AdminConnections({ session, initialChats = [] }: AdminConnection
               onTestConnection={testConnection}
               onEditConnection={handleEditConnection}
               ollamaEnabled={ollamaEnabled}
-              onToggleOllamaEnabled={toggleOllamaEnabled}
+              onToggleOllamaEnabled={handleToggleOllamaEnabledAction}
             />
                   </div>
                 )}
@@ -132,8 +198,8 @@ export function AdminConnections({ session, initialChats = [] }: AdminConnection
           onClose={() => setEditState(prev => ({ ...prev, editingConnection: null }))}
           onUpdateForm={handleUpdateEditForm}
           onToggleApiKeyVisibility={handleToggleEditApiKey}
-          onUpdateConnection={updateConnection}
-          onDeleteConnection={deleteConnection}
+          onUpdateConnection={handleUpdateConnectionAction}
+          onDeleteConnection={handleDeleteConnectionAction}
         />
       </div>
     </AdminSidebar>

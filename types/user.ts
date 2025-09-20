@@ -7,6 +7,7 @@ export interface User {
   email: string
   role: UserRole
   userGroup: UserGroup
+  image?: string
   profilePicture?: string
   lastActive?: string
   createdAt: string
@@ -24,6 +25,7 @@ export interface CreateUserData {
 
 export interface UpdateUserData extends Partial<CreateUserData> {
   id: string
+  image?: string
 }
 
 export interface EditUserForm {

@@ -1,11 +1,9 @@
 "use client"
 
-import { useState } from "react"
 import { Session } from "next-auth"
 import { AdminSidebar } from "../AdminSidebar"
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
@@ -21,9 +19,12 @@ import { ElevenLabsTtsConnectionForm } from "@/components/admin/audio/ElevenLabs
 interface AdminAudioProps {
     session: Session | null
     initialChats?: any[]
+    initialOpenAI?: { baseUrl: string; apiKey: string }
+    initialElevenLabs?: { apiKey: string; voiceId: string; modelId: string }
+    initialDeepgram?: { apiKey: string }
 }
 
-export function AdminAudio({ session, initialChats = [] }: AdminAudioProps) {
+export function AdminAudio({ session, initialChats = [], initialOpenAI, initialElevenLabs, initialDeepgram }: AdminAudioProps) {
   const {
     isLoading,
     ttsEnabled,
@@ -88,13 +89,17 @@ export function AdminAudio({ session, initialChats = [] }: AdminAudioProps) {
                 {ttsProvider === 'openai' && (
                   <div className="space-y-4">
                     <Separator />
-                    <OpenAISttConnectionForm />
+                    <OpenAISttConnectionForm initialBaseUrl={initialOpenAI?.baseUrl || ''} initialApiKey={initialOpenAI?.apiKey || ''} />
                   </div>
                 )}
                 {ttsProvider === 'elevenlabs' && (
                   <div className="space-y-4">
                     <Separator />
-                    <ElevenLabsTtsConnectionForm />
+                    <ElevenLabsTtsConnectionForm
+                      initialApiKey={initialElevenLabs?.apiKey || ''}
+                      initialVoiceId={initialElevenLabs?.voiceId || ''}
+                      initialModelId={initialElevenLabs?.modelId || ''}
+                    />
                   </div>
                 )}
                 
@@ -163,13 +168,13 @@ export function AdminAudio({ session, initialChats = [] }: AdminAudioProps) {
                 {sttProvider === 'openai' && (
                   <div className="space-y-4">
                     <Separator />
-                    <OpenAISttConnectionForm />
+                    <OpenAISttConnectionForm initialBaseUrl={initialOpenAI?.baseUrl || ''} initialApiKey={initialOpenAI?.apiKey || ''} />
                   </div>
                 )}
                 {sttProvider === 'deepgram' && (
                   <div className="space-y-4">
                     <Separator />
-                    <DeepgramSttConnectionForm />
+                    <DeepgramSttConnectionForm initialApiKey={initialDeepgram?.apiKey || ''} />
                   </div>
                 )}
               </CardContent>

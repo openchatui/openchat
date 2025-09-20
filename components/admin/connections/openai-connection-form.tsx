@@ -1,6 +1,8 @@
 import { Plus, Eye, EyeOff, X, Save, Loader2, Edit } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { ApiKeyField } from "@/components/admin/ApiKeyField"
 import { Switch } from "@/components/ui/switch"
 import { toast } from "sonner"
 import { PLACEHOLDERS, MESSAGES, TOAST_MESSAGES } from "@/constants/connections"
@@ -80,44 +82,35 @@ export function OpenAIConnectionForm({
         <div key={connection.id} className="rounded-lg">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">{MESSAGES.BASE_URL_LABEL}</label>
-              <div className="p-2 bg-muted rounded-md text-sm">
+              <Label>{MESSAGES.BASE_URL_LABEL}</Label>
+              <div className="h-10 px-3 bg-muted rounded-md text-sm flex items-center">
                 {connection.baseUrl}
               </div>
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">{MESSAGES.API_KEY_LABEL}</label>
-              <div className="flex gap-2">
-                <div className="relative flex-1">
-                  <div className="p-2 bg-muted rounded-md text-sm font-mono pr-10">
-                    {visibleApiKeys.has(connection.id)
-                      ? connection.apiKey
-                      : '•'.repeat(Math.min(connection.apiKey?.length || 0, 32))
-                    }
-                  </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                    onClick={() => onToggleApiKeyVisibility(connection.id)}
-                  >
-                    {visibleApiKeys.has(connection.id) ? (
-                      <EyeOff className="h-4 w-4 text-muted-foreground" />
-                    ) : (
-                      <Eye className="h-4 w-4 text-muted-foreground" />
-                    )}
-                  </Button>
+              <Label className="opacity-0 select-none">{MESSAGES.API_KEY_LABEL}</Label>
+              <div className="flex gap-2 items-center w-full">
+                <div className="flex-1">
+                  <ApiKeyField
+                    label={MESSAGES.API_KEY_LABEL}
+                    value={connection.apiKey || ""}
+                    onChange={() => {}}
+                    onSave={async () => {}}
+                    autosave={false}
+                    showSavedIndicator={false}
+                    hideLabel
+                    placeholder={PLACEHOLDERS.API_KEY}
+                  />
                 </div>
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => onEditConnection(connection)}
-                  className="flex items-center gap-2"
+                  className="flex items-center gap-2 h-10"
                 >
                   <Edit className="h-4 w-4" />
                 </Button>
-                <div className="flex items-center pl-1">
+                <div className="flex items-center pl-1 h-10">
                   <Switch
                     checked={!!enableStatuses[idx]}
                     onCheckedChange={(checked) => onToggleEnable?.(idx, Boolean(checked))}
@@ -134,9 +127,9 @@ export function OpenAIConnectionForm({
         <div key={connection.id} className="rounded-lg">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">
+              <Label>
                 {MESSAGES.BASE_URL_LABEL}
-              </label>
+              </Label>
               <Input
                 placeholder={PLACEHOLDERS.OPENAI_BASE_URL}
                 value={connection.baseUrl}
@@ -147,44 +140,28 @@ export function OpenAIConnectionForm({
             </div>
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <label className="text-sm font-medium">
-                  {MESSAGES.API_KEY_LABEL}
-                </label>
+                <Label>{MESSAGES.API_KEY_LABEL}</Label>
                 {newConnections.length > 1 && (
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={() => onRemoveRow(connection.id)}
-                    className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
+                    className="h-2 w-2 p-0 text-muted-foreground hover:text-destructive"
                   >
                     <X className="h-4 w-4" />
                   </Button>
                 )}
               </div>
-              <div className="relative">
-                <Input
-                  type={visibleNewApiKeys.has(connection.id) ? "text" : "password"}
-                  placeholder={PLACEHOLDERS.API_KEY}
-                  value={connection.apiKey}
-                  onChange={(e) =>
-                    onUpdateConnection(connection.id, 'apiKey', e.target.value)
-                  }
-                  className="pr-10"
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                  onClick={() => onToggleNewApiKeyVisibility(connection.id)}
-                >
-                  {visibleNewApiKeys.has(connection.id) ? (
-                    <EyeOff className="h-4 w-4 text-muted-foreground" />
-                  ) : (
-                    <Eye className="h-4 w-4 text-muted-foreground" />
-                  )}
-                </Button>
-              </div>
+              <ApiKeyField
+                label={MESSAGES.API_KEY_LABEL}
+                value={connection.apiKey}
+                onChange={(v) => onUpdateConnection(connection.id, 'apiKey', v)}
+                onSave={async () => { /* no-op: saved via Save button */ }}
+                autosave={false}
+                showSavedIndicator={false}
+                hideLabel
+                placeholder={PLACEHOLDERS.API_KEY}
+              />
             </div>
           </div>
         </div>

@@ -29,6 +29,8 @@ interface ChatClientProps {
   assistantDisplayName?: string
   assistantImageUrl?: string
   timeZone?: string
+  webSearchAvailable?: boolean
+  imageAvailable?: boolean
 }
 
 export default function ChatClient({
@@ -40,7 +42,9 @@ export default function ChatClient({
   pinnedModels = [],
   assistantDisplayName = 'AI Assistant',
   assistantImageUrl = '/avatars/01.png',
-  timeZone = 'UTC'
+  timeZone = 'UTC',
+  webSearchAvailable = true,
+  imageAvailable = true
 }: ChatClientProps) {
   const [selectedModel, setSelectedModel] = useState<Model | null>(null)
   const [isInitializing, setIsInitializing] = useState(true)
@@ -189,14 +193,16 @@ export default function ChatClient({
                   // Send the message to get assistant response (pass model directly to avoid state timing issues)
                   hasSentInitialMessageRef.current = true
                   let webSearchFromStorage = false
+                  let imageFromStorage = false
                   try {
                     const raw = sessionStorage.getItem(`chat-input-${chatId}`)
                     if (raw) {
                       const data = JSON.parse(raw)
                       webSearchFromStorage = Boolean(data?.webSearchEnabled)
+                      imageFromStorage = Boolean(data?.imageGenerationEnabled)
                     }
                   } catch {}
-                  handleSendMessage(textContent.text, { webSearch: webSearchFromStorage, image: false, codeInterpreter: false }, model, true)
+                  handleSendMessage(textContent.text, { webSearch: webSearchFromStorage, image: imageFromStorage, codeInterpreter: false }, model, true)
                   // Also update the selected model state for UI consistency
                   if (!selectedModel) {
                     setSelectedModel(model)
@@ -276,8 +282,8 @@ export default function ChatClient({
 
       // Build request body: use full messages for first auto-send to avoid duplication
       const requestBody = isAutoSend
-        ? { messages, chatId, modelId: providerModelId, enableWebSearch: options.webSearch }
-        : { message: userMessage, chatId, modelId: providerModelId, enableWebSearch: options.webSearch }
+        ? { messages, chatId, modelId: providerModelId, enableWebSearch: options.webSearch, enableImage: options.image }
+        : { message: userMessage, chatId, modelId: providerModelId, enableWebSearch: options.webSearch, enableImage: options.image }
 
       // Call the API route directly for streaming
       const response = await fetch('/api/v1/chat', {
@@ -650,6 +656,8 @@ export default function ChatClient({
                 isStreaming={isLoading}
                 onStop={handleStop}
                 sessionStorageKey={`chat-input-${chatId}`}
+                webSearchAvailable={webSearchAvailable}
+                imageAvailable={imageAvailable}
               />
             </div>
           </div>

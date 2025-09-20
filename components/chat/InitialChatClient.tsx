@@ -26,9 +26,11 @@ interface InitialChatClientProps {
   lastUsedModelId?: string | null
   pinnedModels?: Model[]
   timeZone?: string
+  webSearchAvailable?: boolean
+  imageAvailable?: boolean
 }
 
-export default function InitialChatClient({ session, initialChats = [], initialModels = [], initialUserSettings = {}, lastUsedModelId, pinnedModels = [], timeZone = 'UTC' }: InitialChatClientProps) {
+export default function InitialChatClient({ session, initialChats = [], initialModels = [], initialUserSettings = {}, lastUsedModelId, pinnedModels = [], timeZone = 'UTC', webSearchAvailable = true, imageAvailable = true }: InitialChatClientProps) {
   const [isCreating, setIsCreating] = useState(false)
   const router = useRouter()
 
@@ -209,6 +211,8 @@ export default function InitialChatClient({ session, initialChats = [], initialM
                   onSubmit={handleSendMessage}
                   disabled={isCreating}
                   sessionStorageKey={'chat-input'}
+                  webSearchAvailable={webSearchAvailable}
+                  imageAvailable={imageAvailable}
                 />
                 <PromptSuggestions
                   disabled={isCreating}
