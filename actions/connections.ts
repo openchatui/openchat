@@ -1,6 +1,7 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
+import { cookies } from 'next/headers'
 import db from "@/lib/db"
 import type { Connection, CreateConnectionData, UpdateConnectionData, ConnectionsConfig } from "@/types/connections"
 
@@ -135,9 +136,11 @@ export async function updateConnectionsConfig(payload: any): Promise<void> {
 export async function testConnectionAction(baseUrl: string): Promise<{ success: boolean; status?: number; error?: string }> {
   try {
     const endpoint = new URL('/api/connections/test', resolveAppBaseUrl()).toString()
+    const cookieStore = await cookies()
+    const cookieHeader = cookieStore.getAll().map(({ name, value }) => `${name}=${value}`).join('; ')
     const res = await fetch(endpoint, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(cookieHeader ? { Cookie: cookieHeader } : {}) },
       body: JSON.stringify({ baseUrl }),
       cache: 'no-store',
     })
@@ -151,9 +154,11 @@ export async function testConnectionAction(baseUrl: string): Promise<{ success: 
 export async function syncModelsAction(input: { baseUrl: string; type: 'openai-api' | 'ollama'; apiKey?: string }): Promise<{ count: number } | null> {
   try {
     const endpoint = new URL('/api/v1/models/sync', resolveAppBaseUrl()).toString()
+    const cookieStore = await cookies()
+    const cookieHeader = cookieStore.getAll().map(({ name, value }) => `${name}=${value}`).join('; ')
     const res = await fetch(endpoint, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(cookieHeader ? { Cookie: cookieHeader } : {}) },
       body: JSON.stringify({ baseUrl: input.baseUrl.trim(), type: input.type, apiKey: input.apiKey || null, ollama: input.type === 'ollama' ? 'ollama' : undefined }),
       cache: 'no-store',
     })

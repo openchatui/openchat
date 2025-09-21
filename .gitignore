@@ -45,3 +45,5 @@ next-env.d.ts
 
 public/profiles/*
 public/images/*
+
+/prisma/*.db
