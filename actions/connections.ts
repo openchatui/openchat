@@ -74,6 +74,10 @@ export async function createConnections(connections: CreateConnectionData[]): Pr
       provider: null,
     })),
   })
+  // Keep config in sync with DB for known providers
+  const createdTypes = new Set(connections.map(c => c.type))
+  if (createdTypes.has('openai-api')) await syncOpenAIConfigFromDb()
+  if (createdTypes.has('ollama')) await syncOllamaConfigFromDb()
   revalidatePath('/admin/connections')
 }
 
@@ -83,18 +87,43 @@ export async function updateConnectionAction(id: string, data: UpdateConnectionD
   if (typeof data.baseUrl !== 'undefined') update.baseUrl = String(data.baseUrl).trim()
   if (typeof data.apiKey !== 'undefined') update.apiKey = data.apiKey ? String(data.apiKey).trim() : null
   await db.connection.update({ where: { id }, data: update })
+  // Keep config aligned with current DB
+  await Promise.all([syncOpenAIConfigFromDb(), syncOllamaConfigFromDb()])
   revalidatePath('/admin/connections')
 }
 
 export async function deleteConnectionAction(id: string): Promise<void> {
   await db.connection.delete({ where: { id } })
+  // Keep config aligned after deletion
+  await Promise.all([syncOpenAIConfigFromDb(), syncOllamaConfigFromDb()])
   revalidatePath('/admin/connections')
 }
 
 export async function updateConnectionsConfig(payload: any): Promise<void> {
   const row = await (db as any).config.findUnique({ where: { id: 1 } })
   const current = (row?.data || {}) as any
-  const next = { ...current, ...(payload || {}) }
+
+  // Deep merge helper to avoid clobbering sibling keys on nested updates
+  const isPlainObject = (value: unknown): value is Record<string, unknown> => {
+    return typeof value === 'object' && value !== null && !Array.isArray(value)
+  }
+
+  const deepMerge = (target: any, source: any): any => {
+    if (!isPlainObject(target) || !isPlainObject(source)) return source
+    const result: Record<string, any> = { ...target }
+    for (const key of Object.keys(source)) {
+      const srcVal = (source as any)[key]
+      const tgtVal = (target as any)[key]
+      if (isPlainObject(srcVal) && isPlainObject(tgtVal)) {
+        result[key] = deepMerge(tgtVal, srcVal)
+      } else {
+        result[key] = srcVal
+      }
+    }
+    return result
+  }
+
+  const next = deepMerge(current, payload || {})
   if (row) {
     await (db as any).config.update({ where: { id: 1 }, data: { data: next } })
   } else {
@@ -105,7 +134,8 @@ export async function updateConnectionsConfig(payload: any): Promise<void> {
 
 export async function testConnectionAction(baseUrl: string): Promise<{ success: boolean; status?: number; error?: string }> {
   try {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || ''}/api/connections/test`, {
+    const endpoint = new URL('/api/connections/test', resolveAppBaseUrl()).toString()
+    const res = await fetch(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ baseUrl }),
@@ -120,7 +150,8 @@ export async function testConnectionAction(baseUrl: string): Promise<{ success: 
 
 export async function syncModelsAction(input: { baseUrl: string; type: 'openai-api' | 'ollama'; apiKey?: string }): Promise<{ count: number } | null> {
   try {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || ''}/api/v1/models/sync`, {
+    const endpoint = new URL('/api/v1/models/sync', resolveAppBaseUrl()).toString()
+    const res = await fetch(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ baseUrl: input.baseUrl.trim(), type: input.type, apiKey: input.apiKey || null, ollama: input.type === 'ollama' ? 'ollama' : undefined }),
@@ -219,6 +250,83 @@ export async function setDeepgramApiKey(apiKey: string): Promise<void> {
   }
   if (row) await (db as any).config.update({ where: { id: 1 }, data: { data: next } })
   else await (db as any).config.create({ data: { id: 1, data: next } })
+}
+
+// Sync helpers to ensure config mirrors DB state for connection providers
+async function syncOpenAIConfigFromDb(): Promise<void> {
+  const [row, rows] = await Promise.all([
+    (db as any).config.findUnique({ where: { id: 1 } }),
+    db.connection.findMany({ where: { type: 'openai-api' }, orderBy: { createdAt: 'desc' } }),
+  ])
+  const current = (row?.data || {}) as any
+  const connections = (current?.connections && typeof current.connections === 'object') ? current.connections as any : {}
+  const openai = (connections.openai && typeof connections.openai === 'object') ? connections.openai as any : {}
+  const prevConfigs: Record<string, any> = (openai.api_configs && typeof openai.api_configs === 'object') ? { ...openai.api_configs } : {}
+
+  const urls: string[] = rows.map(r => String(r.baseUrl))
+  const keys: (string | null)[] = rows.map(r => (r.apiKey ? String(r.apiKey) : null))
+
+  const api_configs: Record<string, any> = {}
+  for (let i = 0; i < urls.length; i++) {
+    api_configs[String(i)] = { ...(prevConfigs[String(i)] || {}) }
+  }
+
+  const next = {
+    ...current,
+    connections: {
+      ...connections,
+      openai: {
+        ...openai,
+        api_base_urls: urls,
+        api_keys: keys.map(k => k ?? ''),
+        api_configs,
+      },
+    },
+  }
+
+  if (row) await (db as any).config.update({ where: { id: 1 }, data: { data: next } })
+  else await (db as any).config.create({ data: { id: 1, data: next } })
+}
+
+async function syncOllamaConfigFromDb(): Promise<void> {
+  const [row, rows] = await Promise.all([
+    (db as any).config.findUnique({ where: { id: 1 } }),
+    db.connection.findMany({ where: { type: 'ollama' }, orderBy: { createdAt: 'desc' } }),
+  ])
+  const current = (row?.data || {}) as any
+  const connections = (current?.connections && typeof current.connections === 'object') ? current.connections as any : {}
+  const ollama = (connections.ollama && typeof connections.ollama === 'object') ? connections.ollama as any : {}
+
+  const base_urls: string[] = rows.map(r => String(r.baseUrl))
+
+  const next = {
+    ...current,
+    connections: {
+      ...connections,
+      ollama: {
+        ...ollama,
+        base_urls,
+      },
+    },
+  }
+
+  if (row) await (db as any).config.update({ where: { id: 1 }, data: { data: next } })
+  else await (db as any).config.create({ data: { id: 1, data: next } })
+}
+
+export async function syncConnectionsConfigFromDb(): Promise<void> {
+  await Promise.all([syncOpenAIConfigFromDb(), syncOllamaConfigFromDb()])
+}
+
+function resolveAppBaseUrl(): string {
+  const envCandidate = process.env.NEXT_PUBLIC_BASE_URL || process.env.APP_URL || process.env.VERCEL_URL
+  if (envCandidate) {
+    const normalized = envCandidate.replace(/\/$/, '')
+    if (/^https?:\/\//i.test(normalized)) return normalized
+    return `https://${normalized}`
+  }
+  const port = process.env.PORT || '3000'
+  return `http://localhost:${port}`
 }
 
 

@@ -51,6 +51,8 @@ export function AdminConnections({ session, initialChats = [], initialConnection
     toggleNewApiKeyVisibility,
     handleEditConnection,
     connectionsConfig,
+    toggleOpenAIConnectionEnabledAt,
+    toggleOllamaEnabled,
     testConnection,
     setEditState,
     setConnectionsState
@@ -95,15 +97,7 @@ export function AdminConnections({ session, initialChats = [], initialConnection
     }
   }
 
-  const handleToggleOpenAIConnectionEnabledAt = async (index: number, enabled: boolean) => {
-    await updateConnectionsConfig({ connections: { openai: { api_configs: { [String(index)]: { enable: enabled } } } } })
-    router.refresh()
-  }
-
-  const handleToggleOllamaEnabledAction = async (enabled: boolean) => {
-    await updateConnectionsConfig({ connections: { ollama: { enable: enabled } } })
-    router.refresh()
-  }
+  
 
   const handleUpdateConnectionAction = async () => {
     if (!editingConnection) return
@@ -171,7 +165,7 @@ export function AdminConnections({ session, initialChats = [], initialConnection
               onClearAll={handleClearAll}
               onEditConnection={handleEditConnection}
               enableStatuses={openaiEnableStatuses}
-              onToggleEnable={(index, enabled) => handleToggleOpenAIConnectionEnabledAt(index, enabled)}
+              onToggleEnable={(index, enabled) => toggleOpenAIConnectionEnabledAt(index, enabled)}
             />
 
             {/* Ollama Connection Form */}
@@ -184,7 +178,7 @@ export function AdminConnections({ session, initialChats = [], initialConnection
               onTestConnection={testConnection}
               onEditConnection={handleEditConnection}
               ollamaEnabled={ollamaEnabled}
-              onToggleOllamaEnabled={handleToggleOllamaEnabledAction}
+              onToggleOllamaEnabled={toggleOllamaEnabled}
             />
                   </div>
                 )}

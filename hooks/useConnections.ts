@@ -8,7 +8,6 @@ import {
   updateConnectionAction,
   deleteConnectionAction,
   updateConnectionsConfig,
-  testConnectionAction,
   syncModelsAction,
 } from '@/actions/connections'
 import type {
@@ -308,9 +307,20 @@ export function useConnections(initialConnections: Connection[] = [], initialCon
         })()
       }))
 
-      const result = await testConnectionAction(baseUrl.trim())
+      // 100% client-side test to avoid server-to-localhost issues
+      // Validate URL format first
+      try { new URL(baseUrl.trim()) } catch { throw new Error('Invalid URL') }
 
-      if (result.success && result.status === 200) {
+      const controller = new AbortController()
+      const timeout = setTimeout(() => controller.abort(), 8000)
+      try {
+        // Use no-cors so we can at least detect reachability even if CORS is not enabled
+        await fetch(baseUrl.trim(), { method: 'GET', mode: 'no-cors', signal: controller.signal })
+      } finally {
+        clearTimeout(timeout)
+      }
+
+      {
         // Mark as successful and don't show toast for 200 responses
         setConnectionsState(prev => ({
           ...prev,
@@ -354,11 +364,6 @@ export function useConnections(initialConnections: Connection[] = [], initialCon
         } else {
           toast.success(TOAST_MESSAGES.CONNECTION_TEST_SUCCESSFUL)
         }
-      } else if (result.success) {
-        // Show toast for non-200 successful responses
-        toast.success(`Connection successful! Status: ${result.status}`)
-      } else {
-        toast.error(`${TOAST_MESSAGES.CONNECTION_TEST_FAILED}: ${result.error || 'Unknown error'}`)
       }
     } catch (error) {
       console.error('Error testing connection:', error)

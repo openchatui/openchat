@@ -42,13 +42,14 @@ function computeProviderEnabled(connectionsCfg: any, provider?: string | null): 
   }
   if (norm === 'openrouter' || norm === 'openai' || norm === 'openai-compatible') {
     const openai = connectionsCfg?.openai || {}
-    // If top-level enable is explicitly false, provider disabled
-    if (openai.enable === false) return false
     const apiConfigs = isPlainObject(openai.api_configs) ? openai.api_configs as Record<string, any> : {}
     const entries = Object.values(apiConfigs)
-    if (entries.length === 0) return true
-    // Enabled if at least one entry isn't explicitly disabled
-    return entries.some((e: any) => e && e.enable !== false)
+    if (entries.length > 0) {
+      // Enabled if at least one entry is not explicitly disabled
+      return entries.some((e: any) => e && e.enable !== false)
+    }
+    // Fallback to top-level flag only when there are no per-connection configs
+    return openai.enable !== false
   }
   // Unknown providers default to enabled
   return true
