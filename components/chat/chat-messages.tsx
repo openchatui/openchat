@@ -316,10 +316,25 @@ export default function ChatMessages({
                 return false
               }
 
-              const latestImagePart = [...toolParts].reverse().find(p => isImageToolPart(p) && typeof p?.output?.url === 'string') as any
-              if (latestImagePart && typeof latestImagePart?.output?.url === 'string') {
-                // Image will be rendered in the timeline for the corresponding tool part; avoid duplicate preview here
-                return null
+              // Handle image generation tool: show loader while running, show image when available
+              const latestImagePart = [...toolParts].reverse().find((p: any) => isImageToolPart(p)) as any
+              if (latestImagePart) {
+                const state: string | undefined = latestImagePart?.state
+                const imageUrl: string | undefined = typeof latestImagePart?.output?.url === 'string' ? latestImagePart.output.url : undefined
+                if (!imageUrl && (state === 'input-streaming' || state === 'input-available')) {
+                  return (
+                    <div className="mb-3 flex items-center justify-center w-full max-w-[1024px] h-[256px] rounded-lg bg-muted/30 border">
+                      <Loader className="h-8 w-8" />
+                    </div>
+                  )
+                }
+                if (imageUrl) {
+                  return (
+                    <div className="mb-3 rounded-lg overflow-hidden border">
+                      <Image src={imageUrl} alt="Generated image" />
+                    </div>
+                  )
+                }
               }
 
               const latestWithUrl = [...toolParts].reverse().find((p: any) => {
