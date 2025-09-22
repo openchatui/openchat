@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { ChevronRight, MessageSquare, Trash2, MoreHorizontal } from "lucide-react"
+import { ChevronRight, MessageSquare, Trash2, MoreHorizontal, Archive } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
 
 import {
@@ -26,10 +26,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import type { ChatData } from "@/lib/chat/chat-store"
 import { useChatTitles } from "@/hooks/useChatTitles"
 import { useTags } from "@/hooks/useTags"
+import { archiveChatAction } from "@/actions/chat"
 
 interface NavChatsProps {
   chats: ChatData[]
@@ -40,6 +41,7 @@ export function NavChats({ chats, timeZone = 'UTC' }: NavChatsProps) {
   const [isOpen, setIsOpen] = useState(true)
   const [mounted, setMounted] = useState(false)
   const pathname = usePathname()
+  const router = useRouter()
   // Avoid scanning large chat arrays when collapsed by passing empty list to the hook
   const effectiveChatsForTitles = isOpen ? chats : []
   const { titles } = useChatTitles(effectiveChatsForTitles)
@@ -200,6 +202,26 @@ export function NavChats({ chats, timeZone = 'UTC' }: NavChatsProps) {
                                     </Button>
                                   </DropdownMenuTrigger>
                                   <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                                    <DropdownMenuItem
+                                      className=""
+                                      onClick={async (e) => {
+                                        e.preventDefault()
+                                        e.stopPropagation()
+                                        try {
+                                          await archiveChatAction(chat.id)
+                                          try {
+                                            const bc = new BroadcastChannel('chats')
+                                            bc.postMessage({ type: 'archived', id: chat.id })
+                                            bc.close()
+                                          } catch {}
+                                        } finally {
+                                          router.refresh()
+                                        }
+                                      }}
+                                    >
+                                      <Archive className="mr-2 h-3 w-3" />
+                                      Archive
+                                    </DropdownMenuItem>
                                     <DropdownMenuItem
                                       className=""
                                       onClick={(e) => {

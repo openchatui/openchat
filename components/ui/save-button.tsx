@@ -1,12 +1,13 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { Button, type ButtonProps } from "@/components/ui/button"
+import { Button } from "@/components/ui/button"
+import type { ComponentProps } from "react"
 import { useFormStatus } from "react-dom"
 import { Check, Save as SaveIcon, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
-interface SaveStatusButtonProps extends ButtonProps {
+interface SaveStatusButtonProps extends ComponentProps<"button"> {
   label?: string
   successDurationMs?: number
   disabled?: boolean

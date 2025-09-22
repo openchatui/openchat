@@ -11,6 +11,7 @@ import {
   Settings2,
   Sparkles,
   Sun,
+  Archive,
 } from "lucide-react"
 
 import { CgProfile } from "react-icons/cg";
@@ -112,6 +113,13 @@ export function NavUser({
                   </a>
                 </DropdownMenuItem>
               )}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem asChild>
+              <a href="/archive">
+                <Archive />
+                Archive
+              </a>
+            </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={handleSignOut}>
               <LogOut />

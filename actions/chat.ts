@@ -5,7 +5,7 @@ import { streamText, UIMessage, convertToModelMessages, validateUIMessages, crea
 import { auth } from '@/lib/auth/auth';
 import db from '@/lib/db';
 import { getEffectivePermissionsForUser, filterModelsReadableByUser } from '@/lib/server/access-control'
-import { loadChat, saveChat, createChat as createChatInStore, chatExists as checkChatExists, getUserChats, ChatData } from '@/lib/chat/chat-store';
+import { loadChat, saveChat, createChat as createChatInStore, chatExists as checkChatExists, getUserChats, ChatData, archiveChat as archiveChatInStore, unarchiveChat as unarchiveChatInStore } from '@/lib/chat/chat-store';
 import type { MessageMetadata } from '@/types/messages';
 import type { Model, ModelMeta, ModelsGroupedByOwner, UpdateModelData } from '@/types/models';
 import { revalidatePath } from 'next/cache';
@@ -527,6 +527,42 @@ export async function getInitialChats() {
   } catch (error) {
     console.error('Get initial chats error:', error);
     return [];
+  }
+}
+
+// Server action to archive a chat
+export async function archiveChatAction(chatId: string): Promise<void> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      throw new Error('Unauthorized');
+    }
+
+    const userId = session.user.id;
+    await archiveChatInStore(chatId, userId);
+    revalidatePath('/');
+    revalidatePath('/archive');
+  } catch (error) {
+    console.error('Archive chat error:', error);
+    throw error;
+  }
+}
+
+// Server action to unarchive a chat
+export async function unarchiveChatAction(chatId: string): Promise<void> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      throw new Error('Unauthorized');
+    }
+
+    const userId = session.user.id;
+    await unarchiveChatInStore(chatId, userId);
+    revalidatePath('/');
+    revalidatePath('/archive');
+  } catch (error) {
+    console.error('Unarchive chat error:', error);
+    throw error;
   }
 }
 

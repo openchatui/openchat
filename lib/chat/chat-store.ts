@@ -140,6 +140,40 @@ export async function getUserChats(userId: string): Promise<ChatData[]> {
 }
 
 /**
+ * Get archived chats for a user
+ */
+export async function getUserArchivedChats(userId: string): Promise<ChatData[]> {
+  const chats = await db.chat.findMany({
+    where: {
+      userId,
+      archived: { not: 0 },
+    },
+    select: {
+      id: true,
+      title: true,
+      chat: true,
+      createdAt: true,
+      updatedAt: true,
+    },
+    orderBy: {
+      updatedAt: 'desc',
+    },
+  });
+
+  return chats.map(chat => {
+    const raw = chat.chat as unknown;
+    const messages = Array.isArray(raw) ? raw.filter(isUIMessage) : [];
+    return {
+      id: chat.id,
+      title: chat.title,
+      messages,
+      createdAt: chat.createdAt,
+      updatedAt: chat.updatedAt,
+    };
+  });
+}
+
+/**
  * Check if a chat exists and belongs to the user
  */
 export async function chatExists(chatId: string, userId: string): Promise<boolean> {
@@ -179,6 +213,22 @@ export async function archiveChat(chatId: string, userId: string): Promise<void>
     },
     data: {
       archived: 1,
+      updatedAt: new Date(),
+    },
+  });
+}
+
+/**
+ * Unarchive a chat
+ */
+export async function unarchiveChat(chatId: string, userId: string): Promise<void> {
+  await db.chat.updateMany({
+    where: {
+      id: chatId,
+      userId,
+    },
+    data: {
+      archived: 0,
       updatedAt: new Date(),
     },
   });
