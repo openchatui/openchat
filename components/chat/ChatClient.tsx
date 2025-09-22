@@ -29,6 +29,14 @@ interface ChatClientProps {
   timeZone?: string
   webSearchAvailable?: boolean
   imageAvailable?: boolean
+  permissions?: {
+    workspaceTools: boolean
+    webSearch: boolean
+    imageGeneration: boolean
+    codeInterpreter: boolean
+    stt: boolean
+    tts: boolean
+  }
 }
 
 export default function ChatClient({
@@ -42,7 +50,8 @@ export default function ChatClient({
   assistantImageUrl = '/avatars/01.png',
   timeZone = 'UTC',
   webSearchAvailable = true,
-  imageAvailable = true
+  imageAvailable = true,
+  permissions
 }: ChatClientProps) {
   const [selectedModel, setSelectedModel] = useState<Model | null>(null)
   const [isInitializing, setIsInitializing] = useState(true)
@@ -640,6 +649,9 @@ export default function ChatClient({
               assistantDisplayName={assistantInfo.displayName}
               assistantImageUrl={assistantInfo.imageUrl}
               timeZone={timeZone}
+              toolsAvailable={!!permissions?.workspaceTools}
+              webSearchAllowed={!!permissions?.webSearch}
+              imageGenerationAllowed={!!permissions?.imageGeneration}
             />
           </div>
           <div className="absolute bottom-0 left-0 right-0 z-10">
@@ -649,8 +661,11 @@ export default function ChatClient({
               isStreaming={isLoading}
               onStop={handleStop}
               sessionStorageKey={`chat-input-${chatId}`}
-              webSearchAvailable={webSearchAvailable}
-              imageAvailable={imageAvailable}
+              webSearchAvailable={webSearchAvailable && !!permissions?.workspaceTools && !!permissions?.webSearch}
+              imageAvailable={imageAvailable && !!permissions?.workspaceTools && !!permissions?.imageGeneration}
+              codeInterpreterAvailable={!!permissions?.workspaceTools && !!permissions?.codeInterpreter}
+              sttAllowed={!!permissions?.stt}
+              ttsAllowed={!!permissions?.tts}
             />
           </div>
         </div>

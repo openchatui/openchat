@@ -1,4 +1,5 @@
 import db from '@/lib/db';
+import { canReadModelById } from '@/lib/server/access-control'
 import { resolveAiProvider } from '@/lib/ai/provider';
 import type { UIMessage } from 'ai';
 import type { MessageMetadata } from '@/types/messages';
@@ -33,21 +34,24 @@ export async function resolveModelInfoAndHandle({
   let modelContextTokens: number | null = null;
 
   if (modelId) {
-    const model = await db.model.findFirst({
-      where: { id: modelId, userId },
-      select: { id: true, name: true, meta: true },
-    });
-    if (model) {
-      modelName = model.name;
-      selectedModelInfo = {
-        id: model.id,
-        name: model.name,
-        profile_image_url: (model as any).meta?.profile_image_url ?? null,
-      };
-      const m = (model as any).meta || {};
-      modelContextTokens =
-        m.context_window || m.contextWindow || m.context || m.max_context ||
-        m.details?.context_window || m.details?.context || null;
+    const readable = await canReadModelById(userId, modelId)
+    if (readable) {
+      const model = await db.model.findFirst({
+        where: { id: modelId },
+        select: { id: true, name: true, meta: true },
+      });
+      if (model) {
+        modelName = model.name;
+        selectedModelInfo = {
+          id: model.id,
+          name: model.name,
+          profile_image_url: (model as any).meta?.profile_image_url ?? null,
+        };
+        const m = (model as any).meta || {};
+        modelContextTokens =
+          m.context_window || m.contextWindow || m.context || m.max_context ||
+          m.details?.context_window || m.details?.context || null;
+      }
     }
   }
 

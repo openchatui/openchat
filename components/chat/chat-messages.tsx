@@ -23,6 +23,10 @@ interface ChatMessagesProps {
   assistantDisplayName?: string
   assistantImageUrl?: string
   timeZone?: string
+  // Optional gating flags (no-ops if not provided)
+  toolsAvailable?: boolean
+  webSearchAllowed?: boolean
+  imageGenerationAllowed?: boolean
 }
 
 export default function ChatMessages({
@@ -31,7 +35,10 @@ export default function ChatMessages({
   error,
   assistantDisplayName = 'AI Assistant',
   assistantImageUrl = '/avatars/01.png',
-  timeZone = 'UTC'
+  timeZone = 'UTC',
+  toolsAvailable = true,
+  webSearchAllowed = true,
+  imageGenerationAllowed = true,
 }: ChatMessagesProps) {
   const scrollAreaRef = useRef<HTMLDivElement>(null)
   // Simplified: no timers or progress bookkeeping; render streamed reasoning succinctly
@@ -317,7 +324,9 @@ export default function ChatMessages({
               }
 
               // Handle image generation tool: show loader while running, show image when available
-              const latestImagePart = [...toolParts].reverse().find((p: any) => isImageToolPart(p)) as any
+              const latestImagePart = (toolsAvailable && imageGenerationAllowed)
+                ? ([...toolParts].reverse().find((p: any) => isImageToolPart(p)) as any)
+                : undefined
               if (latestImagePart) {
                 const state: string | undefined = latestImagePart?.state
                 const imageUrl: string | undefined = typeof latestImagePart?.output?.url === 'string' ? latestImagePart.output.url : undefined
@@ -337,12 +346,12 @@ export default function ChatMessages({
                 }
               }
 
-              const latestWithUrl = [...toolParts].reverse().find((p: any) => {
+              const latestWithUrl = (toolsAvailable && webSearchAllowed) ? ([...toolParts].reverse().find((p: any) => {
                 if (isImageToolPart(p)) return false // handled above
                 const outUrl = (p as any)?.output && typeof (p as any).output?.url === 'string' && (p as any).output.url
                 const inUrl = (p as any)?.input && typeof (p as any).input?.url === 'string' && (p as any).input.url
                 return Boolean(outUrl || inUrl)
-              }) as any
+              }) as any) : undefined
               const url: string | undefined = (latestWithUrl?.output?.url as string) || (latestWithUrl?.input?.url as string)
               if (!url) return null
               return (

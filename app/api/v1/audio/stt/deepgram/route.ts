@@ -1,8 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import db from '@/lib/db'
+import { auth } from '@/lib/auth/auth'
+import { getEffectivePermissionsForUser } from '@/lib/server/access-control'
 
 export async function POST(request: NextRequest) {
   try {
+    const session = await auth()
+    const userId = session?.user?.id
+    if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const eff = await getEffectivePermissionsForUser(userId)
+    if (!eff.chat.stt) return NextResponse.json({ error: 'STT not enabled' }, { status: 403 })
+
     const form = await request.formData()
     const file = form.get('file') as File | null
     const model = (form.get('model') as string | null) || 'nova-2'

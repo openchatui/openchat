@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import db from '@/lib/db'
+import { auth } from '@/lib/auth/auth'
+import { getEffectivePermissionsForUser } from '@/lib/server/access-control'
 import { experimental_generateSpeech as generateSpeech } from 'ai'
 import { createOpenAI } from '@ai-sdk/openai'
 
@@ -16,6 +18,13 @@ function getString(val: unknown): string | null {
 
 export async function POST(request: NextRequest) {
   try {
+    const session = await auth()
+    const userId = session?.user?.id
+    if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    const eff = await getEffectivePermissionsForUser(userId)
+    if (!eff.chat.tts) return NextResponse.json({ error: 'TTS not enabled' }, { status: 403 })
+
     const body = await request.json().catch(() => ({}))
     const text: string | null = getString(body?.text)
     if (!text) return NextResponse.json({ error: 'Missing text' }, { status: 400 })

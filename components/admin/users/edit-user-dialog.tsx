@@ -1,16 +1,21 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { Trash2, Save, Eye, EyeOff, User } from "lucide-react"
+import { Trash2, Save, Eye, EyeOff, Plus, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Badge } from "@/components/ui/badge"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import { MESSAGES, PLACEHOLDERS, USER_ROLES, USER_GROUPS, getEmailInitials } from "@/constants/user"
 import type { User as UserType, EditUserForm } from "@/types/user"
+import type { Group } from "@/types/group"
 import { updateUserAction, deleteUserAction } from "@/actions/users"
 import { useFormStatus } from "react-dom"
+import { SaveStatusButton } from "@/components/ui/save-button"
 
 interface EditUserDialogProps {
   editingUser: UserType | null
@@ -24,6 +29,7 @@ interface EditUserDialogProps {
   onDeleteUser?: () => void
   onProfileImageSelected?: (file: File) => void
   onProfileImageUploaded?: (url: string) => void
+  groups?: Group[]
 }
 
 export function EditUserDialog({
@@ -37,7 +43,8 @@ export function EditUserDialog({
   onUpdateUser,
   onDeleteUser,
   onProfileImageSelected,
-  onProfileImageUploaded
+  onProfileImageUploaded,
+  groups = []
 }: EditUserDialogProps) {
   if (!editingUser) return null
 
@@ -60,6 +67,15 @@ export function EditUserDialog({
     () => localPreviewSrc || editingUser.image || editingUser.profilePicture || undefined,
     [localPreviewSrc, editingUser.image, editingUser.profilePicture]
   )
+
+  const initialGroupIds = useMemo(() => {
+    const ids = (groups || [])
+      .filter(g => Array.isArray((g as any).userIds) && ((g as any).userIds as string[]).includes(editingUser.id))
+      .map(g => g.id)
+    return ids
+  }, [groups, editingUser.id])
+  const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>(initialGroupIds)
+  const [groupsOpen, setGroupsOpen] = useState(false)
 
 
   return (
@@ -180,22 +196,75 @@ export function EditUserDialog({
           </div>
 
           {/* User Group Field */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium">{MESSAGES.USER_GROUP_LABEL}</label>
-            <Select
-              value={editForm.userGroup}
-              onValueChange={(value) => onUpdateForm('userGroup', value)}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select group" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={USER_GROUPS.DEFAULT}>Default</SelectItem>
-                <SelectItem value={USER_GROUPS.PREMIUM}>Premium</SelectItem>
-                <SelectItem value={USER_GROUPS.ENTERPRISE}>Enterprise</SelectItem>
-              </SelectContent>
-            </Select>
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <label className="text-sm font-medium">Groups</label>
+            <Popover open={groupsOpen} onOpenChange={setGroupsOpen} modal={false}>
+              <PopoverTrigger asChild>
+                <Button type="button" size="icon" variant="secondary" className="h-8 w-8 rounded-full">
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-[320px] p-0 z-50">
+                <Command>
+                  <CommandInput placeholder="Search groups..." />
+                  <CommandList>
+                    <CommandEmpty>No groups found.</CommandEmpty>
+                    <CommandGroup>
+                      {(groups || []).map((g) => {
+                        const checked = selectedGroupIds.includes(g.id)
+                        return (
+                          <CommandItem
+                            key={g.id}
+                            value={(g.name || g.id).toLowerCase()}
+                            onMouseDown={(e) => e.preventDefault()}
+                            onSelect={() => {
+                              setSelectedGroupIds(prev => {
+                                const isSelected = (prev || []).includes(g.id)
+                                return isSelected ? (prev || []).filter(id => id !== g.id) : Array.from(new Set([...(prev || []), g.id]))
+                              })
+                            }}
+                          >
+                            <div className="flex items-center gap-2">
+                              <div className={`h-3 w-3 rounded-full border ${checked ? 'bg-primary' : 'bg-transparent'}`} />
+                              <span>{g.name || g.id}</span>
+                            </div>
+                          </CommandItem>
+                        )
+                      })}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
           </div>
+          <div className="flex flex-wrap gap-2">
+            {selectedGroupIds.length === 0 ? (
+              <span className="text-sm text-muted-foreground">No groups</span>
+            ) : (
+              selectedGroupIds.map((gid) => {
+                const g = (groups || []).find(gr => gr.id === gid)
+                const label = g?.name || gid
+                return (
+                  <Badge key={gid} variant="secondary" className="gap-1">
+                    {label}
+                    <button
+                      type="button"
+                      className="ml-1 inline-flex items-center"
+                      aria-label={`Remove ${label}`}
+                      onClick={() => setSelectedGroupIds(prev => (prev || []).filter(id => id !== gid))}
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                )
+              })
+            )}
+          </div>
+
+          {/* Mirror groups into main update form */}
+          <input type="hidden" name="groupIds" form={updateFormId} value={JSON.stringify(selectedGroupIds)} />
+        </div>
 
           {/* Password Field */}
           <div className="space-y-2">
@@ -239,7 +308,7 @@ export function EditUserDialog({
 
             <form id={updateFormId} action={updateUserAction}>
               <input type="hidden" name="id" value={editingUser.id} />
-              <SubmitButton disabled={!editForm.name.trim() || !editForm.email.trim()} />
+              <SaveStatusButton disabled={!editForm.name.trim() || !editForm.email.trim()} />
             </form>
           </div>
         </div>
@@ -248,15 +317,7 @@ export function EditUserDialog({
   )
 }
 
-function SubmitButton({ disabled }: { disabled?: boolean }) {
-  const { pending } = useFormStatus()
-  return (
-    <Button type="submit" disabled={pending || disabled} className="flex items-center gap-2">
-      <Save className="h-4 w-4" />
-      {pending ? "Saving…" : MESSAGES.SAVE}
-    </Button>
-  )
-}
+// Removed local SubmitButton in favor of SaveStatusButton
 
 function DeleteButton() {
   const { pending } = useFormStatus()

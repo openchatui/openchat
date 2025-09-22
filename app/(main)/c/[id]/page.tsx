@@ -7,6 +7,7 @@ import { chatExists, createChat, getUserChats } from "@/lib/chat/chat-store";
 import { getActiveModels, loadChatMessages } from "@/actions/chat";
 import { cookies } from "next/headers";
 import { getWebSearchEnabled, getImageGenerationAvailable, getAudioConfig } from "@/lib/server/config";
+import { getEffectivePermissionsForUser } from "@/lib/server/access-control";
 import { AppConfigProvider } from "@/components/providers/AppConfigProvider";
 
 interface ChatPageProps {
@@ -38,12 +39,13 @@ export default async function ChatPage({ params }: ChatPageProps) {
   }
 
   // Load all data in parallel for better performance
-  const [initialChats, initialModels, webSearchAvailable, imageAvailable, audioConfig] = await Promise.all([
+  const [initialChats, initialModels, webSearchAvailable, imageAvailable, audioConfig, eff] = await Promise.all([
     getUserChats(userId),
     getActiveModels(),
     getWebSearchEnabled(),
     getImageGenerationAvailable(),
     getAudioConfig(),
+    getEffectivePermissionsForUser(userId),
   ]);
 
   // Extract assistant display info from the most recent assistant message
@@ -117,6 +119,14 @@ export default async function ChatPage({ params }: ChatPageProps) {
           timeZone={timeZone}
           webSearchAvailable={webSearchAvailable}
           imageAvailable={imageAvailable}
+          permissions={{
+            workspaceTools: eff.workspace.tools,
+            webSearch: eff.features.web_search,
+            imageGeneration: eff.features.image_generation,
+            codeInterpreter: eff.features.code_interpreter,
+            stt: eff.chat.stt,
+            tts: eff.chat.tts,
+          }}
         />
       </AppConfigProvider>
     </>

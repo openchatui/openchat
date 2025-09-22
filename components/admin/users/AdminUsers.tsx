@@ -4,24 +4,14 @@ import { Session } from "next-auth"
 import { AdminSidebar } from "../AdminSidebar"
 
 // Users Panel Content (from users.tsx)
-import { MessageCircle, Edit, Trash2, Search } from "lucide-react";
+import { MessageCircle, Edit, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { useUsers } from "@/hooks/useUsers";
 import { EditUserDialog } from "./edit-user-dialog";
 import { MESSAGES, PLACEHOLDERS, getEmailInitials } from "@/constants/user";
 import type { User } from "@/types/user";
-import { useState, useMemo } from "react";
+import type { Group } from "@/types/group";
+import { useState, useMemo, useEffect } from "react";
 import { deleteUserAction } from "@/actions/users";
 import {
   AlertDialog,
@@ -33,17 +23,74 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Plus } from "lucide-react";
+import { DEFAULT_GROUP_PERMISSIONS, type GroupPermissions } from "@/types/permissions";
+import { useActionState } from "react";
+import { createGroupAction, updateGroupAction, type ActionResult } from "@/app/(main)/admin/users/actions/groups";
+import { SaveStatusButton } from "@/components/ui/save-button";
+import { UsersTab } from "./UsersTab";
+import { GroupsTab } from "./GroupsTab";
 
 // Main Admin Users Component
 interface AdminUsersProps {
     session: Session | null
     initialChats?: any[]
     initialUsers?: User[]
+    initialGroups?: Group[]
 }
 
-export function AdminUsers({ session, initialChats = [], initialUsers = [] }: AdminUsersProps) {
+export function AdminUsers({ session, initialChats = [], initialUsers = [], initialGroups = [] }: AdminUsersProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+  const [openCreate, setOpenCreate] = useState(false)
+  const [groupName, setGroupName] = useState("")
+  const [groupDescription, setGroupDescription] = useState("")
+  const [perms, setPerms] = useState<GroupPermissions>(DEFAULT_GROUP_PERMISSIONS)
+  const [result, formAction] = useActionState<ActionResult, FormData>(createGroupAction as any, { status: 'idle' })
+  const [createFormInstance, setCreateFormInstance] = useState(0)
+  const [createDidSubmit, setCreateDidSubmit] = useState(false)
+
+  const [editingGroup, setEditingGroup] = useState<Group | null>(null)
+  const [editName, setEditName] = useState("")
+  const [editDescription, setEditDescription] = useState("")
+  const [editPerms, setEditPerms] = useState<GroupPermissions>(DEFAULT_GROUP_PERMISSIONS)
+  const [editResult, editFormAction] = useActionState<ActionResult, FormData>(updateGroupAction as any, { status: 'idle' })
+  const [editFormInstance, setEditFormInstance] = useState(0)
+  const [editDidSubmit, setEditDidSubmit] = useState(false)
+  const [editUserIds, setEditUserIds] = useState<string[]>([])
+  const [membersOpen, setMembersOpen] = useState(false)
+
+  useEffect(() => {
+    if (openCreate && createDidSubmit && result?.status === 'success') {
+      setOpenCreate(false)
+      setGroupName("")
+      setGroupDescription("")
+      setPerms(DEFAULT_GROUP_PERMISSIONS)
+      setCreateFormInstance((v) => v + 1)
+      setCreateDidSubmit(false)
+    }
+  }, [openCreate, createDidSubmit, result])
+
+  useEffect(() => {
+    if (editingGroup) {
+      setEditName(editingGroup.name || '')
+      setEditDescription(editingGroup.description || '')
+      setEditPerms((editingGroup.permissions as any) || DEFAULT_GROUP_PERMISSIONS)
+      setEditUserIds(Array.isArray((editingGroup as any).userIds) ? ((editingGroup as any).userIds as string[]) : [])
+    }
+  }, [editingGroup])
+
+  useEffect(() => {
+    if (editingGroup && editDidSubmit && editResult?.status === 'success') {
+      setEditingGroup(null)
+      setEditFormInstance((v) => v + 1)
+      setEditDidSubmit(false)
+    }
+  }, [editingGroup, editDidSubmit, editResult])
 
   const {
     users,
@@ -107,153 +154,34 @@ export function AdminUsers({ session, initialChats = [], initialUsers = [] }: Ad
           <p className="text-muted-foreground">{MESSAGES.USERS_DESCRIPTION}</p>
         </div>
 
-        {/* Search Bar */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder={PLACEHOLDERS.SEARCH_USERS}
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
+        <Tabs defaultValue="users" className="w-full">
+          <TabsList>
+            <TabsTrigger value="users">Users</TabsTrigger>
+            <TabsTrigger value="groups">Groups</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="users" className="space-y-4">
+          <UsersTab
+            users={users}
+            searchTerm={searchTerm}
+            onSearchTermChange={setSearchTerm}
+            onViewChats={handleViewChats}
+            onEditUser={handleEditUser}
+            editingUser={editingUser}
+            editForm={editForm}
+            showPassword={showPassword}
+            onCloseEditUser={() => setEditState((prev) => ({ ...prev, editingUser: null }))}
+            onUpdateForm={updateEditForm}
+            onTogglePasswordVisibility={togglePasswordVisibility}
+            onProfileImageUploaded={(url) => { if (url) updateUserImage(url) }}
+            groups={initialGroups}
           />
-        </div>
+          </TabsContent>
 
-        {/* Users Table */}
-        <div className="border rounded-lg">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-24">{MESSAGES.ROLE_LABEL}</TableHead>
-                <TableHead>{MESSAGES.NAME_LABEL}</TableHead>
-                <TableHead>{MESSAGES.EMAIL_LABEL}</TableHead>
-                <TableHead className="w-32">
-                  {MESSAGES.LAST_ACTIVE_LABEL}
-                </TableHead>
-                <TableHead className="w-32">
-                  {MESSAGES.CREATED_AT_LABEL}
-                </TableHead>
-                <TableHead className="w-32">{MESSAGES.OAUTH_ID_LABEL}</TableHead>
-                <TableHead className="w-32 text-right">
-                  {MESSAGES.ACTIONS_LABEL}
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredUsers.length === 0 ? (
-                <TableRow>
-                  <TableCell
-                    colSpan={7}
-                    className="text-center py-8 text-muted-foreground"
-                  >
-                    {searchTerm
-                      ? "No users found matching your search"
-                      : MESSAGES.NO_USERS}
-                  </TableCell>
-                </TableRow>
-              ) : (
-                filteredUsers.map((user) => (
-                  <TableRow key={user.id}>
-                    <TableCell>
-                      <Badge variant={getRoleBadgeVariant(user.role)}>
-                        {user.role}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center space-x-3">
-                        <Avatar className="h-8 w-8">
-                          <AvatarImage
-                            src={user.image || user.profilePicture || undefined}
-                            alt={user.name}
-                          />
-                          <AvatarFallback className="text-xs">
-                            {getEmailInitials(user.email)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <span className="font-medium">{user.name}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>{user.email}</TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {formatDate(user.lastActive)}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {formatDate(user.createdAt)}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground font-mono text-xs">
-                      {user.oauthId ? `${user.oauthId.slice(0, 8)}...` : "-"}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end space-x-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleViewChats(user.id)}
-                          className="h-8 w-8 p-0"
-                          title={MESSAGES.CHATS}
-                        >
-                          <MessageCircle className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleEditUser(user)}
-                          className="h-8 w-8 p-0"
-                          title={MESSAGES.EDIT}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setConfirmDeleteId(user.id)}
-                          className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                          title={MESSAGES.DELETE}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
-
-        {/* Delete Confirmation */}
-        <AlertDialog open={confirmDeleteId !== null} onOpenChange={(open) => { if (!open) setConfirmDeleteId(null) }}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Delete user?</AlertDialogTitle>
-              <AlertDialogDescription>
-                This action cannot be undone. This will permanently delete the user and remove their data.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel onClick={() => setConfirmDeleteId(null)}>Cancel</AlertDialogCancel>
-              <form action={deleteUserAction}>
-                <input type="hidden" name="id" value={confirmDeleteId ?? ''} />
-                <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" type="submit">
-                  Delete
-                </AlertDialogAction>
-              </form>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-
-        {/* Edit User Dialog */}
-        <EditUserDialog
-          editingUser={editingUser}
-          editForm={editForm}
-          isUpdating={false}
-          showPassword={showPassword}
-          onClose={() => setEditState((prev) => ({ ...prev, editingUser: null }))}
-          onUpdateForm={updateEditForm}
-          onTogglePasswordVisibility={togglePasswordVisibility}
-          onUpdateUser={() => {}}
-          onDeleteUser={() => {}}
-          onProfileImageUploaded={(url) => { if (url) updateUserImage(url) }}
-        />
+          <TabsContent value="groups" className="space-y-4">
+            <GroupsTab groups={initialGroups} users={users} />
+          </TabsContent>
+        </Tabs>
       </div>
     </AdminSidebar>
   )

@@ -4,6 +4,7 @@ import { createOpenAI } from '@ai-sdk/openai';
 import { streamText, UIMessage, convertToModelMessages, validateUIMessages, createIdGenerator } from 'ai';
 import { auth } from '@/lib/auth/auth';
 import db from '@/lib/db';
+import { getEffectivePermissionsForUser, filterModelsReadableByUser } from '@/lib/server/access-control'
 import { loadChat, saveChat, createChat as createChatInStore, chatExists as checkChatExists, getUserChats, ChatData } from '@/lib/chat/chat-store';
 import type { MessageMetadata } from '@/types/messages';
 import type { Model, ModelMeta, ModelsGroupedByOwner, UpdateModelData } from '@/types/models';
@@ -473,14 +474,14 @@ export async function getModels(): Promise<Model[]> {
 
     const userId = session.user.id;
 
-    const models = await db.model.findMany({
-      where: {
-        userId: userId,
-      },
-      orderBy: {
-        updatedAt: 'desc',
-      },
-    });
+    const eff = await getEffectivePermissionsForUser(userId)
+    if (!eff.workspace.models) return []
+
+    // Load recent models and filter by access control (owner, user_ids, group_ids, or admin)
+    const modelsRaw = await db.model.findMany({
+      orderBy: { updatedAt: 'desc' },
+    })
+    const models = await filterModelsReadableByUser(userId, modelsRaw)
 
     // Filter by connections config (disabled providers)
     const connectionsCfg = await getConnectionsConfig()
@@ -488,10 +489,7 @@ export async function getModels(): Promise<Model[]> {
       ? await getActiveOllamaModelNames(connectionsCfg)
       : new Set<string>()
 
-    const filtered = models.filter((model: any) => {
-      const provider = (model as any).provider || null
-      return computeProviderEnabled(connectionsCfg, provider)
-    })
+    const filtered = models
 
     // Map database models to Model type, annotate active Ollama models
     return filtered.map(model => {

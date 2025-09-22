@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { getInitialChats, getModels, getUserSettings } from "@/actions/chat";
 import { cookies } from "next/headers";
 import { getWebSearchEnabled, getImageGenerationAvailable, getAudioConfig } from "@/lib/server/config";
+import { getEffectivePermissionsForUser } from "@/lib/server/access-control";
 import { AppConfigProvider } from "@/components/providers/AppConfigProvider";
 
 export default async function Page() {
@@ -19,11 +20,12 @@ export default async function Page() {
     getUserSettings()
   ]);
 
-  // Load feature availability on the server
-  const [webSearchAvailable, imageAvailable, audioConfig] = await Promise.all([
+  // Load feature availability and user permissions on the server
+  const [webSearchAvailable, imageAvailable, audioConfig, eff] = await Promise.all([
     getWebSearchEnabled(),
     getImageGenerationAvailable(),
     getAudioConfig(),
+    getEffectivePermissionsForUser(session.user.id),
   ])
 
   // Resolve user timezone from cookie (fallback to UTC for deterministic SSR)
@@ -89,6 +91,14 @@ export default async function Page() {
           timeZone={timeZone}
           webSearchAvailable={webSearchAvailable}
           imageAvailable={imageAvailable}
+          permissions={{
+            workspaceTools: eff.workspace.tools,
+            webSearch: eff.features.web_search,
+            imageGeneration: eff.features.image_generation,
+            codeInterpreter: eff.features.code_interpreter,
+            stt: eff.chat.stt,
+            tts: eff.chat.tts,
+          }}
         />
       </AppConfigProvider>
     </>

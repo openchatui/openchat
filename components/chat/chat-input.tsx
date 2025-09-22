@@ -47,6 +47,9 @@ interface ChatInputProps {
   sessionStorageKey?: string;
   webSearchAvailable?: boolean;
   imageAvailable?: boolean;
+  codeInterpreterAvailable?: boolean;
+  sttAllowed?: boolean;
+  ttsAllowed?: boolean;
 }
 
 export function ChatInput({
@@ -59,6 +62,9 @@ export function ChatInput({
   sessionStorageKey,
   webSearchAvailable = true,
   imageAvailable = true,
+  codeInterpreterAvailable = true,
+  sttAllowed = true,
+  ttsAllowed = true,
 }: ChatInputProps) {
   const [value, setValue] = useState("");
   const [webSearch, setWebSearch] = useState(false);
@@ -315,11 +321,11 @@ export function ChatInput({
   }, [onSubmit, webSearch, image, codeInterpreter, cleanupTts, enqueueTtsSegment, waitForQueueToDrain, startRecording])
 
   const startLive = useCallback(() => {
-    if (disabled) return
+    if (disabled || !sttAllowed) return
     setIsLive(true)
     cleanupTts()
     startRecording()
-  }, [disabled, startRecording, cleanupTts])
+  }, [disabled, startRecording, cleanupTts, sttAllowed])
 
   const stopLive = useCallback(() => {
     setIsLive(false)
@@ -341,9 +347,9 @@ export function ChatInput({
     // If there's no text, use this button to toggle live voice
     if (!value.trim()) {
       e.preventDefault()
-      if (!isLive) startLive()
+      if (!isLive && sttAllowed) startLive()
     }
-  }, [value, isLive, startLive])
+  }, [value, isLive, startLive, sttAllowed])
 
   const formatTime = (total: number) => {
     const m = Math.floor(total / 60)
@@ -357,7 +363,7 @@ export function ChatInput({
         onSubmit={handleSubmit}
         className={cn("max-w-6xl px-2.5 pb-6 mx-auto inset-x-0", isLive ? "pt-3" : "pt-0", className)}
       >
-        {isLive ? (
+        {isLive && sttAllowed ? (
           <div className="p-0 mt-5">
             <button
               type="button"
@@ -519,26 +525,49 @@ export function ChatInput({
                         label="Image input"
                       />
                     )}
-                    <Pill
-                      active={codeInterpreter}
-                      onClick={() => setCodeInterpreter((v) => !v)}
-                      icon={<Terminal className="h-3.5 w-3.5" />}
-                      label="Code interpreter"
-                    />
+                    {codeInterpreterAvailable && (
+                      <Pill
+                        active={codeInterpreter}
+                        onClick={() => {
+                          setCodeInterpreter((v) => !v)
+                          try {
+                            if (sessionStorageKey) {
+                              const raw = sessionStorage.getItem(sessionStorageKey)
+                              const defaults = {
+                                prompt: "",
+                                files: [] as any[],
+                                selectedToolIds: [] as string[],
+                                selectedFilterIds: [] as string[],
+                                imageGenerationEnabled: false,
+                                webSearchEnabled: false,
+                                codeInterpreterEnabled: false,
+                              }
+                              const data = raw ? { ...defaults, ...JSON.parse(raw) } : defaults
+                              data.codeInterpreterEnabled = !codeInterpreter
+                              sessionStorage.setItem(sessionStorageKey, JSON.stringify(data))
+                            }
+                          } catch {}
+                        }}
+                        icon={<Terminal className="h-3.5 w-3.5" />}
+                        label="Code interpreter"
+                      />
+                    )}
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="rounded-full"
-                      aria-label="Start voice input"
-                      onClick={startRecording}
-                      disabled={disabled}
-                    >
-                      <Mic className="h-5 w-5" />
-                    </Button>
+                    {sttAllowed && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="rounded-full"
+                        aria-label="Start voice input"
+                        onClick={startRecording}
+                        disabled={disabled}
+                      >
+                        <Mic className="h-5 w-5" />
+                      </Button>
+                    )}
                     {isStreaming ? (
                       <Button
                         type="button"
@@ -573,10 +602,10 @@ export function ChatInput({
                         aria-label="Send message"
                         disabled={disabled || isTranscribing || isModelLoading}
                       >
-                        {value.trim() ? (
-                          <ArrowUp className="h-5 w-5" />
-                        ) : (
+                        {!value.trim() && sttAllowed ? (
                           <AudioWaveform className="h-5 w-5" />
+                        ) : (
+                          <ArrowUp className="h-5 w-5" />
                         )}
                       </Button>
                     )}
@@ -596,11 +625,13 @@ function Pill({
   onClick,
   icon,
   label,
+  disabled,
 }: {
   active: boolean;
   onClick: () => void;
   icon: React.ReactNode;
   label: string;
+  disabled?: boolean;
 }) {
   return (
     <Tooltip>
@@ -611,10 +642,12 @@ function Pill({
           size="sm"
           onClick={onClick}
           className={cn(
-            "rounded-full h-7 px-3 gap-0"
+            "rounded-full h-7 px-3 gap-0",
+            disabled ? 'pointer-events-none opacity-50' : ''
           )}
           aria-pressed={active}
           aria-label={label || "Toggle"}
+          disabled={disabled}
         >
           {icon}
         </Button>

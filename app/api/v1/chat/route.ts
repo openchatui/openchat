@@ -9,6 +9,7 @@ import { composeSystemPrompt } from '@/lib/chat/system'
 import { resolveOpenAIProviderOptions } from '@/lib/chat/provider-options'
 import { buildTools } from '@/lib/chat/tools'
 import { ChatPostSchema } from '@/lib/api/schemas/chat'
+import { getEffectivePermissionsForUser } from '@/lib/server/access-control'
 import { fetchModelParams, normalizeModelParams } from '@/lib/chat/model-params'
 import { prepareChatAndMessages } from '@/lib/chat/prepare'
 import { mergeGenerationParams, systemParamForModel } from '@/lib/chat/generation'
@@ -107,7 +108,7 @@ export async function POST(req: NextRequest) {
     if (!parsed.success) {
       return new Response(JSON.stringify({ error: 'Invalid request' }), { status: 400, headers: { 'content-type': 'application/json' } })
     }
-    const { messages, modelId, chatId, message, temperature, topP, maxOutputTokens, seed, stopSequences, advanced, enableWebSearch, enableImage } = parsed.data as any
+    const { messages, modelId, chatId, message, temperature, topP, maxOutputTokens, seed, stopSequences, advanced } = parsed.data as any
 
     const userId = session.user.id;
     let finalMessages: UIMessage<MessageMetadata>[] = [];
@@ -120,7 +121,10 @@ export async function POST(req: NextRequest) {
       return new Response('Messages or message with chatId are required', { status: 400 })
     }
 
-    
+    // Enforce feature permissions per user
+    const eff = await getEffectivePermissionsForUser(userId)
+    const enableWebSearch = !!eff.features.web_search
+    const enableImage = !!eff.features.image_generation
 
     // Determine the model to use via shared resolver
     const { selectedModelInfo, modelName, modelHandle } = await resolveModelInfoAndHandle({
