@@ -59,17 +59,6 @@ export default async function Page() {
 
   return (
     <>
-      {/* Preload critical images */}
-      {criticalImages.map((imageSrc) => (
-        <link
-          key={imageSrc}
-          rel="preload"
-          href={imageSrc}
-          as="image"
-          type="image/png"
-        />
-      ))}
-
       <AppConfigProvider initial={{
         webSearchAvailable,
         imageAvailable,

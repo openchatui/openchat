@@ -625,7 +625,7 @@ function getAssistantDisplayInfo(model: any): { displayName: string; imageUrl: s
 }
 
 // Server action to create initial chat with message
-export async function createInitialChat(message: string, modelId: string) {
+export async function createInitialChat(message: string, modelId: string, clientChatId?: string) {
   try {
     const session = await auth();
     if (!session?.user?.id) {
@@ -644,8 +644,7 @@ export async function createInitialChat(message: string, modelId: string) {
 
     const assistantInfo = getAssistantDisplayInfo(model);
 
-    // Create a new chat with the initial message
-    const chatId = await createChatInStore(userId, {
+    const initialUserMessage = {
       id: `msg_${Date.now()}`,
       role: 'user',
       parts: [{ type: 'text', text: message }],
@@ -659,7 +658,24 @@ export async function createInitialChat(message: string, modelId: string) {
           profile_image_url: (model?.meta as any)?.profile_image_url || null,
         }
       }
-    });
+    } as UIMessage<MessageMetadata>
+
+    let chatId = clientChatId
+
+    if (clientChatId) {
+      const exists = await checkChatExists(clientChatId, userId)
+      if (!exists) {
+        chatId = await createChatInStore(userId, initialUserMessage, clientChatId)
+      } else {
+        const prev = await loadChat(clientChatId, userId)
+        const prevTyped = (prev || []) as unknown as UIMessage<MessageMetadata>[]
+        await saveChat({ chatId: clientChatId, userId, messages: [...prevTyped, initialUserMessage] as unknown as UIMessage[] })
+        chatId = clientChatId
+      }
+    } else {
+      // No client-provided id; create new chat normally
+      chatId = await createChatInStore(userId, initialUserMessage)
+    }
 
     return {
       chatId,

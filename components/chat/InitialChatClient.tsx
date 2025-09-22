@@ -116,24 +116,16 @@ export default function InitialChatClient({ session, initialChats = [], initialM
       return null
     }
 
-    setIsCreating(true)
-
     try {
-      // Create chat server-side with the message and model info
-      const result = await createInitialChat(value, selectedModel.id)
+      // Generate chat id on the client for instant navigation
+      const clientChatId = (typeof crypto !== 'undefined' && (crypto as any).randomUUID)
+        ? (crypto as any).randomUUID()
+        : `chat_${Date.now()}`
 
-      // Store assistant display info in session storage for the chat page
-      if (result.assistantDisplayName && result.assistantImageUrl) {
-        sessionStorage.setItem(`assistant_info_${result.chatId}`, JSON.stringify({
-          displayName: result.assistantDisplayName,
-          imageUrl: result.assistantImageUrl
-        }))
-      }
-
-      // Copy session chat input state to chat-specific key and clear base key
+      // Persist current input under chat-specific key before navigating
       try {
         const baseKey = 'chat-input'
-        const chatKey = `chat-input-${result.chatId}`
+        const chatKey = `chat-input-${clientChatId}`
         const raw = sessionStorage.getItem(baseKey)
         if (raw) {
           sessionStorage.setItem(chatKey, raw)
@@ -141,15 +133,30 @@ export default function InitialChatClient({ session, initialChats = [], initialM
         }
       } catch {}
 
-      // Redirect to the chat page (no URL params needed since message is already stored)
-      router.push(`/c/${result.chatId}`)
+      // Navigate immediately
+      router.push(`/c/${clientChatId}`)
+
+      // Fire-and-forget server action to create/append the initial message for this chat id
+      void createInitialChat(value, selectedModel.id, clientChatId)
+        .then((result) => {
+          try {
+            if (result?.assistantDisplayName && result?.assistantImageUrl) {
+              sessionStorage.setItem(`assistant_info_${clientChatId}`, JSON.stringify({
+                displayName: result.assistantDisplayName,
+                imageUrl: result.assistantImageUrl,
+              }))
+            }
+          } catch {}
+        })
+        .catch(() => {
+          // Non-critical; the chat page will still exist due to server-side creation fallback
+        })
+
       return null
     } catch (error) {
       console.error('Failed to create initial chat:', error)
       toast.error('Failed to start conversation. Please try again.')
       return null
-    } finally {
-      setIsCreating(false)
     }
   }, [selectedModel, router])
 
