@@ -1,6 +1,8 @@
 export interface Model {
   id: string
   userId: string
+  providerId?: string
+  provider?: string | null
   baseModelId: string | null
   name: string
   meta: ModelMeta
@@ -8,6 +10,7 @@ export interface Model {
   createdAt: number
   updatedAt: number
   isActive: boolean
+  accessControl?: any
 }
 
 export interface ModelMeta {

@@ -3,7 +3,7 @@
 import InitialChatClient from "@/components/chat/InitialChatClient";
 import { auth } from "@/lib/auth/auth";
 import { redirect } from "next/navigation";
-import { getInitialChats, getModels, getUserSettings } from "@/actions/chat";
+import { getActiveModelsLight, getUserSettings } from "@/actions/chat";
 import { cookies } from "next/headers";
 import { getWebSearchEnabled, getImageGenerationAvailable, getAudioConfig } from "@/lib/server/config";
 import { getEffectivePermissionsForUser } from "@/lib/server/access-control";
@@ -13,10 +13,9 @@ export default async function Page() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
-  // Load data server-side for better performance
-  const [chats, models, userSettings] = await Promise.all([
-    getInitialChats(),
-    getModels(),
+  // Load data server-side for better performance (minimize DB and external calls)
+  const [models, userSettings] = await Promise.all([
+    getActiveModelsLight(),
     getUserSettings()
   ]);
 
@@ -84,7 +83,6 @@ export default async function Page() {
       }}>
         <InitialChatClient
           session={session}
-          initialChats={chats}
           initialModels={models}
           initialUserSettings={userSettings as Record<string, any>}
           pinnedModels={pinnedModels}

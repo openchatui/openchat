@@ -10,6 +10,7 @@ import type { MessageMetadata } from '@/types/messages';
 import type { Model, ModelMeta, ModelsGroupedByOwner, UpdateModelData } from '@/types/models';
 import { revalidatePath } from 'next/cache';
 import { getConnectionsConfig as getConnectionsConfigAction } from '@/actions/connections';
+import { cache } from 'react';
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -74,7 +75,15 @@ async function getActiveOllamaModelNames(connectionsCfg?: any): Promise<Set<stri
   try {
     const base = await getOllamaBaseUrl(connectionsCfg)
     const url = base.replace(/\/+$/, '') + '/api/ps'
-    const res = await fetch(url, { method: 'GET', headers: { 'Accept': 'application/json' } })
+    // Short-circuit quickly if the local Ollama daemon is slow/unavailable
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 100)
+    const res = await fetch(url, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+      signal: controller.signal,
+    }).catch(() => ({ ok: false, json: async () => null } as any))
+    clearTimeout(timeout)
     const data = await res.json().catch(() => null)
     if (!res.ok || !data) return new Set<string>()
     const list: any[] = Array.isArray(data?.models) ? data.models : (Array.isArray(data) ? data : [])
@@ -465,7 +474,7 @@ export async function chatExists(chatId: string): Promise<boolean> {
 }
 
 // Server action to get models (optimized for SSR)
-export async function getModels(): Promise<Model[]> {
+export const getModels = cache(async function getModels(): Promise<Model[]> {
   try {
     const session = await auth();
     if (!session?.user?.id) {
@@ -512,10 +521,51 @@ export async function getModels(): Promise<Model[]> {
     console.error('Get models error:', error);
     return [];
   }
-}
+});
+
+// Lightweight active models loader for hot paths (no Ollama status probe, minimal fields)
+export const getActiveModelsLight = cache(async function getActiveModelsLight(): Promise<Model[]> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return [];
+    }
+
+    const userId = session.user.id;
+
+    const eff = await getEffectivePermissionsForUser(userId)
+    if (!eff.workspace.models) return []
+
+    // Fetch only essential fields and only active models; avoid large JSON columns
+    const modelsRaw = await db.model.findMany({
+      where: { isActive: true },
+      orderBy: { updatedAt: 'desc' },
+      select: {
+        id: true,
+        name: true,
+        isActive: true,
+        meta: true,
+        userId: true,
+        // Prisma field name is accessControl (mapped to access_control column)
+        accessControl: true,
+      } as any,
+    })
+
+    const models = await filterModelsReadableByUser(userId, modelsRaw as any)
+
+    // Map to Model type with meta passthrough; skip runtime annotations
+    return models.map((m: any) => ({
+      ...m,
+      meta: (m.meta as unknown) as ModelMeta,
+    })) as Model[]
+  } catch (error) {
+    console.error('Get active models (light) error:', error);
+    return [];
+  }
+});
 
 // Server action to get user chats for initial page
-export async function getInitialChats() {
+export const getInitialChats = cache(async function getInitialChats() {
   try {
     const session = await auth();
     if (!session?.user?.id) {
@@ -528,7 +578,7 @@ export async function getInitialChats() {
     console.error('Get initial chats error:', error);
     return [];
   }
-}
+});
 
 // Server action to archive a chat
 export async function archiveChatAction(chatId: string): Promise<void> {
@@ -811,7 +861,7 @@ export async function adminUpdateModelsVisibility(modelUpdates: { id: string; hi
 }
 
 // User Settings Actions
-export async function getUserSettings() {
+export const getUserSettings = cache(async function getUserSettings() {
   try {
     const session = await auth();
     if (!session?.user?.id) {
@@ -832,7 +882,7 @@ export async function getUserSettings() {
     console.error('Error retrieving user settings:', error);
     throw error;
   }
-}
+});
 
 export async function updateUserSettings(settings: Record<string, any>) {
   try {
