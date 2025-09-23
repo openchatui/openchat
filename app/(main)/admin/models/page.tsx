@@ -1,9 +1,9 @@
-import { auth } from "@/lib/auth/auth";
+import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { AdminModels } from "@/components/admin/models/AdminModels";
 import db from "@/lib/db";
 import { adminGetModels, adminGetGroupedModels } from "@/actions/chat";
-import { getUserChats } from "@/lib/chat/chat-store";
+import { ChatStore } from "@/lib/features/chat";
 
 export default async function AdminModelsPage() {
     const session = await auth();
@@ -41,7 +41,7 @@ export default async function AdminModelsPage() {
         await (db as any).config.update({ where: { id: 1 }, data: { data: { ...data, ...defaults } } })
     }
 
-    const chats = await getUserChats(session.user.id)
+    const chats = await ChatStore.getUserChats(session.user.id)
     return (
         <AdminModels
             session={session}

@@ -5,16 +5,16 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import { MESSAGES, PLACEHOLDERS } from "@/constants/connections"
-import type { NewOllamaConnection, Connection } from "@/types/connections"
+import type { NewOllamaConnection, Connection } from "@/lib/features/connections/connections.types"
 
 interface OllamaConnectionFormProps {
   newOllamaConnections: NewOllamaConnection[]
-  existingOllamaConnections: Connection[]
+  existingOllamaConnections: (Connection & { type: 'ollama' })[]
   testingConnections: Set<string>
   successfulConnections: Set<string>
   onUpdateConnection: (id: string, field: 'baseUrl', value: string) => void
   onTestConnection: (connectionId: string, baseUrl: string) => void
-  onEditConnection?: (connection: Connection) => void
+  onEditConnection?: (connection: Connection & { type: 'ollama' }) => void
   ollamaEnabled?: boolean
   onToggleOllamaEnabled?: (enabled: boolean) => void
 }

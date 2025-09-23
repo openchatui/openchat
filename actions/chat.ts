@@ -2,12 +2,12 @@
 
 import { createOpenAI } from '@ai-sdk/openai';
 import { streamText, UIMessage, convertToModelMessages, validateUIMessages, createIdGenerator } from 'ai';
-import { auth } from '@/lib/auth/auth';
+import { auth } from "@/lib/auth";
 import db from '@/lib/db';
-import { getEffectivePermissionsForUser, filterModelsReadableByUser } from '@/lib/server/access-control'
-import { loadChat, saveChat, createChat as createChatInStore, chatExists as checkChatExists, getUserChats, ChatData, archiveChat as archiveChatInStore, unarchiveChat as unarchiveChatInStore } from '@/lib/chat/chat-store';
-import type { MessageMetadata } from '@/types/messages';
-import type { Model, ModelMeta, ModelsGroupedByOwner, UpdateModelData } from '@/types/models';
+import { getEffectivePermissionsForUser, filterModelsReadableByUser } from '@/lib/server'
+import { ChatStore, type ChatData } from '@/lib/features/chat';
+import type { MessageMetadata } from '@/lib/features/chat/chat.types';
+import type { Model, ModelMeta, ModelsGroupedByOwner, UpdateModelData } from '@/lib/features/models/model.types';
 import { revalidatePath } from 'next/cache';
 import { getConnectionsConfig as getConnectionsConfigAction } from '@/actions/connections';
 import { cache } from 'react';
@@ -112,15 +112,15 @@ export async function sendMessage(
     const userId = session.user.id;
 
     // Check if chat exists, create if not
-    const exists = await checkChatExists(chatId, userId);
+    const exists = await ChatStore.chatExists(chatId, userId);
     let finalMessages: UIMessage<MessageMetadata>[] = [];
 
     if (!exists) {
-      await createChatInStore(userId, undefined, chatId);
+      await ChatStore.createChat({ userId, chatId });
       finalMessages = [message];
     } else {
       // Load previous messages and append new one
-      const previousMessages = await loadChat(chatId, userId);
+      const previousMessages = await ChatStore.loadChat({ chatId, userId });
       if (previousMessages === null) {
         throw new Error('Chat not found');
       }
@@ -306,7 +306,7 @@ export async function sendMessage(
           return undefined;
         },
         onFinish: async ({ messages }) => {
-          await saveChat({
+          await ChatStore.saveChat({
             chatId,
             userId,
             messages: messages as unknown as UIMessage[],
@@ -367,7 +367,7 @@ export async function sendMessage(
               } as UIMessage<MessageMetadata>)
             : undefined;
           const toSave = assistantWithModel ? [...fullMessages, assistantWithModel] : fullMessages;
-          await saveChat({
+          await ChatStore.saveChat({
             chatId,
             userId,
             messages: toSave as unknown as UIMessage[],
@@ -390,7 +390,7 @@ export async function loadChatMessages(chatId: string): Promise<UIMessage[]> {
     }
 
     const userId = session.user.id;
-    const messages = await loadChat(chatId, userId);
+    const messages = await ChatStore.loadChat({ chatId, userId });
 
     if (!messages || messages.length === 0) {
       return [];
@@ -431,7 +431,7 @@ export async function createNewChat(initialMessage?: UIMessage): Promise<string>
     }
 
     const userId = session.user.id;
-    const chatId = await createChatInStore(userId, initialMessage);
+    const chatId = await ChatStore.createChat({ userId, initialMessage });
 
     revalidatePath('/');
     return chatId;
@@ -450,7 +450,7 @@ export async function getChats(): Promise<any[]> {
     }
 
     const userId = session.user.id;
-    return await getUserChats(userId);
+    return await ChatStore.getUserChats(userId);
   } catch (error) {
     console.error('Get chats error:', error);
     throw error;
@@ -466,7 +466,7 @@ export async function chatExists(chatId: string): Promise<boolean> {
     }
 
     const userId = session.user.id;
-    return await checkChatExists(chatId, userId);
+    return await ChatStore.chatExists(chatId, userId);
   } catch (error) {
     console.error('Check chat exists error:', error);
     return false;
@@ -573,7 +573,7 @@ export const getInitialChats = cache(async function getInitialChats() {
     }
 
     const userId = session.user.id;
-    return await getUserChats(userId);
+    return await ChatStore.getUserChats(userId);
   } catch (error) {
     console.error('Get initial chats error:', error);
     return [];
@@ -589,7 +589,7 @@ export async function archiveChatAction(chatId: string): Promise<void> {
     }
 
     const userId = session.user.id;
-    await archiveChatInStore(chatId, userId);
+    await ChatStore.archiveChat({ chatId, userId });
     revalidatePath('/');
     revalidatePath('/archive');
   } catch (error) {
@@ -607,7 +607,7 @@ export async function unarchiveChatAction(chatId: string): Promise<void> {
     }
 
     const userId = session.user.id;
-    await unarchiveChatInStore(chatId, userId);
+    await ChatStore.unarchiveChat({ chatId, userId });
     revalidatePath('/');
     revalidatePath('/archive');
   } catch (error) {
@@ -645,18 +645,21 @@ export async function createInitialChat(message: string, modelId: string) {
     const assistantInfo = getAssistantDisplayInfo(model);
 
     // Create a new chat with the initial message
-    const chatId = await createChatInStore(userId, {
-      id: `msg_${Date.now()}`,
-      role: 'user',
-      parts: [{ type: 'text', text: message }],
-      metadata: {
-        createdAt: Date.now(),
-        assistantDisplayName: assistantInfo.displayName,
-        assistantImageUrl: assistantInfo.imageUrl,
-        model: {
-          id: modelId,
-          name: model?.name || 'Unknown Model',
-          profile_image_url: (model?.meta as any)?.profile_image_url || null,
+    const chatId = await ChatStore.createChat({ 
+      userId, 
+      initialMessage: {
+        id: `msg_${Date.now()}`,
+        role: 'user',
+        parts: [{ type: 'text', text: message }],
+        metadata: {
+          createdAt: Date.now(),
+          assistantDisplayName: assistantInfo.displayName,
+          assistantImageUrl: assistantInfo.imageUrl,
+          model: {
+            id: modelId,
+            name: model?.name || 'Unknown Model',
+            profile_image_url: (model?.meta as any)?.profile_image_url || null,
+          }
         }
       }
     });

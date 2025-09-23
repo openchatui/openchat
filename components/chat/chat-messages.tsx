@@ -1,6 +1,6 @@
 "use client"
 
-import { useRef, useEffect } from 'react'
+import { useRef, useEffect, useState, useCallback } from 'react'
 import { Bot, CopyIcon } from 'lucide-react'
 import { Actions, Action, SpeakAction } from '@/components/ai/actions'
 import { Message, MessageAvatar } from '@/components/ai/message'
@@ -10,7 +10,7 @@ import type { UIMessage } from 'ai'
 import { isToolOrDynamicToolUIPart, getToolOrDynamicToolName } from 'ai'
 import { Tool, ToolHeader, ToolContent, ToolInput, ToolOutput } from '@/components/ai/tool'
 import { WebPreview, WebPreviewNavigation, WebPreviewUrl, WebPreviewBody } from '@/components/ai/web-preview'
-import type { Model } from '@/types/models'
+import type { Model } from '@/lib/features/models/model.types'
 import { Loader } from '@/components/ui/loader'
 import { Image } from '@/components/ai/image'
 
@@ -62,12 +62,22 @@ export default function ChatMessages({
   const getAssistantDisplayName = () => assistantDisplayName
   const getAssistantImageUrl = () => assistantImageUrl
 
-  // Auto-scroll to bottom when new messages arrive
+  // Track whether the user is near the bottom; only auto-scroll in that case
+  const [isPinnedToBottom, setIsPinnedToBottom] = useState(true)
+
+  const handleScroll = useCallback(() => {
+    const el = scrollAreaRef.current
+    if (!el) return
+    const distanceFromBottom = el.scrollHeight - el.clientHeight - el.scrollTop
+    setIsPinnedToBottom(distanceFromBottom < 80)
+  }, [])
+
+  // Auto-scroll to bottom when new messages arrive only if pinned
   useEffect(() => {
-    if (scrollAreaRef.current) {
+    if (isPinnedToBottom && scrollAreaRef.current) {
       scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight
     }
-  }, [messages])
+  }, [messages, isPinnedToBottom])
 
   // Identify last assistant message for per-message streaming UI
   const lastAssistantMessageId = (() => {
@@ -232,9 +242,10 @@ export default function ChatMessages({
   return (
     <div 
       ref={scrollAreaRef}
+      onScroll={handleScroll}
       className="w-full h-full flex-1 min-h-0 overflow-y-auto pt-16"
     >
-      <div className="max-w-5xl px-2.5 mx-auto space-y-6" style={{ paddingBottom: 'calc(200px)' }}>
+      <div className="max-w-5xl px-2.5 mx-auto space-y-6" style={{ paddingBottom: 'calc(130px)' }}>
       {messages.map((message) => 
         message.role === 'user' ? (
           <Message key={message.id} from={message.role}>

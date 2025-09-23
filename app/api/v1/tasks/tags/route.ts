@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@/lib/auth/auth'
+import { auth } from "@/lib/auth"
 import db from '@/lib/db'
 import { generateText, type UIMessage } from 'ai'
-import { resolveAiProvider } from '@/lib/ai/provider'
-import { filterToTextParts } from '@/lib/chat/messages'
+import { ProviderService } from '@/lib/features/ai'
+import { MessageUtils } from '@/lib/features/chat'
 
 export const maxDuration = 30
 export const runtime = 'nodejs'
@@ -20,7 +20,7 @@ function pickLastN<T>(arr: T[], n: number): T[] {
 }
 
 function extractTextFromMessages(msgs: Message[]): string {
-  const onlyText = filterToTextParts(msgs as any)
+  const onlyText = MessageUtils.filterToTextParts(msgs as any)
   return onlyText
     .map((m) => {
       const role = m.role
@@ -101,7 +101,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'TASK_MODEL must be set in tasks config' }, { status: 400 })
     }
 
-    const { getModelHandle, providerModelId, providerName, baseUrl } = await resolveAiProvider({ model: taskModel })
+    const { getModelHandle, providerModelId, providerName, baseUrl } = await ProviderService.resolveAiProvider({ model: taskModel })
 
     const systemLines = [
       'You are an expert assistant that assigns concise topic tags to chats.',

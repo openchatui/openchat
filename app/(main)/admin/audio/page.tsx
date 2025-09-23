@@ -1,17 +1,17 @@
-import { auth } from "@/lib/auth/auth"
+import { auth } from "@/lib/auth"
 import { redirect } from "next/navigation"
 import { AdminAudio } from "@/components/admin/audio/AdminAudio"
-import { getUserChats } from "@/lib/chat/chat-store"
+import { ChatStore } from "@/lib/features/chat"
 import { AppConfigProvider } from "@/components/providers/AppConfigProvider"
 import db from "@/lib/db"
-import { getWebSearchEnabled, getImageGenerationAvailable, getAudioConfig } from "@/lib/server/config"
+import { getWebSearchEnabled, getImageGenerationAvailable, getAudioConfig } from "@/lib/server"
 
 export default async function AdminAudioPage() {
   const session = await auth()
   if (!session || !session.user?.id) redirect("/login")
 
   const [chats, webSearchAvailable, imageAvailable, audioConfig] = await Promise.all([
-    getUserChats(session.user.id),
+    ChatStore.getUserChats(session.user.id),
     getWebSearchEnabled(),
     getImageGenerationAvailable(),
     getAudioConfig(),

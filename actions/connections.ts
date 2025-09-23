@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache"
 import { cookies } from 'next/headers'
 import db from "@/lib/db"
-import type { Connection, CreateConnectionData, UpdateConnectionData, ConnectionsConfig } from "@/types/connections"
+import type { Connection, CreateConnectionData, UpdateConnectionData, ConnectionsConfig } from "@/lib/features/connections/connections.types"
 
 function toConnection(o: any): Connection {
   return {
@@ -37,18 +37,27 @@ export async function getConnectionsConfig(): Promise<{ connections: Connections
   const ollama = isPlainObject(connections.ollama) ? connections.ollama as any : {}
   const shaped = {
     connections: {
-      openai: {
-        enable: typeof openai.enable === 'boolean' ? openai.enable : defaults.openai.enable,
-        api_base_urls: Array.isArray(openai.api_base_urls) ? openai.api_base_urls : defaults.openai.api_base_urls,
-        api_keys: Array.isArray(openai.api_keys) ? openai.api_keys : defaults.openai.api_keys,
-        api_configs: isPlainObject(openai.api_configs) ? openai.api_configs : defaults.openai.api_configs,
-      },
-      ollama: {
-        enable: typeof ollama.enable === 'boolean' ? ollama.enable : defaults.ollama.enable,
-        base_urls: Array.isArray(ollama.base_urls) ? ollama.base_urls : defaults.ollama.base_urls,
-        api_configs: isPlainObject(ollama.api_configs) ? ollama.api_configs : defaults.ollama.api_configs,
-      },
-    },
+      providers: {
+        openai: {
+          enabled: typeof openai.enable === 'boolean' ? openai.enable : defaults.openai.enable,
+          baseUrl: Array.isArray(openai.api_base_urls) ? openai.api_base_urls[0] : undefined,
+          apiKey: Array.isArray(openai.api_keys) ? openai.api_keys[0] : undefined,
+          settings: {
+            api_base_urls: Array.isArray(openai.api_base_urls) ? openai.api_base_urls : defaults.openai.api_base_urls,
+            api_keys: Array.isArray(openai.api_keys) ? openai.api_keys : defaults.openai.api_keys,
+            api_configs: isPlainObject(openai.api_configs) ? openai.api_configs : defaults.openai.api_configs,
+          }
+        },
+        ollama: {
+          enabled: typeof ollama.enable === 'boolean' ? ollama.enable : defaults.ollama.enable,
+          baseUrl: Array.isArray(ollama.base_urls) ? ollama.base_urls[0] : undefined,
+          settings: {
+            base_urls: Array.isArray(ollama.base_urls) ? ollama.base_urls : defaults.ollama.base_urls,
+            api_configs: isPlainObject(ollama.api_configs) ? ollama.api_configs : defaults.ollama.api_configs,
+          }
+        }
+      }
+    }
   }
   // Persist shape if needed
   const needsPersist = !isPlainObject((current as any).connections)
@@ -62,7 +71,7 @@ export async function getConnectionsConfig(): Promise<{ connections: Connections
       await (db as any).config.create({ data: { id: 1, data: nextData } })
     }
   }
-  return shaped as { connections: ConnectionsConfig }
+  return shaped
 }
 
 export async function createConnections(connections: CreateConnectionData[]): Promise<void> {

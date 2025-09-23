@@ -47,7 +47,6 @@ export function AdminWebSearch({ session, initialChats = [], initialEnabled = fa
     persistEnabled,
     persistPrompt,
     persistProvider,
-    resetToEnv,
   } = useAdminWebSearch({
     enabled: initialEnabled,
     systemPrompt: initialSystemPrompt,
@@ -116,7 +115,6 @@ export function AdminWebSearch({ session, initialChats = [], initialEnabled = fa
                 systemPrompt={systemPrompt}
                 setSystemPrompt={setSystemPrompt}
                 persistPrompt={persistPrompt}
-                resetToEnv={resetToEnv}
                 isSaving={isSaving}
                 isGlobalLoading={isLoading}
                 error={error}

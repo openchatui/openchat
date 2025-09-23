@@ -26,7 +26,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import type { Model } from "@/types/models"
+import type { Model } from "@/lib/features/models/model.types"
 
 interface ModelSelectorProps {
   selectedModelId?: string

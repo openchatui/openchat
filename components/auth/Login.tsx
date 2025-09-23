@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { executeAction } from "@/lib/auth/execute";
-import { signIn } from "@/lib/auth/auth";
+import { executeAction } from "@/lib/auth";
+import { signIn } from "@/lib/auth";
 import Link from "next/link";
 
 export const Login = () => {

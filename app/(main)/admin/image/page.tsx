@@ -1,14 +1,14 @@
-import { auth } from "@/lib/auth/auth"
+import { auth } from "@/lib/auth"
 import { redirect } from "next/navigation"
 import { AdminImage } from "@/components/admin/image/AdminImage"
-import { getUserChats } from "@/lib/chat/chat-store"
+import { ChatStore } from "@/lib/features/chat"
 import db from "@/lib/db"
 
 export default async function AdminImagePage() {
   const session = await auth()
   if (!session || !session.user?.id) redirect("/login")
 
-  const chats = await getUserChats(session.user.id)
+  const chats = await ChatStore.getUserChats(session.user.id)
 
   // Load image provider and enable flag on the server
   const cfgRow = await (db as any).config.findUnique({ where: { id: 1 } })

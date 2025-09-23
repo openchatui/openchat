@@ -1,7 +1,7 @@
-import { auth } from "@/lib/auth/auth"
+import { auth } from "@/lib/auth"
 import { redirect } from "next/navigation"
 import { AdminWebSearch } from "@/components/admin/websearch/AdminWebSearch"
-import { getUserChats } from "@/lib/chat/chat-store"
+import { ChatStore } from "@/lib/features/chat"
 import { getWebSearchConfigAction } from "@/actions/websearch"
 
 export default async function AdminWebSearchPage() {
@@ -9,7 +9,7 @@ export default async function AdminWebSearchPage() {
   if (!session || !session.user?.id) redirect("/login")
 
   const [chats, ws] = await Promise.all([
-    getUserChats(session.user.id),
+    ChatStore.getUserChats(session.user.id),
     getWebSearchConfigAction(),
   ])
 

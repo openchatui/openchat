@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server'
 import { generateText } from 'ai'
-import { resolveAiProvider } from '@/lib/ai/provider'
+import { ProviderService } from '@/lib/features/ai'
 import db from '@/lib/db'
-import { auth } from '@/lib/auth/auth'
-import { loadChat, updateChatTitle } from '@/lib/chat/chat-store'
+import { auth } from "@/lib/auth"
+import { ChatStore } from '@/lib/features/chat'
 
 export const maxDuration = 30
 export const runtime = 'nodejs'
@@ -40,7 +40,7 @@ export async function POST(req: Request) {
     }
 
     // Resolve provider + model handle from model string (by provider_id first)
-    const { getModelHandle, providerModelId, providerName, baseUrl } = await resolveAiProvider({ model: taskModel })
+    const { getModelHandle, providerModelId, providerName, baseUrl } = await ProviderService.resolveAiProvider({ model: taskModel })
 
     // Determine seed text: from chat (auth + DB) or from provided title
     let seed: string
@@ -51,7 +51,7 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
       }
       userId = session.user.id as string
-      const messages = await loadChat(chatId, userId)
+      const messages = await ChatStore.loadChat({ chatId, userId })
       if (!messages || messages.length === 0) {
         return NextResponse.json({ error: 'No messages found' }, { status: 400 })
       }
@@ -112,7 +112,7 @@ export async function POST(req: Request) {
     const cleanTitle = String(result?.text ?? '').trim() || seed.slice(0, 80)
 
     if (chatId && userId) {
-      await updateChatTitle(chatId, userId, cleanTitle)
+      await ChatStore.updateChatTitle({ chatId, userId, title: cleanTitle })
     }
 
     return NextResponse.json({ title: cleanTitle })

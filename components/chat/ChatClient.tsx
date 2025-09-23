@@ -12,10 +12,10 @@ import { Session } from "next-auth"
 import { toast } from 'sonner'
 import ChatMessages from "./chat-messages"
 import { Loader } from "@/components/ui/loader"
-import type { Model } from "@/types/models"
-import type { ChatData } from "@/lib/chat/chat-store"
+import type { Model } from "@/lib/features/models/model.types"
+import type { ChatData } from "@/lib/features/chat"
 import { loadChatMessages } from "@/actions/chat"
-import type { MessageMetadata } from "@/types/messages"
+import type { MessageMetadata } from "@/lib/features/chat/chat.types"
 
 interface ChatClientProps {
   session: Session | null

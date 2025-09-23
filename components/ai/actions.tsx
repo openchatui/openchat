@@ -7,7 +7,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { cn } from '@/lib/utils';
+import { cn } from "@/lib/utils";
 import { useRef, useState } from 'react';
 import type { ComponentProps } from 'react';
 import { Volume2, VolumeX } from 'lucide-react';

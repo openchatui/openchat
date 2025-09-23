@@ -8,10 +8,10 @@ import { ApiKeyField } from "@/components/admin/ApiKeyField"
 import { Switch } from "@/components/ui/switch"
 import { toast } from "sonner"
 import { PLACEHOLDERS, MESSAGES, TOAST_MESSAGES } from "@/constants/connections"
-import type { NewConnection, CreateConnectionData, Connection } from "@/types/connections"
+import type { NewConnection, CreateConnectionData, Connection } from "@/lib/features/connections/connections.types"
 
 interface OpenAIConnectionFormProps {
-  existingConnections: Connection[]
+  existingConnections: (Connection & { type: 'openai-api' })[]
   newConnections: NewConnection[]
   visibleApiKeys: Set<string>
   visibleNewApiKeys: Set<string>
@@ -23,7 +23,7 @@ interface OpenAIConnectionFormProps {
   onToggleNewApiKeyVisibility: (id: string) => void
   onSave: (connections: CreateConnectionData[]) => Promise<void>
   onClearAll: () => void
-  onEditConnection: (connection: Connection) => void
+  onEditConnection: (connection: Connection & { type: 'openai-api' }) => void
   enableStatuses?: boolean[]
   onToggleEnable?: (index: number, enabled: boolean) => void
 }

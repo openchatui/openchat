@@ -1,7 +1,7 @@
 export const runtime = 'nodejs'
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@/lib/auth/auth'
-import { revokeApiKey } from '@/lib/api/apiKeys'
+import { auth } from '@/lib/auth'
+import { ApiKeyService } from '@/lib/api'
 
 /**
  * @swagger
@@ -36,7 +36,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     const { id } = await params
     if (!id) return NextResponse.json({ error: 'Key ID required' }, { status: 400 })
 
-    const ok = await revokeApiKey(userId, id)
+    const ok = await ApiKeyService.revokeApiKey(userId, id)
     if (!ok) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
     return NextResponse.json({ success: true })

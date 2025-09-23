@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import db from '@/lib/db'
-import { authenticateRequest } from '@/lib/api/apiAuth'
+import { ApiAuthService } from '@/lib/api'
 
 export async function POST(request: NextRequest) {
   try {
-    const { userId } = await authenticateRequest(request.headers)
+    const { userId } = await ApiAuthService.authenticateRequest(request.headers)
     if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const body = await request.json()

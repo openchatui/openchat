@@ -1,9 +1,9 @@
-import { signUp } from "@/lib/auth/actions";
+import { signUp } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { auth } from "@/lib/auth/auth";
+import { auth } from "@/lib/auth";
 
 export default async function Signup({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
   const session = await auth();

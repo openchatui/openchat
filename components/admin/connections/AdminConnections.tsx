@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation"
 // Connections Panel Content (from connections.tsx)
 import { Loader2 } from "lucide-react"
 import { useConnections } from "@/hooks/useConnections"
-import type { Connection, ConnectionsConfig, CreateConnectionData } from "@/types/connections"
+import type { Connection, ConnectionsConfig, CreateConnectionData } from "@/lib/features/connections/connections.types"
 import { OpenAIConnectionForm } from "./openai-connection-form"
 import { OllamaConnectionForm } from "./ollama-connection-form"
 import { EditConnectionDialog } from "./edit-connection-dialog"
@@ -72,8 +72,8 @@ export function AdminConnections({ session, initialChats = [], initialConnection
     }))
   }
 
-  const openaiConnections = connections.filter(conn => conn.type === 'openai-api')
-  const ollamaConnections = connections.filter(conn => conn.type === 'ollama')
+  const openaiConnections = connections.filter((conn): conn is Connection & { type: 'openai-api' } => conn.type === 'openai-api')
+  const ollamaConnections = connections.filter((conn): conn is Connection & { type: 'ollama' } => conn.type === 'ollama')
   const openaiEnableStatuses = openaiConnections.map((_, idx) => {
     const cfg = connectionsConfig?.openai?.api_configs?.[String(idx)] as any
     return !!cfg?.enable

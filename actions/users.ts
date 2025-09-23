@@ -1,6 +1,6 @@
 "use server"
 
-import { revalidatePath } from "next/cache"
+import { revalidatePath, revalidateTag } from "next/cache"
 import db from "@/lib/db"
 import { z } from "zod"
 
@@ -99,6 +99,7 @@ export async function updateUserAction(formData: FormData): Promise<void> {
     }
 
     revalidatePath("/admin/users")
+    revalidateTag('admin-users')
   } catch (error) {
     // Swallow return; optionally log
   }
@@ -113,6 +114,7 @@ export async function deleteUserAction(formData: FormData): Promise<void> {
 
     await db.user.delete({ where: { id: parsed.id } })
     revalidatePath("/admin/users")
+    revalidateTag('admin-users')
   } catch (error) {
     // Swallow return; optionally log
   }

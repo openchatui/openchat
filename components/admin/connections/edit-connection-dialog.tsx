@@ -5,10 +5,10 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { MESSAGES, PLACEHOLDERS } from "@/constants/connections"
-import type { Connection, EditForm } from "@/types/connections"
+import type { Connection, EditForm, ConnectionType } from "@/lib/features/connections/connections.types"
 
 interface EditConnectionDialogProps {
-  editingConnection: Connection | null
+  editingConnection: (Connection & { type: ConnectionType }) | null
   editForm: EditForm
   isUpdating: boolean
   showEditApiKey: boolean

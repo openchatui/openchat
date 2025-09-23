@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type { ChatData } from '@/lib/chat/chat-store'
+import type { ChatData } from '@/lib/features/chat'
 
 interface UseChatTitlesResult {
   titles: Record<string, string>

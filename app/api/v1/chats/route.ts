@@ -1,6 +1,6 @@
-import { auth } from '@/lib/auth/auth';
+import { auth } from "@/lib/auth";
 import { NextRequest, NextResponse } from 'next/server';
-import { createChat, getUserChats } from '@/lib/chat/chat-store';
+import { ChatStore } from '@/lib/features/chat';
 
 // Allow streaming responses up to 30 seconds
 export const maxDuration = 30;
@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
     }
 
     const userId = session.user.id;
-    const chatId = await createChat(userId);
+    const chatId = await ChatStore.createChat({ userId });
 
     return NextResponse.json({ chatId });
   } catch (error) {
@@ -61,7 +61,7 @@ export async function GET(req: NextRequest) {
     }
 
     const userId = session.user.id;
-    const chats = await getUserChats(userId);
+    const chats = await ChatStore.getUserChats(userId);
 
     return NextResponse.json({ chats });
   } catch (error) {

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import db from '@/lib/db'
-import { auth } from '@/lib/auth/auth'
-import { getEffectivePermissionsForUser } from '@/lib/server/access-control'
+import { auth } from '@/lib/auth'
+import { getEffectivePermissionsForUser } from '@/lib/server'
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)

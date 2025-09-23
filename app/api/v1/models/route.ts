@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import db from '@/lib/db'
-import { authenticateRequest } from '@/lib/api/apiAuth'
-import { getEffectivePermissionsForUser, filterModelsReadableByUser } from '@/lib/server/access-control'
+import { ApiAuthService } from '@/lib/api'
+import { getEffectivePermissionsForUser, filterModelsReadableByUser } from '@/lib/server'
 
 /**
  * @swagger
@@ -20,7 +20,7 @@ import { getEffectivePermissionsForUser, filterModelsReadableByUser } from '@/li
 
 export async function GET(request: NextRequest) {
   try {
-    const { userId } = await authenticateRequest(request.headers)
+    const { userId } = await ApiAuthService.authenticateRequest(request.headers)
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }

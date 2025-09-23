@@ -18,7 +18,7 @@ import type {
   EditState,
   ConnectionType,
   ConnectionsConfig
-} from '@/types/connections'
+} from '@/lib/features/connections/connections.types'
 
 export function useConnections(initialConnections: Connection[] = [], initialConfig: ConnectionsConfig | null = null) {
   const [connectionsState, setConnectionsState] = useState<ConnectionsState>({

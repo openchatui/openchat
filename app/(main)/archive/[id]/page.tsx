@@ -1,6 +1,6 @@
 "use server"
 
-import { auth } from "@/lib/auth/auth"
+import { auth } from "@/lib/auth"
 import { redirect } from "next/navigation"
 import db from "@/lib/db"
 import { loadChatMessages } from "@/actions/chat"

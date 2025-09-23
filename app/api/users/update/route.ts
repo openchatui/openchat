@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import db from '@/lib/db'
-import type { User, UpdateUserData } from '@/types/user'
+import type { User, UpdateUserData } from '@/lib/server/user-management/user.types'
 
 // Role mapping between database enum and frontend types
 const roleMap = {

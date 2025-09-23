@@ -3,7 +3,7 @@ import { Session } from "next-auth"
 import { ADMIN_NAV_ITEMS, AdminTab, AdminNavItem } from "@/constants/admin"
 import { ReactNode } from "react"
 import { cn } from "@/lib/utils"
-import type { ChatData } from "@/lib/chat/chat-store"
+import type { ChatData } from "@/lib/features/chat"
 import { NavLinks } from "@/components/admin/NavLinks"
 
 interface AdminLayoutProps {

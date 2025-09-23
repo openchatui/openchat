@@ -1,10 +1,10 @@
 "use server"
 
-import { auth } from "@/lib/auth/auth";
+import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { AdminUI } from "@/components/admin/ui/AdminUI";
 import { adminGetModels } from "@/actions/chat";
-import { getUserChats } from "@/lib/chat/chat-store";
+import { ChatStore } from "@/lib/features/chat";
 
 export default async function AdminUIPage() {
     const session = await auth();
@@ -12,7 +12,7 @@ export default async function AdminUIPage() {
 
     const models = await adminGetModels();
     const modelIds = models.map((m: any) => m.providerId);
-    const chats = await getUserChats(session.user.id)
+    const chats = await ChatStore.getUserChats(session.user.id)
     return <AdminUI session={session} modelIds={modelIds} initialChats={chats} />
 }
 

@@ -1,4 +1,4 @@
-import { auth } from "@/lib/auth/auth"
+import { auth } from "@/lib/auth"
 import { notFound, redirect } from "next/navigation"
 import db from "@/lib/db"
 
@@ -11,7 +11,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     select: { role: true },
   })
 
-  if (!user || user.role !== "ADMIN") {
+  if (!user || user.role?.toLowerCase() !== "admin") {
     notFound()
   }
 

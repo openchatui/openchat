@@ -10,11 +10,11 @@ import {
 import { ChatInput } from "@/components/chat/chat-input"
 import { ModelSelector } from "@/components/chat/model-selector"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import type { Model } from "@/types/models"
-import type { ChatData } from "@/lib/chat/chat-store"
+import type { Model } from "@/lib/features/models/model.types"
+import type { ChatData } from "@/lib/features/chat"
 import { createInitialChat, updateUserSettings } from "@/actions/chat"
 import ChatMessages from "./chat-messages"
-import PromptSuggestions from "./PromptSuggestions"
+import PromptSuggestions from "./prompt-suggestions"
 
 interface InitialChatClientProps {
   session: Session | null

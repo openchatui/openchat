@@ -1,12 +1,12 @@
 "use server";
 
 import InitialChatClient from "@/components/chat/InitialChatClient";
-import { auth } from "@/lib/auth/auth";
+import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { getActiveModelsLight, getUserSettings } from "@/actions/chat";
 import { cookies } from "next/headers";
-import { getWebSearchEnabled, getImageGenerationAvailable, getAudioConfig } from "@/lib/server/config";
-import { getEffectivePermissionsForUser } from "@/lib/server/access-control";
+import { getWebSearchEnabled, getImageGenerationAvailable, getAudioConfig } from "@/lib/server";
+import { getEffectivePermissionsForUser } from "@/lib/server";
 import { AppConfigProvider } from "@/components/providers/AppConfigProvider";
 
 export default async function Page() {

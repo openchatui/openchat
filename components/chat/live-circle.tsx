@@ -18,7 +18,7 @@ export default function LiveCircle({ stream, audioElRef, listening, speaking }: 
   const micSourceRef = useRef<MediaStreamAudioSourceNode | null>(null)
   const playerAnalyserRef = useRef<AnalyserNode | null>(null)
   const playerSourceRef = useRef<MediaElementAudioSourceNode | null>(null)
-  const dataArrayRef = useRef<Uint8Array | null>(null)
+  const dataArrayRef = useRef<Uint8Array<ArrayBuffer> | null>(null)
   const emaRef = useRef<number>(0)
 
   useEffect(() => {
@@ -84,7 +84,8 @@ export default function LiveCircle({ stream, audioElRef, listening, speaking }: 
     const analyser = audioCtx.createAnalyser()
     analyser.fftSize = 2048
     analyser.smoothingTimeConstant = 0.85
-    dataArrayRef.current = new Uint8Array(analyser.fftSize)
+    // Ensure the underlying buffer type matches lib.dom TS expectations
+    dataArrayRef.current = new Uint8Array(new ArrayBuffer(analyser.fftSize))
     micAnalyserRef.current = analyser
 
     if (stream) {

@@ -1,18 +1,21 @@
 import { streamText, UIMessage, convertToModelMessages, validateUIMessages, smoothStream, stepCountIs } from 'ai';
-import { auth } from '@/lib/auth/auth';
+import { auth } from '@/lib/auth';
 import { NextRequest } from 'next/server';
-import type { MessageMetadata } from '@/types/messages';
-import { withSSEHeaders } from '@/lib/api/sse';
-import { buildToUIMessageStreamArgs } from '@/lib/chat/stream';
-import { resolveModelInfoAndHandle } from '@/lib/chat/model-resolution';
-import { composeSystemPrompt } from '@/lib/chat/system'
-import { resolveOpenAIProviderOptions } from '@/lib/chat/provider-options'
-import { buildTools } from '@/lib/chat/tools'
-import { ChatPostSchema } from '@/lib/api/schemas/chat'
-import { getEffectivePermissionsForUser } from '@/lib/server/access-control'
-import { fetchModelParams, normalizeModelParams } from '@/lib/chat/model-params'
-import { prepareChatAndMessages } from '@/lib/chat/prepare'
-import { mergeGenerationParams, systemParamForModel } from '@/lib/chat/generation'
+import type { MessageMetadata } from '@/lib/features/chat/chat.types';
+import { SSEService } from '@/lib/api';
+import {
+  StreamUtils,
+  ModelResolutionService,
+  SystemPromptService,
+  ProviderUtils,
+  ToolsService,
+  ModelParametersService,
+  ChatPreparationService,
+  GenerationUtils,
+  MessageUtils
+} from '@/lib/features/chat';
+import { ChatPostSchema } from '@/lib/api/schemas/chat';
+import { getEffectivePermissionsForUser } from '@/lib/server';
 
 // Allow streaming responses up to 30 seconds
 export const maxDuration = 30;
@@ -114,7 +117,7 @@ export async function POST(req: NextRequest) {
     let finalMessages: UIMessage<MessageMetadata>[] = [];
     let finalChatId: string = chatId || '';
     try {
-      const prepared = await prepareChatAndMessages({ userId, chatId, message, messages })
+      const prepared = await ChatPreparationService.prepareChatAndMessages({ userId, chatId, message, messages })
       finalChatId = prepared.finalChatId
       finalMessages = prepared.finalMessages
     } catch (e: any) {
@@ -127,7 +130,7 @@ export async function POST(req: NextRequest) {
     const enableImage = !!eff.features.image_generation
 
     // Determine the model to use via shared resolver
-    const { selectedModelInfo, modelName, modelHandle } = await resolveModelInfoAndHandle({
+    const { selectedModelInfo, modelName, modelHandle } = await ModelResolutionService.resolveModelInfoAndHandle({
       userId,
       modelId,
       messages: finalMessages as UIMessage<MessageMetadata>[],
@@ -137,22 +140,22 @@ export async function POST(req: NextRequest) {
     const fullMessages = finalMessages as UIMessage<MessageMetadata>[];
 
     // Load model default params with fallbacks and meta -> params mapping
-    const rawModelParams = await fetchModelParams({
+    const rawModelParams = await ModelParametersService.fetchModelParams({
       userId,
       modelId,
       selectedModelId: selectedModelInfo?.id || null,
       modelName,
     })
-    const defaults = normalizeModelParams(rawModelParams)
-    const mergedGenParams = mergeGenerationParams({ temperature, topP, maxOutputTokens, seed, stopSequences, advanced }, defaults)
+    const defaults = ModelParametersService.normalizeModelParams(rawModelParams)
+    const mergedGenParams = GenerationUtils.mergeGenerationParams({ temperature, topP, maxOutputTokens, seed, stopSequences, advanced }, defaults)
 
-    const systemForModel = systemParamForModel(fullMessages, defaults.systemPrompt)
+    const systemForModel = MessageUtils.systemParamForModel(fullMessages, defaults.systemPrompt)
 
-    const combinedSystem = await composeSystemPrompt({ systemForModel, enableWebSearch, enableImage })
+    const combinedSystem = await SystemPromptService.composeSystemPrompt({ systemForModel, enableWebSearch, enableImage })
 
-    const openaiProviderOptions: Record<string, any> = resolveOpenAIProviderOptions(modelName)
+    const openaiProviderOptions: Record<string, any> = ProviderUtils.resolveOpenAIProviderOptions(modelName)
 
-    const mergedTools = await buildTools({ enableWebSearch, enableImage })
+    const mergedTools = await ToolsService.buildTools({ enableWebSearch, enableImage })
     const toolsEnabled = Boolean(mergedTools)
 
     try {
@@ -185,13 +188,13 @@ export async function POST(req: NextRequest) {
         toolChoice: toolsEnabled ? (mergedGenParams.toolChoice ?? 'auto') : 'none',
         tools: mergedTools as any,
       });
-      const toUIArgs = buildToUIMessageStreamArgs(
+      const toUIArgs = StreamUtils.buildToUIMessageStreamArgs(
         validatedFull as UIMessage<MessageMetadata>[],
         selectedModelInfo,
         { finalChatId, userId },
         undefined,
       );
-      return withSSEHeaders(result.toUIMessageStreamResponse(toUIArgs));
+      return SSEService.withSSEHeaders(result.toUIMessageStreamResponse(toUIArgs));
     } catch (err: any) {
       const msg = String(err?.message || '')
       const code = String((err as any)?.code || '')

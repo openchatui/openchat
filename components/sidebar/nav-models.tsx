@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { useEffect, useState } from "react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import type { Model } from "@/types/models"
+import type { Model } from "@/lib/features/models/model.types"
 
 import {
   SidebarGroup,

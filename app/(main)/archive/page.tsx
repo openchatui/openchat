@@ -1,9 +1,9 @@
 "use server"
 
 import Link from "next/link"
-import { auth } from "@/lib/auth/auth"
+import { auth } from "@/lib/auth"
 import { redirect } from "next/navigation"
-import { getUserArchivedChats } from "@/lib/chat/chat-store"
+import { ChatStore } from "@/lib/features/chat"
 import ArchiveLiveRefresher from "@/components/archive/ArchiveLiveRefresher"
 import UnarchiveButton from "@/components/archive/UnarchiveButton"
 import {
@@ -20,7 +20,7 @@ export default async function ArchivePage() {
   if (!session?.user?.id) redirect('/login')
 
   const userId = session.user.id
-  const chats = await getUserArchivedChats(userId)
+  const chats = await ChatStore.getUserArchivedChats(userId)
 
   const formatDate = (date: Date) => {
     const d = new Date(date)

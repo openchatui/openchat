@@ -1,5 +1,5 @@
 import { streamText } from 'ai'
-import { resolveAiProvider } from '@/lib/ai/provider'
+import { ProviderService } from '@/lib/features/ai'
 
 // Allow streaming responses up to 30 seconds
 export const maxDuration = 30
@@ -23,7 +23,7 @@ export async function POST(req: Request) {
       })
     }
 
-    const { getModelHandle, providerModelId, providerName, baseUrl } = await resolveAiProvider({ model: modelId })
+    const { getModelHandle, providerModelId, providerName, baseUrl } = await ProviderService.resolveAiProvider({ model: modelId })
 
     let result
     try {

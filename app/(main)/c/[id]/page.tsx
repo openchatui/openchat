@@ -1,13 +1,13 @@
 "use server";
 
 import ChatClient from "@/components/chat/ChatClient";
-import { auth } from "@/lib/auth/auth";
+import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import { chatExists, createChat, getUserChats } from "@/lib/chat/chat-store";
+import { ChatStore } from "@/lib/features/chat";
 import { getActiveModels, loadChatMessages } from "@/actions/chat";
 import { cookies } from "next/headers";
-import { getWebSearchEnabled, getImageGenerationAvailable, getAudioConfig } from "@/lib/server/config";
-import { getEffectivePermissionsForUser } from "@/lib/server/access-control";
+import { getWebSearchEnabled, getImageGenerationAvailable, getAudioConfig } from "@/lib/server";
+import { getEffectivePermissionsForUser } from "@/lib/server";
 import { AppConfigProvider } from "@/components/providers/AppConfigProvider";
 
 interface ChatPageProps {
@@ -22,12 +22,12 @@ export default async function ChatPage({ params }: ChatPageProps) {
   const userId = session.user.id as string;
 
   // Check if the chat exists for this user
-  const exists = await chatExists(chatId, userId);
+  const exists = await ChatStore.chatExists(chatId, userId);
   let initialMessages: any[] = [];
   
   if (!exists) {
     try {
-      await createChat(userId, undefined, chatId);
+      await ChatStore.createChat({ userId, chatId });
       initialMessages = [];
     } catch (error) {
       console.error('Failed to create chat:', error);
@@ -40,7 +40,7 @@ export default async function ChatPage({ params }: ChatPageProps) {
 
   // Load all data in parallel for better performance
   const [initialChats, initialModels, webSearchAvailable, imageAvailable, audioConfig, eff] = await Promise.all([
-    getUserChats(userId),
+    ChatStore.getUserChats(userId),
     getActiveModels(),
     getWebSearchEnabled(),
     getImageGenerationAvailable(),

@@ -14,7 +14,7 @@ export function useWhisperWorker(
 function createWorker(messageEventHandler: MessageEventHandler): Worker | null {
   if (typeof window === 'undefined') return null
 
-  const worker = new Worker(new URL('../lib/audio/whisper-worker.js', import.meta.url), {
+  const worker = new Worker(new URL('../lib/features/audio/transcription/whisper-worker.js', import.meta.url), {
     type: 'module'
   })
 

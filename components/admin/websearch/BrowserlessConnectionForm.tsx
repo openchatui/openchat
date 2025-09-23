@@ -4,8 +4,8 @@ import { useEffect, useState } from "react"
 import { ApiKeyField } from "@/components/admin/ApiKeyField"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Button } from "@/components/ui/button"
 import { updateWebSearchConfigAction } from "@/actions/websearch"
+import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
@@ -14,7 +14,6 @@ interface BrowserlessConnectionFormProps {
   systemPrompt?: string
   setSystemPrompt?: (v: string) => void
   persistPrompt?: () => void
-  resetToEnv?: () => void
   isSaving?: boolean
   isGlobalLoading?: boolean
   error?: string | null
@@ -36,8 +35,8 @@ export function BrowserlessConnectionForm({
   systemPrompt,
   setSystemPrompt,
   persistPrompt,
-  resetToEnv,
   isSaving,
+  
   isGlobalLoading,
   error,
   initialApiKey = "",
@@ -95,10 +94,10 @@ export function BrowserlessConnectionForm({
             <Button
               variant="secondary"
               size="sm"
-              onClick={() => resetToEnv && resetToEnv()}
+              onClick={() => persistPrompt && persistPrompt()}
               disabled={Boolean(isSaving) || Boolean(isGlobalLoading)}
             >
-              Reset to env default
+              Save prompt
             </Button>
           </div>
           {error && <p className="text-xs text-destructive">{error}</p>}

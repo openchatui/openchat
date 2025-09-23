@@ -9,8 +9,8 @@ import { Button } from "@/components/ui/button";
 import { useUsers } from "@/hooks/useUsers";
 import { EditUserDialog } from "./edit-user-dialog";
 import { MESSAGES, PLACEHOLDERS, getEmailInitials } from "@/constants/user";
-import type { User } from "@/types/user";
-import type { Group } from "@/types/group";
+import type { User } from "@/lib/server/user-management/user.types";
+import type { Group } from "@/lib/server/group-management/group.types";
 import { useState, useMemo, useEffect } from "react";
 import { deleteUserAction } from "@/actions/users";
 import {
@@ -28,9 +28,9 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Plus } from "lucide-react";
-import { DEFAULT_GROUP_PERMISSIONS, type GroupPermissions } from "@/types/permissions";
+import { DEFAULT_GROUP_PERMISSIONS, type GroupPermissions } from "@/lib/server/access-control/permissions.types";
 import { useActionState } from "react";
-import { createGroupAction, updateGroupAction, type ActionResult } from "@/app/(main)/admin/users/actions/groups";
+import { createGroupAction, updateGroupAction, type ActionResult } from "@/actions/groups";
 import { SaveStatusButton } from "@/components/ui/save-button";
 import { UsersTab } from "./UsersTab";
 import { GroupsTab } from "./GroupsTab";

@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useState } from 'react'
-import type { ApiKeyListItem, CreatedApiKey } from '@/types/apiKeys'
+import type { ApiKeyListItem, CreatedApiKey } from '@/lib/api/auth/api-auth.types'
 import { toast } from 'sonner'
 import { SETTINGS_MESSAGES, TOAST } from '@/constants/settings'
 

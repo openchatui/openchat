@@ -1,9 +1,9 @@
 "use server"
 
-import { auth } from "@/lib/auth/auth";
+import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { AdminConnections } from "@/components/admin/connections/AdminConnections";
-import { getUserChats } from "@/lib/chat/chat-store";
+import { ChatStore } from "@/lib/features/chat";
 import { getConnections, getConnectionsConfig } from "@/actions/connections";
 
 export default async function AdminConnectionsPage() {
@@ -11,7 +11,7 @@ export default async function AdminConnectionsPage() {
     if (!session || !session.user?.id) redirect("/login");
 
     const [chats, connections, cfg] = await Promise.all([
-        getUserChats(session.user.id),
+        ChatStore.getUserChats(session.user.id),
         getConnections(),
         getConnectionsConfig().then((r) => r.connections).catch(() => null),
     ])

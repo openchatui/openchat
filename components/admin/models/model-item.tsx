@@ -4,8 +4,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
 import { Edit } from "lucide-react"
-import type { Model } from "@/types/models"
-import type { UpdateModelData } from "@/types/models"
+import type { Model } from "@/lib/features/models/model.types"
+import type { UpdateModelData } from "@/lib/features/models/model.types"
 import { EditModelDialog } from "./edit-model-dialog"
 
 interface ModelItemProps {

@@ -61,13 +61,17 @@ export function useAdminWebSearch(initial?: InitialWebSearchState) {
     setIsSaving(true)
     setError(null)
     try {
-      await updateWebSearchConfigAction({ websearch: { SYSTEM_PROMPT: systemPrompt } })
+      // Save provider-specific prompt to allow different prompts per provider.
+      const payload = provider === 'browserless'
+        ? { websearch: { browserless: { systemPrompt } } }
+        : { websearch: { googlepse: { systemPrompt } } }
+      await updateWebSearchConfigAction(payload)
     } catch (e: any) {
       setError(e?.message || 'Failed to save prompt')
     } finally {
       setIsSaving(false)
     }
-  }, [systemPrompt])
+  }, [systemPrompt, provider])
 
   const persistEnabled = useCallback(async () => {
     setIsSaving(true)

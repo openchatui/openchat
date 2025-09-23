@@ -25,8 +25,8 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar"
 import { Session } from "next-auth"
-import type { Model } from "@/types/models"
-import type { ChatData } from "@/lib/chat/chat-store"
+import type { Model } from "@/lib/features/models/model.types"
+import type { ChatData } from "@/lib/features/chat"
 
 // Navigation data
 const data = {

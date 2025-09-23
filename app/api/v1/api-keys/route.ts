@@ -1,7 +1,7 @@
 export const runtime = 'nodejs'
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@/lib/auth/auth'
-import { createApiKey, listApiKeys } from '@/lib/api/apiKeys'
+import { auth } from '@/lib/auth'
+import { ApiKeyService } from '@/lib/api'
 
 /**
  * @swagger
@@ -58,7 +58,7 @@ export async function GET() {
     const userId = session?.user?.id
     if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const keys = await listApiKeys(userId)
+    const keys = await ApiKeyService.listApiKeys(userId)
     return NextResponse.json({ keys })
   } catch (error: any) {
     return NextResponse.json({ error: error?.message ?? 'Failed to list keys' }, { status: 500 })
@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json().catch(() => ({})) as { keyName?: string }
     const keyName = (body?.keyName ?? 'Default Key').toString().slice(0, 100)
 
-    const created = await createApiKey(userId, keyName)
+    const created = await ApiKeyService.createApiKey(userId, keyName)
     return NextResponse.json(created, { status: 201 })
   } catch (error: any) {
     console.error('POST /api/v1/api-keys error:', error)

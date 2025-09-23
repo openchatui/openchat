@@ -1,0 +1,155 @@
+import 'server-only';
+import db from '@/lib/db';
+import type { ExtendedUser, UserCreation, PasswordValidation } from './auth.types';
+
+/**
+ * Core Authentication Service
+ */
+export class AuthService {
+  /**
+   * Find user by email
+   */
+  static async findUserByEmail(email: string): Promise<ExtendedUser | null> {
+    try {
+      const user = await db.user.findUnique({
+        where: { email: email.toLowerCase() },
+      });
+      return user as ExtendedUser | null;
+    } catch (error) {
+      console.error('Error finding user by email:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Find user by username
+   */
+  static async findUserByUsername(username: string): Promise<ExtendedUser | null> {
+    try {
+      const user = await db.user.findFirst({
+        where: { name: username },
+      });
+      return user as ExtendedUser | null;
+    } catch (error) {
+      console.error('Error finding user by username:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Find user by ID
+   */
+  static async findUserById(id: string): Promise<ExtendedUser | null> {
+    try {
+      const user = await db.user.findUnique({
+        where: { id },
+      });
+      return user as ExtendedUser | null;
+    } catch (error) {
+      console.error('Error finding user by ID:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Create a new user
+   */
+  static async createUser(data: {
+    email: string;
+    username: string;
+    hashedPassword: string;
+    role?: 'ADMIN' | 'USER';
+  }): Promise<UserCreation> {
+    const user = await db.user.create({
+      data: {
+        email: data.email.toLowerCase(),
+        name: data.username,
+        hashedPassword: data.hashedPassword,
+        role: data.role || 'USER',
+      },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        createdAt: true,
+      },
+    });
+
+    return {
+      id: user.id,
+      email: user.email,
+      name: user.name || '',
+      role: user.role as 'ADMIN' | 'USER',
+      createdAt: user.createdAt,
+    };
+  }
+
+  /**
+   * Update user's image/avatar
+   */
+  static async updateUserImage(userId: string, imageUrl: string): Promise<boolean> {
+    try {
+      await db.user.update({
+        where: { id: userId },
+        data: { image: imageUrl },
+      });
+      return true;
+    } catch (error) {
+      console.error('Error updating user image:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Update user's role
+   */
+  static async updateUserRole(userId: string, role: 'ADMIN' | 'USER'): Promise<boolean> {
+    try {
+      await db.user.update({
+        where: { id: userId },
+        data: { role },
+      });
+      return true;
+    } catch (error) {
+      console.error('Error updating user role:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Check if user exists by email
+   */
+  static async userExistsByEmail(email: string): Promise<boolean> {
+    const user = await this.findUserByEmail(email);
+    return user !== null;
+  }
+
+  /**
+   * Check if user exists by username
+   */
+  static async userExistsByUsername(username: string): Promise<boolean> {
+    const user = await this.findUserByUsername(username);
+    return user !== null;
+  }
+
+  /**
+   * Get user count
+   */
+  static async getUserCount(): Promise<number> {
+    try {
+      return await db.user.count();
+    } catch (error) {
+      console.error('Error getting user count:', error);
+      return 0;
+    }
+  }
+
+  /**
+   * Check if this is the first user (for admin setup)
+   */
+  static async isFirstUser(): Promise<boolean> {
+    const count = await this.getUserCount();
+    return count === 0;
+  }
+}

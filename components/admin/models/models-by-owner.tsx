@@ -5,8 +5,8 @@ import { Badge } from "@/components/ui/badge"
 import { Settings } from "lucide-react"
 import { ModelItem } from "./model-item"
 import { HideModelsDialog } from "./hide-models-dialog"
-import type { Model } from "@/types/models"
-import type { UpdateModelData } from "@/types/models"
+import type { Model } from "@/lib/features/models/model.types"
+import type { UpdateModelData } from "@/lib/features/models/model.types"
 
 interface ModelsByOwnerProps {
   owner: string

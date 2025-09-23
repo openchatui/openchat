@@ -27,7 +27,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { usePathname, useRouter } from "next/navigation"
-import type { ChatData } from "@/lib/chat/chat-store"
+import type { ChatData } from "@/lib/features/chat"
 import { useChatTitles } from "@/hooks/useChatTitles"
 import { useTags } from "@/hooks/useTags"
 import { archiveChatAction } from "@/actions/chat"
