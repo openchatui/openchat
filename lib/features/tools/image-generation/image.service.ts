@@ -101,12 +101,54 @@ export class ImageGenerationService {
 
     const endpoint = `${config.baseUrl || 'https://api.openai.com/v1'}/images/generations`;
     
+    const toStringOrUndefined = (v: unknown): string | undefined => (typeof v === 'string' && v.length > 0 ? v : undefined);
+
+    const normalizeQualityForModel = (
+      modelId: string,
+      requestedQuality: string | undefined
+    ): string | undefined => {
+      if (!requestedQuality || requestedQuality === 'auto') {
+        // Omit to let server-side default choose best per model
+        return undefined;
+      }
+
+      const model = modelId?.toLowerCase();
+      const q = requestedQuality.toLowerCase();
+
+      // gpt-image-1 supports: low, medium, high
+      if (model.includes('gpt-image')) {
+        if (q === 'low' || q === 'medium' || q === 'high') return q;
+        if (q === 'standard') return 'medium';
+        if (q === 'hd') return 'high';
+        return undefined;
+      }
+
+      // dall-e-3 supports: standard, hd
+      if (model.includes('dall-e-3')) {
+        if (q === 'standard' || q === 'hd') return q;
+        if (q === 'high') return 'hd';
+        if (q === 'medium' || q === 'low') return 'standard';
+        return undefined;
+      }
+
+      // dall-e-2 supports only: standard
+      if (model.includes('dall-e-2')) {
+        return 'standard';
+      }
+
+      // Unknown model: omit
+      return undefined;
+    };
+
     const requestBody = {
       model: input.model || config.model,
       prompt: input.prompt,
       size: input.size || config.size,
       n: 1,
-      quality: input.quality || config.quality,
+      quality: normalizeQualityForModel(
+        toStringOrUndefined(input.model) || config.model,
+        toStringOrUndefined(input.quality) || toStringOrUndefined(config.quality)
+      ),
       style: input.style,
     };
 

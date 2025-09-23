@@ -106,6 +106,28 @@ export class BrowserlessProvider {
   }
 
   /**
+   * Ensure Live URL is available (cached)
+   */
+  private static async ensureLiveURL(options?: { timeoutMs?: number; showBrowserInterface?: boolean; quality?: number; resizable?: boolean; }): Promise<string> {
+    if (this.sharedLiveURL && typeof this.sharedLiveURL === 'string' && this.sharedLiveURL.length > 0) {
+      return this.sharedLiveURL;
+    }
+    const page = await this.ensurePage();
+    const cdp = await page.context().newCDPSession(page as any);
+    const params: any = { timeout: typeof options?.timeoutMs === 'number' ? options.timeoutMs : 300_000 };
+    if (typeof options?.showBrowserInterface === 'boolean') params.showBrowserInterface = options.showBrowserInterface;
+    if (typeof options?.quality === 'number') params.quality = options.quality;
+    if (typeof options?.resizable === 'boolean') params.resizable = options.resizable;
+    const res = await (cdp as any).send('Browserless.liveURL', params);
+    const liveURL: string | undefined = res?.liveURL;
+    if (typeof liveURL === 'string' && liveURL.length > 0) {
+      this.sharedLiveURL = liveURL;
+      return liveURL;
+    }
+    throw new Error('Browserless.liveURL did not return a URL');
+  }
+
+  /**
    * Create navigate tool
    */
   static createNavigateTool() {
@@ -119,13 +141,17 @@ export class BrowserlessProvider {
           timeout: this.DEFAULT_TIMEOUT_MS,
         });
 
+        const liveURL = await this.ensureLiveURL();
         return {
           summary: `navigated to ${url}`,
-          url: url,
+          url: liveURL,
+          details: { pageURL: page.url() },
         };
       },
     });
   }
+
+  
 
   /**
    * Create click tool
@@ -136,7 +162,11 @@ export class BrowserlessProvider {
       inputSchema: ClickInputSchema,
       execute: async ({ selector }: { selector: string }) => {
         const page = await this.ensurePage();
-        
+        let liveURL: string | undefined;
+        try {
+          liveURL = await this.ensureLiveURL();
+        } catch {}
+
         try {
           const element = page.locator(selector).first();
           await element.waitFor({ state: "attached", timeout: 20_000 });
@@ -145,13 +175,15 @@ export class BrowserlessProvider {
           
           return {
             summary: `clicked "${selector}"`,
-            url: page.url(),
+            url: liveURL || page.url(),
+            details: { pageURL: page.url() },
           };
         } catch (error: any) {
           return {
             summary: `click error on ${selector}: ${error.message}`,
-            url: page.url(),
+            url: liveURL || page.url(),
             error: error.message,
+            details: { pageURL: page.url() },
           };
         }
       },

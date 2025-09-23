@@ -60,9 +60,9 @@ export function ChatInput({
   onStop,
   onSubmit,
   sessionStorageKey,
-  webSearchAvailable = true,
-  imageAvailable = true,
-  codeInterpreterAvailable = true,
+  webSearchAvailable: _webSearchAvailable = true,
+  imageAvailable: _imageAvailable = true,
+  codeInterpreterAvailable: _codeInterpreterAvailable = true,
   sttAllowed = true,
   ttsAllowed = true,
 }: ChatInputProps) {
@@ -465,71 +465,11 @@ export function ChatInput({
                     >
                       <Plus className="h-5 w-5" />
                     </Button>
-                    {webSearchAvailable && (
-                      <Pill
-                        active={webSearch}
-                        onClick={() => {
-                          setWebSearch((prev) => {
-                            const next = !prev
-                            try {
-                              if (sessionStorageKey) {
-                                const raw = sessionStorage.getItem(sessionStorageKey)
-                                const defaults = {
-                                  prompt: "",
-                                  files: [] as any[],
-                                  selectedToolIds: [] as string[],
-                                  selectedFilterIds: [] as string[],
-                                  imageGenerationEnabled: false,
-                                  webSearchEnabled: false,
-                                  codeInterpreterEnabled: false,
-                                }
-                                const data = raw ? { ...defaults, ...JSON.parse(raw) } : defaults
-                                data.webSearchEnabled = next
-                                sessionStorage.setItem(sessionStorageKey, JSON.stringify(data))
-                              }
-                            } catch {}
-                            return next
-                          })
-                        }}
-                        icon={<Globe className="h-3.5 w-3.5" />}
-                        label="Web search"
-                      />
-                    )}
-                    {imageAvailable && (
-                      <Pill
-                        active={image}
-                        onClick={() => {
-                          setImage((prev) => {
-                            const next = !prev
-                            try {
-                              if (sessionStorageKey) {
-                                const raw = sessionStorage.getItem(sessionStorageKey)
-                                const defaults = {
-                                  prompt: "",
-                                  files: [] as any[],
-                                  selectedToolIds: [] as string[],
-                                  selectedFilterIds: [] as string[],
-                                  imageGenerationEnabled: false,
-                                  webSearchEnabled: false,
-                                  codeInterpreterEnabled: false,
-                                }
-                                const data = raw ? { ...defaults, ...JSON.parse(raw) } : defaults
-                                data.imageGenerationEnabled = next
-                                sessionStorage.setItem(sessionStorageKey, JSON.stringify(data))
-                              }
-                            } catch {}
-                            return next
-                          })
-                        }}
-                        icon={<ImageIcon className="h-3.5 w-3.5" />}
-                        label="Image input"
-                      />
-                    )}
-                    {codeInterpreterAvailable && (
-                      <Pill
-                        active={codeInterpreter}
-                        onClick={() => {
-                          setCodeInterpreter((v) => !v)
+                    <Pill
+                      active={webSearch}
+                      onClick={() => {
+                        setWebSearch((prev) => {
+                          const next = !prev
                           try {
                             if (sessionStorageKey) {
                               const raw = sessionStorage.getItem(sessionStorageKey)
@@ -543,15 +483,69 @@ export function ChatInput({
                                 codeInterpreterEnabled: false,
                               }
                               const data = raw ? { ...defaults, ...JSON.parse(raw) } : defaults
-                              data.codeInterpreterEnabled = !codeInterpreter
+                              data.webSearchEnabled = next
                               sessionStorage.setItem(sessionStorageKey, JSON.stringify(data))
                             }
                           } catch {}
-                        }}
-                        icon={<Terminal className="h-3.5 w-3.5" />}
-                        label="Code interpreter"
-                      />
-                    )}
+                          return next
+                        })
+                      }}
+                      icon={<Globe className="h-3.5 w-3.5" />}
+                      label="Web search"
+                    />
+                    <Pill
+                      active={image}
+                      onClick={() => {
+                        setImage((prev) => {
+                          const next = !prev
+                          try {
+                            if (sessionStorageKey) {
+                              const raw = sessionStorage.getItem(sessionStorageKey)
+                              const defaults = {
+                                prompt: "",
+                                files: [] as any[],
+                                selectedToolIds: [] as string[],
+                                selectedFilterIds: [] as string[],
+                                imageGenerationEnabled: false,
+                                webSearchEnabled: false,
+                                codeInterpreterEnabled: false,
+                              }
+                              const data = raw ? { ...defaults, ...JSON.parse(raw) } : defaults
+                              data.imageGenerationEnabled = next
+                              sessionStorage.setItem(sessionStorageKey, JSON.stringify(data))
+                            }
+                          } catch {}
+                          return next
+                        })
+                      }}
+                      icon={<ImageIcon className="h-3.5 w-3.5" />}
+                      label="Image input"
+                    />
+                    <Pill
+                      active={codeInterpreter}
+                      onClick={() => {
+                        setCodeInterpreter((v) => !v)
+                        try {
+                          if (sessionStorageKey) {
+                            const raw = sessionStorage.getItem(sessionStorageKey)
+                            const defaults = {
+                              prompt: "",
+                              files: [] as any[],
+                              selectedToolIds: [] as string[],
+                              selectedFilterIds: [] as string[],
+                              imageGenerationEnabled: false,
+                              webSearchEnabled: false,
+                              codeInterpreterEnabled: false,
+                            }
+                            const data = raw ? { ...defaults, ...JSON.parse(raw) } : defaults
+                            data.codeInterpreterEnabled = !codeInterpreter
+                            sessionStorage.setItem(sessionStorageKey, JSON.stringify(data))
+                          }
+                        } catch {}
+                      }}
+                      icon={<Terminal className="h-3.5 w-3.5" />}
+                      label="Code interpreter"
+                    />
                   </div>
 
                   <div className="flex items-center gap-2">

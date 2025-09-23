@@ -84,6 +84,14 @@ export const CaptchaWaitInputSchema = z.object({
 
 export const SessionEndInputSchema = z.object({});
 
+// Live URL (Browserless.liveURL) input
+export const LiveURLInputSchema = z.object({
+  timeoutMs: z.number().int().positive().max(300_000).optional(),
+  showBrowserInterface: z.boolean().optional(),
+  quality: z.number().int().min(1).max(100).optional(),
+  resizable: z.boolean().optional(),
+});
+
 export type NavigateInput = z.infer<typeof NavigateInputSchema>;
 export type ClickInput = z.infer<typeof ClickInputSchema>;
 export type TypeInput = z.infer<typeof TypeInputSchema>;
@@ -93,3 +101,4 @@ export type ListAnchorsInput = z.infer<typeof ListAnchorsInputSchema>;
 export type GetTextInput = z.infer<typeof GetTextInputSchema>;
 export type CaptchaWaitInput = z.infer<typeof CaptchaWaitInputSchema>;
 export type SessionEndInput = z.infer<typeof SessionEndInputSchema>;
+export type LiveURLInput = z.infer<typeof LiveURLInputSchema>;

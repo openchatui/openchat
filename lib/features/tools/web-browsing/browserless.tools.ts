@@ -97,6 +97,7 @@ const clickTool: ToolDefinition = {
   }
 };
 
+
 /**
  * Type Tool
  */
