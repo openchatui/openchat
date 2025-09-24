@@ -10,6 +10,7 @@ import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { loginSchema } from "../validation/auth.validation";
 import { CredentialsProvider } from "../providers/credentials.provider";
+import { v4 as uuid } from "uuid";
 
 const adapter = PrismaAdapter(db);
 
@@ -40,6 +41,22 @@ export const authOptions = {
     }),
   ],
   callbacks: {
+    async signIn({ user, account }: any) {
+      try {
+        if (account?.provider === 'credentials') {
+          const sessionToken = uuid();
+          await (adapter as any)?.createSession?.({
+            sessionToken,
+            userId: (user as any)?.id,
+            expires: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+          });
+        }
+      } catch (err) {
+        // Do not block sign-in on audit session write failure
+        console.error('Session audit write failed:', err);
+      }
+      return true;
+    },
     async jwt(params: any) {
       if (params.account?.provider === "credentials") {
         params.token.credentials = true;
@@ -76,6 +93,20 @@ export const authOptions = {
         }
       }
       return session;
+    },
+  },
+  events: {
+    async signOut({ token }: any) {
+      try {
+        const userId = token?.sub as string | undefined;
+        if (!userId) return;
+        await db.session.updateMany({
+          where: { userId, expires: { gt: new Date() } },
+          data: { expires: new Date() },
+        });
+      } catch (err) {
+        console.error('SignOut session expire failed:', err);
+      }
     },
   },
   pages: {

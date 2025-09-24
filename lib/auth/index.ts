@@ -39,10 +39,7 @@ export type {
   SignUpSchema,
 } from './validation/auth.validation';
 
-// Providers
-export {
-  CredentialsProvider,
-} from './providers/credentials.provider';
+// Providers: Do NOT re-export server-only providers here to avoid Edge bundling
 
 // Legacy compatibility exports
 export { signUp } from './core/auth.actions';

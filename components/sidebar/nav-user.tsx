@@ -37,6 +37,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar"
 import { signOut } from "next-auth/react"
+import { useEffect, useState } from "react"
 import { useTheme } from "next-themes"
 import { getEmailInitials } from "@/constants/user"
 
@@ -59,6 +60,28 @@ export function NavUser({
   };
 
   const avatarSrc = user.image ?? user.avatar
+  const [activeUsers, setActiveUsers] = useState<number | null>(null)
+
+  // useEffect(() => {
+  //   let timer: number | null = null
+  //   let canceled = false
+  //   const fetchCount = async () => {
+  //     try {
+  //       const res = await fetch('/api/v1/activity/active-users', { cache: 'no-store' })
+  //       if (!res.ok) return
+  //       const data = await res.json()
+  //       if (!canceled) setActiveUsers(Array.isArray(data?.users) ? data.users.length : 0)
+  //     } catch {
+  //       if (!canceled) setActiveUsers(null)
+  //     }
+  //   }
+  //   fetchCount()
+  //   timer = window.setInterval(fetchCount, 15000) as unknown as number
+  //   return () => {
+  //     canceled = true
+  //     if (timer) window.clearInterval(timer)
+  //   }
+  // }, [])
 
   return (
     <SidebarMenu>
@@ -97,7 +120,7 @@ export function NavUser({
                   <span className="truncate text-xs">{user.email}</span>
                 </div>
               </div>
-            </DropdownMenuLabel>
+            </DropdownMenuLabel>            
             <DropdownMenuSeparator />
               <DropdownMenuItem asChild>
                 <a href="/settings">
@@ -105,6 +128,12 @@ export function NavUser({
                   Settings
                 </a>
               </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <a href="/archive">
+                <Archive />
+                Archive
+              </a>
+            </DropdownMenuItem>
               {user.role === 'ADMIN' && (
                 <DropdownMenuItem asChild>
                   <a href="/admin">
@@ -114,17 +143,15 @@ export function NavUser({
                 </DropdownMenuItem>
               )}
             <DropdownMenuSeparator />
-            <DropdownMenuItem asChild>
-              <a href="/archive">
-                <Archive />
-                Archive
-              </a>
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
             <DropdownMenuItem onClick={handleSignOut}>
               <LogOut />
               Log out
             </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <div className="flex items-center gap-2 px-2 py-1 text-xs text-muted-foreground">
+              <span className="inline-block h-2 w-2 rounded-full bg-green-500" />
+              <span>Active Users: {activeUsers ?? '—'}</span>
+            </div>
           </DropdownMenuContent>
         </DropdownMenu>
       </SidebarMenuItem>

@@ -664,6 +664,9 @@ export async function createInitialChat(message: string, modelId: string) {
       }
     });
 
+    // Ensure the layout for this chat route is revalidated without affecting other paths
+    try { revalidatePath(`/c/${chatId}`, 'layout') } catch {}
+
     return {
       chatId,
       modelId,

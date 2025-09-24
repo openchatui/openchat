@@ -22,7 +22,6 @@ export {
   AuthService,
   AuthActionsService,
   AuthValidationService,
-  CredentialsProvider,
   authOptions,
   handlers,
   signIn,

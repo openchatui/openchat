@@ -1,6 +1,6 @@
 "use server";
 
-import InitialChatClient from "@/components/chat/InitialChatClient";
+import ChatClient from "@/components/chat/ChatClient";
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { getActiveModelsLight, getUserSettings } from "@/actions/chat";
@@ -70,11 +70,10 @@ export default async function Page() {
           whisperWebModel: audioConfig.stt.whisperWeb.model,
         }
       }}>
-        <InitialChatClient
+        <ChatClient
           session={session}
           initialModels={models}
           initialUserSettings={userSettings as Record<string, any>}
-          pinnedModels={pinnedModels}
           timeZone={timeZone}
           webSearchAvailable={webSearchAvailable}
           imageAvailable={imageAvailable}

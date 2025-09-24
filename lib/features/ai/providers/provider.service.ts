@@ -93,34 +93,26 @@ export class ProviderService {
    * Resolve AI provider and model handle
    */
   static async resolveAiProvider(input: ProviderResolutionInput): Promise<ProviderResolutionResult> {
-    const requestedModel = input.model && String(input.model).trim().length > 0 
-      ? String(input.model).trim() 
+    const requestedModel = input.model && String(input.model).trim().length > 0
+      ? String(input.model).trim()
       : 'gpt-4o-mini';
 
-    // Attempt to locate a model row primarily by provider_id
-    const modelRow = await db.model.findFirst({
-      where: {
-        OR: [
-          { providerId: requestedModel },
-          { id: requestedModel },
-          { name: requestedModel },
-        ],
-      },
-      select: { name: true, provider: true, meta: true, providerId: true },
-    }) as ModelRow | null;
+    // STRICT: resolve model by id ONLY (avoid name/provider which can be stripped/misleading)
+    const modelRow = await (db as any).model.findFirst({
+      where: { id: requestedModel },
+      select: { id: true, meta: true },
+    }) as any as ({ id: string; meta: unknown } | null);
 
-    // Determine provider from Models.provider first, else infer from providerId/name
+    // Infer provider strictly from model.id (or from the requested string if not found)
+    const idHint = modelRow?.id || requestedModel;
     const inferredProvider: SupportedProvider =
-      this.normalizeProviderName(modelRow?.provider) ||
-      this.inferProviderFromHints(modelRow?.providerId || modelRow?.name || requestedModel) ||
+      this.inferProviderFromHints(idHint) ||
       'openai';
 
-    // Determine provider-specific model id (what the provider expects)
+    // Provider-specific model id: prefer meta override, else use id only
     const providerModelId =
       (modelRow?.meta as any)?.provider_model_id ||
-      modelRow?.providerId ||
-      modelRow?.name ||
-      requestedModel;
+      idHint;
 
     const connection = await this.getConnectionForProvider(inferredProvider);
     if (!connection) {

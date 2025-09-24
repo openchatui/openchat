@@ -11,18 +11,21 @@ import { ModelSelector } from "@/components/chat/model-selector"
 import { Session } from "next-auth"
 import { toast } from 'sonner'
 import ChatMessages from "./chat-messages"
+import PromptSuggestions from "./prompt-suggestions"
 import { Loader } from "@/components/ui/loader"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import type { Model } from "@/lib/features/models/model.types"
 import type { ChatData } from "@/lib/features/chat"
-import { loadChatMessages } from "@/actions/chat"
+import { loadChatMessages, createInitialChat, updateUserSettings } from "@/actions/chat"
 import type { MessageMetadata } from "@/lib/features/chat/chat.types"
 
 interface ChatClientProps {
   session: Session | null
-  chatId: string
+  chatId?: string | null
   initialMessages?: UIMessage[]
   initialChats?: ChatData[]
   initialModels?: Model[]
+  initialUserSettings?: Record<string, any>
   pinnedModels?: Model[]
   assistantDisplayName?: string
   assistantImageUrl?: string
@@ -45,6 +48,7 @@ export default function ChatClient({
   initialMessages = [],
   initialChats = [],
   initialModels = [],
+  initialUserSettings = {},
   pinnedModels = [],
   assistantDisplayName = 'AI Assistant',
   assistantImageUrl = '/avatars/01.png',
@@ -55,6 +59,7 @@ export default function ChatClient({
 }: ChatClientProps) {
   const [selectedModel, setSelectedModel] = useState<Model | null>(null)
   const [isInitializing, setIsInitializing] = useState(true)
+  const [activeChatId, setActiveChatId] = useState<string | null>(chatId || null)
 
   // Use server-loaded models
   const effectiveModels = initialModels
@@ -96,6 +101,8 @@ export default function ChatClient({
   const searchParams = useSearchParams()
   const abortControllerRef = useRef<AbortController | null>(null)
   const hasSentInitialMessageRef = useRef(false)
+  const suppressInitialFetchRef = useRef(false)
+  const lastUrlRef = useRef<string | null>(null)
 
   // Find the current model details from the models list
   const currentModel = selectedModel
@@ -109,10 +116,10 @@ export default function ChatClient({
     return { name, image }
   }
 
-  // Load messages on mount if not provided
+  // Load messages when we have a chatId and none were provided
   useEffect(() => {
-    if (initialMessages.length === 0) {
-      loadChatMessages(chatId)
+    if (initialMessages.length === 0 && activeChatId && !suppressInitialFetchRef.current) {
+      loadChatMessages(activeChatId)
         .then((loadedMessages) => {
           setMessages(loadedMessages)
         })
@@ -121,12 +128,12 @@ export default function ChatClient({
           setError(err)
         })
     }
-  }, [chatId, initialMessages.length])
+  }, [activeChatId, initialMessages.length])
 
   // Reset the initial message sent flag when chatId changes
   useEffect(() => {
     hasSentInitialMessageRef.current = false
-  }, [chatId])
+  }, [activeChatId])
 
   // Cleanup abort controller on unmount
   useEffect(() => {
@@ -181,9 +188,27 @@ export default function ChatClient({
     }
   }, [selectedModel, messages, effectiveModels])
 
+  // Default selected model when no messages yet (initial mode)
+  useEffect(() => {
+    if (!selectedModel && messages.length === 0 && effectiveModels.length > 0) {
+      // Prefer saved model from user settings if present
+      const savedModelId = (initialUserSettings as any)?.ui?.models?.[0]
+      if (savedModelId) {
+        const preferred = effectiveModels.find(m => m.id === savedModelId || (m as any).providerId === savedModelId)
+        if (preferred) {
+          setSelectedModel(preferred)
+          return
+        }
+      }
+      // Fallback to first active visible model
+      const activeModels = effectiveModels.filter(m => m.isActive && !(m as any).meta?.hidden)
+      if (activeModels.length > 0) setSelectedModel(activeModels[0])
+    }
+  }, [selectedModel, messages.length, effectiveModels, initialUserSettings])
+
   // Auto-send message if we have only user messages (no assistant responses yet)
   useEffect(() => {
-    if (!hasSentInitialMessageRef.current && messages.length > 0 && !isLoading && effectiveModels.length > 0 && !isInitializing) {
+    if (!hasSentInitialMessageRef.current && messages.length > 0 && !isLoading && effectiveModels.length > 0 && !isInitializing && !!activeChatId) {
       const hasAssistantMessage = messages.some(msg => msg.role === 'assistant')
       if (!hasAssistantMessage) {
         // Find the last user message
@@ -202,7 +227,7 @@ export default function ChatClient({
                   let webSearchFromStorage = false
                   let imageFromStorage = false
                   try {
-                    const raw = sessionStorage.getItem(`chat-input-${chatId}`)
+                    const raw = sessionStorage.getItem(activeChatId ? `chat-input-${activeChatId}` : 'chat-input')
                     if (raw) {
                       const data = JSON.parse(raw)
                       webSearchFromStorage = Boolean(data?.webSearchEnabled)
@@ -222,10 +247,24 @@ export default function ChatClient({
         }
       }
     }
-  }, [messages, isLoading, selectedModel, effectiveModels, isInitializing])
+  }, [messages, isLoading, selectedModel, effectiveModels, isInitializing, activeChatId])
 
-  const handleModelSelect = (model: Model) => {
+  const handleModelSelect = async (model: Model) => {
     setSelectedModel(model)
+    // Persist selection to user settings (initial state and beyond)
+    try {
+      const updatedSettings = {
+        ...(initialUserSettings || {}),
+        ui: {
+          ...((initialUserSettings || {}).ui || {}),
+          models: [(((model as any).providerId) || model.id)]
+        }
+      }
+      await updateUserSettings(updatedSettings)
+    } catch (error) {
+      // Non-critical
+      console.error('Failed to save model selection:', error)
+    }
   }
 
   type StreamHandlers = {
@@ -258,7 +297,7 @@ export default function ChatClient({
     // Create the user message
     const providerModelId = (modelToUse as any).providerId || modelToUse.id
     const userMessage: UIMessage<MessageMetadata> = {
-      id: `msg_${Date.now()}`,
+      id: `msg_${Date.now()}_${Math.random().toString(36).slice(2,8)}`,
       role: 'user',
       parts: [{ type: 'text', text: value }],
       metadata: {
@@ -271,8 +310,66 @@ export default function ChatClient({
       }
     }
 
-    // Optimistically add the user message (only for new messages, not auto-send)
-    if (!isAutoSend) {
+    // If we don't yet have a chat, create it instantly without navigating, then continue to stream
+    let chatIdForRequest: string | null = activeChatId
+    let createdChatThisRequest = false
+    let didOptimisticAdd = false
+    if (!chatIdForRequest && !isAutoSend) {
+      // Optimistically add the user message and persist selected model
+      setMessages(prev => [...prev, userMessage])
+      didOptimisticAdd = true
+      try {
+        // Prevent initial fetch from clobbering optimistic stream state
+        suppressInitialFetchRef.current = true
+        const result: any = await createInitialChat(value, modelToUse.id)
+        // Copy base session storage to chat-specific key (clear prompt to avoid repopulating input)
+        try {
+          const baseKey = 'chat-input'
+          const chatKey = `chat-input-${result.chatId}`
+          const raw = sessionStorage.getItem(baseKey)
+          if (raw) {
+            try {
+              const data = JSON.parse(raw)
+              if (data && typeof data === 'object') {
+                data.prompt = ""
+                sessionStorage.setItem(chatKey, JSON.stringify(data))
+              } else {
+                sessionStorage.setItem(chatKey, raw)
+              }
+            } catch {
+              sessionStorage.setItem(chatKey, raw)
+            }
+            sessionStorage.removeItem(baseKey)
+          }
+        } catch {}
+        // Superficially update the URL without navigating (guard against loops)
+        try {
+          const newUrl = `/c/${result.chatId}`
+          if (window.location.pathname !== newUrl && lastUrlRef.current !== newUrl) {
+            window.history.replaceState(window.history.state, '', newUrl)
+            lastUrlRef.current = newUrl
+          }
+        } catch {}
+        // Activate this chat; auto-send effect will pick up and start streaming
+        setActiveChatId(result.chatId)
+        chatIdForRequest = result.chatId
+        createdChatThisRequest = true
+        // Prevent auto-send effect from double-sending
+        hasSentInitialMessageRef.current = true
+        // Ensure model is selected
+        if (!selectedModel) setSelectedModel(modelToUse)
+      } catch (error) {
+        console.error('Failed to create chat:', error)
+        toast.error('Failed to start conversation. Please try again.')
+        // Revert optimistic message
+        setMessages(prev => prev.slice(0, -1))
+        return null
+      }
+    }
+
+    // Optimistically add the user message (only for new messages, not auto-send),
+    // but avoid double-add if we already added during chat creation
+    if (!isAutoSend && !didOptimisticAdd) {
       setMessages(prev => [...prev, userMessage])
     }
     setIsLoading(true)
@@ -287,10 +384,15 @@ export default function ChatClient({
       // Create new abort controller for this request
       abortControllerRef.current = new AbortController()
 
-      // Build request body: use full messages for first auto-send to avoid duplication
+      // Build request body:
+      // - Use full messages for auto-send
+      // - When we just created the chat, include the new userMessage explicitly
+      //   since React state may not yet reflect the optimistic add.
       const requestBody = isAutoSend
-        ? { messages, chatId, modelId: providerModelId, enableWebSearch: options.webSearch, enableImage: options.image }
-        : { message: userMessage, chatId, modelId: providerModelId, enableWebSearch: options.webSearch, enableImage: options.image }
+        ? { messages, chatId: chatIdForRequest || activeChatId, modelId: providerModelId, enableWebSearch: options.webSearch, enableImage: options.image }
+        : createdChatThisRequest
+          ? { messages: [...messages, userMessage], chatId: chatIdForRequest || activeChatId, modelId: providerModelId, enableWebSearch: options.webSearch, enableImage: options.image }
+          : { message: userMessage, chatId: chatIdForRequest || activeChatId, modelId: providerModelId, enableWebSearch: options.webSearch, enableImage: options.image }
 
       // Call the API route directly for streaming
       const response = await fetch('/api/v1/chat', {
@@ -502,6 +604,21 @@ export default function ChatClient({
                   reachedFinish = true
                   setIsLoading(false)
                   try { streamHandlers?.onFinish?.(assistantText) } catch {}
+                  // Allow future fetches now that initial stream completed
+                  suppressInitialFetchRef.current = false
+                  // After the initial response, synchronize Next.js router state
+                  // so the /c/[id] URL remains stable and is managed by Next.
+                  try {
+                    const finalChatId = (chatIdForRequest || activeChatId)
+                    if (finalChatId) {
+                      const newUrl = `/c/${finalChatId}`
+                      // Use Next router to own the URL instead of manual history,
+                      // avoiding Next reverting it on future renders.
+                      router.replace(newUrl, { scroll: false })
+                      lastUrlRef.current = newUrl
+                      // Avoid router.refresh() to prevent URL flicker; layout is revalidated server-side
+                    }
+                  } catch {}
                   break
                 } else if (
                   parsed?.type === 'tool-input-start' ||
@@ -609,7 +726,7 @@ export default function ChatClient({
       abortControllerRef.current = null
     }
     return assistantTextReturn
-  }, [selectedModel, chatId])
+  }, [selectedModel, activeChatId, messages, router])
 
   const handleStop = useCallback(() => {
     if (abortControllerRef.current) {
@@ -632,44 +749,133 @@ export default function ChatClient({
 
   return (
     <SidebarInset>
-      <div className="relative flex flex-col h-full">
-        <ModelSelector
-          selectedModelId={currentModel?.id}
-          onModelSelect={handleModelSelect}
-          models={effectiveModels}
-        />
-
-        <div className="flex-1 relative overflow-hidden">
-          <div className="absolute inset-0">
-            <ChatMessages
-              messages={messages}
-              isLoading={isLoading}
-              error={error}
-              selectedModel={currentModel}
-              assistantDisplayName={assistantInfo.displayName}
-              assistantImageUrl={assistantInfo.imageUrl}
-              timeZone={timeZone}
-              toolsAvailable={!!permissions?.workspaceTools}
-              webSearchAllowed={!!permissions?.webSearch}
-              imageGenerationAllowed={!!permissions?.imageGeneration}
+      {/* Initial landing mode (no chat yet, no messages) */}
+      {(!activeChatId && messages.length === 0) ? (
+        <div className="flex flex-col h-full">
+          <div className="border-b">
+            <ModelSelector
+              selectedModelId={currentModel?.id || selectedModel?.id}
+              onModelSelect={handleModelSelect}
+              models={effectiveModels}
             />
           </div>
-          <div className="absolute bottom-0 left-0 right-0 z-10">
-            <ChatInput
-              onSubmit={handleSendMessage}
-              disabled={false}
-              isStreaming={isLoading}
-              onStop={handleStop}
-              sessionStorageKey={`chat-input-${chatId}`}
-              webSearchAvailable={webSearchAvailable && !!permissions?.workspaceTools && !!permissions?.webSearch}
-              imageAvailable={imageAvailable && !!permissions?.workspaceTools && !!permissions?.imageGeneration}
-              codeInterpreterAvailable={!!permissions?.workspaceTools && !!permissions?.codeInterpreter}
-              sttAllowed={!!permissions?.stt}
-              ttsAllowed={!!permissions?.tts}
-            />
+
+          <div className="flex-1 flex flex-col items-center justify-center px-4">
+            <div className="w-full max-w-4xl mx-auto">
+              {/* Hidden for hydration parity */}
+              <div style={{ display: 'none' }}>
+                <ChatMessages
+                  messages={[]}
+                  isLoading={false}
+                  assistantDisplayName={selectedModel?.name || 'AI Assistant'}
+                  assistantImageUrl={selectedModel?.meta?.profile_image_url || '/avatars/01.png'}
+                />
+              </div>
+
+              <div className="text-center mb-8">
+                {selectedModel ? (
+                  <div className="flex items-center justify-center gap-4">
+                    <Avatar className="h-12 w-12">
+                      <AvatarImage
+                        src={selectedModel.meta?.profile_image_url || "/OpenChat.png"}
+                        alt={selectedModel.name}
+                      />
+                      <AvatarFallback>
+                        {selectedModel.name.charAt(0).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="text-3xl font-semibold mb-3.5">
+                      {selectedModel.name}
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <h1 className="text-4xl font-semibold mb-4">
+                      How can I help you today?
+                    </h1>
+                    <p className="text-muted-foreground text-lg">
+                      Start a conversation with AI
+                    </p>
+                  </>
+                )}
+              </div>
+
+              <div className="w-full">
+                <ChatInput
+                  placeholder={"Ask me anything..."}
+                  onSubmit={handleSendMessage}
+                  disabled={false}
+                  sessionStorageKey={'chat-input'}
+                  webSearchAvailable={webSearchAvailable && !!permissions?.workspaceTools && !!permissions?.webSearch}
+                  imageAvailable={imageAvailable && !!permissions?.workspaceTools && !!permissions?.imageGeneration}
+                  codeInterpreterAvailable={!!permissions?.workspaceTools && !!permissions?.codeInterpreter}
+                  sttAllowed={!!permissions?.stt}
+                  ttsAllowed={!!permissions?.tts}
+                />
+                <PromptSuggestions
+                  disabled={false}
+                  onSelect={(prompt) => {
+                    void handleSendMessage(
+                      prompt,
+                      { webSearch: false, image: false, codeInterpreter: false },
+                      undefined,
+                      true
+                    )
+                  }}
+                />
+              </div>
+
+              {!selectedModel && (
+                <div className="text-center mt-4">
+                  <p className="text-sm text-muted-foreground">
+                    Please select a model from the dropdown above to get started.
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
         </div>
-      </div>
+      ) : (
+        // Standard chat mode
+        <div className="relative flex flex-col h-full">
+          <ModelSelector
+            selectedModelId={currentModel?.id}
+            onModelSelect={handleModelSelect}
+            models={effectiveModels}
+          />
+
+          <div className="flex-1 relative overflow-hidden">
+            <div className="absolute inset-0">
+              <ChatMessages
+                messages={messages}
+                isLoading={isLoading}
+                error={error}
+                selectedModel={currentModel}
+                assistantDisplayName={assistantInfo.displayName}
+                assistantImageUrl={assistantInfo.imageUrl}
+                timeZone={timeZone}
+                toolsAvailable={!!permissions?.workspaceTools}
+                webSearchAllowed={!!permissions?.webSearch}
+                imageGenerationAllowed={!!permissions?.imageGeneration}
+              />
+            </div>
+            <div className="absolute bottom-0 left-0 right-0 z-10">
+              <ChatInput
+                onSubmit={handleSendMessage}
+                disabled={false}
+                isStreaming={isLoading}
+                onStop={handleStop}
+                sessionStorageKey={activeChatId ? `chat-input-${activeChatId}` : 'chat-input'}
+                webSearchAvailable={webSearchAvailable && !!permissions?.workspaceTools && !!permissions?.webSearch}
+                imageAvailable={imageAvailable && !!permissions?.workspaceTools && !!permissions?.imageGeneration}
+                codeInterpreterAvailable={!!permissions?.workspaceTools && !!permissions?.codeInterpreter}
+                sttAllowed={!!permissions?.stt}
+                ttsAllowed={!!permissions?.tts}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </SidebarInset>
   )
 }

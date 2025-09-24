@@ -4,6 +4,7 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { Toaster } from "sonner";
 import { TimezoneInitializer } from "@/components/providers/timezone-init";
+import Heartbeat from "@/components/activity/Heartbeat";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -37,6 +38,7 @@ export default function RootLayout({
         >
           <Toaster />
           <TimezoneInitializer />
+          {/* <Heartbeat /> */}
           {children}
         </ThemeProvider>
       </body>

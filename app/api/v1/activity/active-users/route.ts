@@ -1,0 +1,45 @@
+import { NextRequest, NextResponse } from 'next/server'
+import db from '@/lib/db'
+import { auth } from '@/lib/auth'
+
+export const runtime = 'nodejs'
+
+export async function GET(req: NextRequest) {
+  try {
+    const session = await auth()
+    const userId = session?.user?.id
+    if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    // Allow all authenticated users to see the aggregate (adjust if needed)
+
+    const cutoff = new Date(Date.now() - 30 * 1000)
+    // Use a simple query that works across SQLite/Postgres by passing a JS Date
+    const rows = await db.$queryRawUnsafe<any[]>(
+      `SELECT u.id as id, u.name as name, u.email as email, u.image as image,
+              CAST(COUNT(t.tab_id) AS INTEGER) as tabs,
+              MAX(t.last_seen_at) as lastSeenAt
+       FROM tab_activity t
+       JOIN users u ON u.id = t.user_id
+       WHERE t.last_seen_at > ?
+       GROUP BY u.id, u.name, u.email, u.image
+       ORDER BY lastSeenAt DESC`,
+      cutoff.toISOString()
+    )
+
+    const users = rows.map((r: any) => ({
+      id: String(r.id),
+      name: r.name == null ? null : String(r.name),
+      email: String(r.email),
+      image: r.image == null ? null : String(r.image),
+      tabs: Number(r.tabs),
+      lastSeenAt: typeof r.lastSeenAt === 'string' ? r.lastSeenAt : new Date(r.lastSeenAt).toISOString(),
+    }))
+
+    return NextResponse.json({ users })
+  } catch (error) {
+    console.error('Active users error:', error)
+    return NextResponse.json({ error: 'Internal Error' }, { status: 500 })
+  }
+}
+
+
