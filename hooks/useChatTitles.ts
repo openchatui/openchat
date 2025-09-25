@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { usePathname } from 'next/navigation'
 import type { ChatData } from '@/lib/features/chat'
 
 interface UseChatTitlesResult {
@@ -15,19 +16,56 @@ export function useChatTitles(chats: ChatData[]): UseChatTitlesResult {
   const [titles, setTitles] = useState<Record<string, string>>({})
   const requestedRef = useRef<Set<string>>(new Set())
   const retryRef = useRef<Record<string, number>>({})
+  const attemptsRef = useRef<Record<string, number>>({})
+  const pathname = usePathname()
+
+  // Load persisted attempt timestamps to throttle on refresh
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('titleAttempts')
+      if (raw) {
+        const parsed = JSON.parse(raw)
+        if (parsed && typeof parsed === 'object') {
+          attemptsRef.current = parsed as Record<string, number>
+        }
+      }
+    } catch {}
+  }, [])
+
+  const markAttempt = (chatId: string) => {
+    attemptsRef.current[chatId] = Date.now()
+    try { localStorage.setItem('titleAttempts', JSON.stringify(attemptsRef.current)) } catch {}
+  }
+
+  const shouldThrottle = (chatId: string) => {
+    const last = attemptsRef.current[chatId] || 0
+    return Date.now() - last < 120000 // 2 minutes
+  }
+
+  const activeChatId = useMemo(() => {
+    const p = String(pathname || '')
+    if (!p.startsWith('/c/')) return null
+    const id = p.slice(3).split(/[\/#?]/)[0]
+    return id || null
+  }, [pathname])
 
   const candidates = useMemo(() => {
     return chats.filter((c) => {
       if (!c || !c.id) return false
       const isNew = (c.title || '').trim().toLowerCase() === 'new chat'
-      return isNew
+      if (!isNew) return false
+      const hasUserMsg = Array.isArray(c.messages) && c.messages.some((m: any) => m?.role === 'user')
+      const isActive = activeChatId && c.id === activeChatId
+      return Boolean(hasUserMsg || isActive)
     })
-  }, [chats])
+  }, [chats, activeChatId])
 
   useEffect(() => {
-    const attempt = (chatId: string) => {
+    const attempt = (chatId: string, allowRetry: boolean = false) => {
+      if (!allowRetry && shouldThrottle(chatId)) return
       if (requestedRef.current.has(chatId)) return
       requestedRef.current.add(chatId)
+      if (!allowRetry) markAttempt(chatId)
       fetch(`/api/v1/tasks/title`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -41,7 +79,7 @@ export function useChatTitles(chats: ChatData[]): UseChatTitlesResult {
               if (count < 3) {
                 retryRef.current[chatId] = count + 1
                 requestedRef.current.delete(chatId)
-                setTimeout(() => attempt(chatId), 1500)
+                setTimeout(() => attempt(chatId, true), 1500)
               }
             }
             return
@@ -55,6 +93,7 @@ export function useChatTitles(chats: ChatData[]): UseChatTitlesResult {
               bc.postMessage({ type: 'title-updated', id: chatId, title: newTitle })
               bc.close()
             } catch {}
+            markAttempt(chatId)
           }
         })
         .catch(() => {
@@ -62,7 +101,7 @@ export function useChatTitles(chats: ChatData[]): UseChatTitlesResult {
         })
     }
 
-    candidates.forEach((chat) => attempt(chat.id))
+    candidates.forEach((chat) => attempt(chat.id, false))
   }, [candidates])
 
   // Listen for title updates from other tabs or subsystems
