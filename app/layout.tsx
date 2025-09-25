@@ -38,7 +38,7 @@ export default function RootLayout({
         >
           <Toaster />
           <TimezoneInitializer />
-          {/* <Heartbeat /> */}
+          <Heartbeat />
           {children}
         </ThemeProvider>
       </body>

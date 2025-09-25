@@ -13,6 +13,7 @@ import { WebPreview, WebPreviewNavigation, WebPreviewUrl, WebPreviewBody } from 
 import type { Model } from '@/lib/features/models/model.types'
 import { Loader } from '@/components/ui/loader'
 import { Image } from '@/components/ai/image'
+import { CodeExecutor } from '@/components/ai/code-exec/CodeExecutor'
 
 interface ChatMessagesProps {
   messages: UIMessage[]
@@ -445,6 +446,18 @@ export default function ChatMessages({
                         : ''
                       if (toolName === 'generateImage' || summary.includes('image generated') || detailsModel === 'gpt-image-1' || detailsModel === 'dall-e-3') {
                         return null
+                      }
+
+                      // Special handling for code execution via Pyodide
+                      if (toolName === 'pyodideRun') {
+                        const script: string | undefined = typeof (input as any)?.script === 'string' ? (input as any).script : undefined
+                        if (!script) return null
+                        // Render a runnable code block with terminal output
+                        return (
+                          <div key={`${message.id}_tool_${callId || idx}`} className="mb-2">
+                            <CodeExecutor code={script} language="python" context={(input as any)?.context} packages={(input as any)?.packages} warmup={(input as any)?.warmup} />
+                          </div>
+                        )
                       }
 
                       return (

@@ -40,6 +40,7 @@ import { signOut } from "next-auth/react"
 import { useEffect, useState } from "react"
 import { useTheme } from "next-themes"
 import { getEmailInitials } from "@/constants/user"
+import Link from "next/link";
 
 export function NavUser({
   user,
@@ -62,26 +63,26 @@ export function NavUser({
   const avatarSrc = user.image ?? user.avatar
   const [activeUsers, setActiveUsers] = useState<number | null>(null)
 
-  // useEffect(() => {
-  //   let timer: number | null = null
-  //   let canceled = false
-  //   const fetchCount = async () => {
-  //     try {
-  //       const res = await fetch('/api/v1/activity/active-users', { cache: 'no-store' })
-  //       if (!res.ok) return
-  //       const data = await res.json()
-  //       if (!canceled) setActiveUsers(Array.isArray(data?.users) ? data.users.length : 0)
-  //     } catch {
-  //       if (!canceled) setActiveUsers(null)
-  //     }
-  //   }
-  //   fetchCount()
-  //   timer = window.setInterval(fetchCount, 15000) as unknown as number
-  //   return () => {
-  //     canceled = true
-  //     if (timer) window.clearInterval(timer)
-  //   }
-  // }, [])
+  useEffect(() => {
+    let timer: number | null = null
+    let canceled = false
+    const fetchCount = async () => {
+      try {
+        const res = await fetch('/api/v1/activity/active-users', { cache: 'no-store' })
+        if (!res.ok) return
+        const data = await res.json()
+        if (!canceled) setActiveUsers(Array.isArray(data?.users) ? data.users.length : 0)
+      } catch {
+        if (!canceled) setActiveUsers(null)
+      }
+    }
+    fetchCount()
+    timer = window.setInterval(fetchCount, 15000) as unknown as number
+    return () => {
+      canceled = true
+      if (timer) window.clearInterval(timer)
+    }
+  }, [])
 
   return (
     <SidebarMenu>
@@ -123,23 +124,23 @@ export function NavUser({
             </DropdownMenuLabel>            
             <DropdownMenuSeparator />
               <DropdownMenuItem asChild>
-                <a href="/settings">
+                <Link href="/settings">
                   <Settings />
                   Settings
-                </a>
+                </Link>
               </DropdownMenuItem>
             <DropdownMenuItem asChild>
-              <a href="/archive">
+              <Link href="/archive">
                 <Archive />
                 Archive
-              </a>
+              </Link>
             </DropdownMenuItem>
               {user.role === 'ADMIN' && (
                 <DropdownMenuItem asChild>
-                  <a href="/admin">
+                  <Link prefetch={true} href="/admin">
                     <CgProfile />
                     Admin Panel
-                  </a>
+                  </Link>
                 </DropdownMenuItem>
               )}
             <DropdownMenuSeparator />

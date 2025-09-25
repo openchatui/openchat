@@ -134,8 +134,8 @@ export function AdminConnections({ session, initialChats = [], initialConnection
 
   return (
     <AdminSidebar session={session} activeTab="connections" initialChats={initialChats}>
-      <div className="max-w-none mx-auto space-y-6">
-        <div className="mx-2.5">
+      <div className="space-y-6">
+        <div>
           <h2 className="text-2xl font-semibold">{MESSAGES.CONNECTIONS_TITLE}</h2>
           <p className="text-muted-foreground">
             {MESSAGES.CONNECTIONS_DESCRIPTION}
@@ -148,7 +148,7 @@ export function AdminConnections({ session, initialChats = [], initialConnection
             <p className="text-muted-foreground">{MESSAGES.LOADING_CONNECTIONS}</p>
            </div>
          ) : (
-           <div className="mx-2.5">
+           <div>
             {/* OpenAI Connection Form (includes existing connections) */}
             <OpenAIConnectionForm
               existingConnections={openaiConnections}

@@ -21,7 +21,7 @@ export interface ToolExecutionContext {
 }
 
 // Tool provider types
-export type ToolProvider = 'openai' | 'browserless' | 'googlepse' | 'comfyui' | 'automatic1111';
+export type ToolProvider = 'openai' | 'browserless' | 'googlepse' | 'comfyui' | 'automatic1111' | 'pyodide';
 
 export interface ProviderConfig {
   type: ToolProvider;
@@ -46,7 +46,7 @@ export interface ToolDefinition {
 
 // Configuration schemas
 export const ProviderConfigSchema = z.object({
-  type: z.enum(['openai', 'browserless', 'googlepse', 'comfyui', 'automatic1111']),
+  type: z.enum(['openai', 'browserless', 'googlepse', 'comfyui', 'automatic1111', 'pyodide']),
   apiKey: z.string().optional(),
   baseUrl: z.string().url().optional(),
   enabled: z.boolean(),

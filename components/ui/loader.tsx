@@ -8,20 +8,14 @@ interface LoaderProps {
   message?: string
 }
 
-// Simple loader that sizes purely via className (e.g., "h-4 w-4")
 export function AnimatedLoader({ className, message }: LoaderProps) {
   return (
-    <div className={cn('inline-block', className)} aria-label={message || 'loading'}>
-      <object
-        type="image/svg+xml"
-        data="/AnimatedOpenChat-White.svg"
-        width="100%"
-        height="100%"
-        className="block w-full h-full"
-        style={{ colorScheme: 'light' }}
-      >
-        svg-animation
-      </object>
+    <div
+      className={cn('inline-block align-middle h-0.5 w-0.5', className)}
+      role="status"
+      aria-label={message || 'loading'}
+    >
+      <span className="block h-full w-full rounded-full border-2 border-current border-t-transparent animate-spin" />
     </div>
   )
 }

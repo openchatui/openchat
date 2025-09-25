@@ -573,7 +573,8 @@ export const getInitialChats = cache(async function getInitialChats() {
     }
 
     const userId = session.user.id;
-    return await ChatStore.getUserChats(userId);
+    const page = await ChatStore.getUserChatsPage(userId, { offset: 0, limit: 100 });
+    return page.items;
   } catch (error) {
     console.error('Get initial chats error:', error);
     return [];

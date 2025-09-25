@@ -103,6 +103,26 @@ export class ToolService {
         enabledTools.push(...this.getToolsByCategory('web-browsing'));
       }
 
+      // Check data analysis tools (Pyodide)
+      const featuresAny = (permissions as any)?.features || {};
+      const hasDataAnalysisFeature = Boolean(
+        featuresAny['data_analysis'] ||
+        featuresAny['dataAnalysis'] ||
+        featuresAny['pyodide']
+      );
+
+      if (hasDataAnalysisFeature) {
+        enabledTools.push(...this.getToolsByCategory('data-analysis'));
+      } else {
+        // Fallback: enable if provider config is enabled
+        try {
+          const providerCfg = await ToolConfigService.getProviderConfig('pyodide');
+          if (providerCfg?.enabled) {
+            enabledTools.push(...this.getToolsByCategory('data-analysis'));
+          }
+        } catch {}
+      }
+
       return enabledTools;
     } catch (error) {
       console.error('Error getting enabled tools for user:', error);

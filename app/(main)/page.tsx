@@ -1,6 +1,6 @@
 "use server";
 
-import ChatClient from "@/components/chat/ChatClient";
+import { ChatLanding } from "@/components/chat/chat-landing";
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { getActiveModelsLight, getUserSettings } from "@/actions/chat";
@@ -31,25 +31,7 @@ export default async function Page() {
   const cookieStore = await cookies()
   const timeZone = cookieStore.get('tz')?.value || 'UTC'
 
-  // Avoid expensive per-chat message loading; model will default from settings or first active
-
-  // Extract critical images for preloading
-  const criticalImages: string[] = [];
-
-  // Add OpenChat logo and default avatar
-  criticalImages.push('/OpenChat.png');
-  criticalImages.push('/avatars/01.png');
-
-  // Add first active model's profile image if it's a local image and not a duplicate
-  const activeModels = models.filter(model => model.isActive && !model.meta?.hidden);
-  if (activeModels.length > 0) {
-    const firstModelImage = activeModels[0].meta?.profile_image_url;
-    if (firstModelImage &&
-        (firstModelImage.startsWith('/') || firstModelImage.startsWith('./')) &&
-        !criticalImages.includes(firstModelImage)) {
-      criticalImages.push(firstModelImage);
-    }
-  }
+  // Avoid per-chat message loading here; landing is lightweight
 
   // Build pinned models list from user settings
   const pinnedIds: string[] = Array.isArray((userSettings as any)?.ui?.pinned_models)
@@ -70,11 +52,10 @@ export default async function Page() {
           whisperWebModel: audioConfig.stt.whisperWeb.model,
         }
       }}>
-        <ChatClient
+        <ChatLanding
           session={session}
           initialModels={models}
           initialUserSettings={userSettings as Record<string, any>}
-          timeZone={timeZone}
           webSearchAvailable={webSearchAvailable}
           imageAvailable={imageAvailable}
           permissions={{

@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { ChevronRight, MessageSquare, Trash2, MoreHorizontal, Archive } from "lucide-react"
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState, useCallback } from "react"
 
 import {
   Collapsible,
@@ -31,6 +31,7 @@ import type { ChatData } from "@/lib/features/chat"
 import { useChatTitles } from "@/hooks/useChatTitles"
 import { useTags } from "@/hooks/useTags"
 import { archiveChatAction } from "@/actions/chat"
+import { AnimatedLoader } from "@/components/ui/loader"
 
 interface NavChatsProps {
   chats: ChatData[]
@@ -40,14 +41,22 @@ interface NavChatsProps {
 export function NavChats({ chats, timeZone = 'UTC' }: NavChatsProps) {
   const [isOpen, setIsOpen] = useState(true)
   const [mounted, setMounted] = useState(false)
+  const [allChats, setAllChats] = useState<ChatData[]>(chats)
+  const [offset, setOffset] = useState<number>(chats.length)
+  const [hasMore, setHasMore] = useState<boolean>(true)
+  const [loading, setLoading] = useState<boolean>(false)
+  const loadMoreRef = useRef<HTMLDivElement | null>(null)
+  const topRef = useRef<HTMLDivElement | null>(null)
+  const initialPageRef = useRef<ChatData[]>(chats)
+  const suppressLoadMoreRef = useRef<boolean>(false)
   const pathname = usePathname()
   const router = useRouter()
   // Avoid scanning large chat arrays when collapsed by passing empty list to the hook
-  const effectiveChatsForTitles = isOpen ? chats : []
+  const effectiveChatsForTitles = isOpen ? allChats : []
   const { titles } = useChatTitles(effectiveChatsForTitles)
   // Trigger background tag generation like titles only on non-admin routes
   const tagsEnabled = !(pathname || '').startsWith('/admin')
-  useTags(chats, { enabled: tagsEnabled && isOpen })
+  useTags(allChats, { enabled: tagsEnabled && isOpen })
 
   useEffect(() => {
     setMounted(true)
@@ -56,7 +65,7 @@ export function NavChats({ chats, timeZone = 'UTC' }: NavChatsProps) {
   // Group chats by date buckets: Today, Yesterday, Past 30 days, then by Month
   const sections = useMemo(() => {
     // Ensure newest first (by created date)
-    const sorted = [...chats].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    const sorted = [...allChats].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
 
     // Use a consistent timezone provided from the server to avoid flicker
     const tz = timeZone || 'UTC'
@@ -140,7 +149,85 @@ export function NavChats({ chats, timeZone = 'UTC' }: NavChatsProps) {
       result.push({ label, items: monthBuckets[mk] })
     }
     return result
-  }, [chats, timeZone])
+  }, [allChats, timeZone])
+
+  const loadMore = useCallback(async () => {
+    if (loading || !hasMore || suppressLoadMoreRef.current) return
+    try {
+      setLoading(true)
+      const limit = 100
+      const res = await fetch(`/api/v1/chats?offset=${offset}&limit=${limit}`)
+      if (!res.ok) return
+      const data = await res.json()
+      const items: ChatData[] = data.items || data.chats || []
+      setAllChats(prev => [...prev, ...items])
+      if (typeof data.nextOffset === 'number') {
+        setOffset(data.nextOffset)
+      }
+      setHasMore(Boolean(data.hasMore))
+    } finally {
+      setLoading(false)
+    }
+  }, [offset, loading, hasMore])
+
+  useEffect(() => {
+    const el = loadMoreRef.current
+    if (!el) return
+    const observer = new IntersectionObserver((entries) => {
+      const entry = entries[0]
+      if (entry.isIntersecting && isOpen) {
+        void loadMore()
+      }
+    }, { root: null, rootMargin: '200px', threshold: 0 })
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [loadMore, isOpen])
+
+  const resetToFirstPage = useCallback(() => {
+    const initial = initialPageRef.current || []
+    setAllChats(initial)
+    setOffset(initial.length)
+    setHasMore(true)
+    suppressLoadMoreRef.current = true
+    setTimeout(() => { suppressLoadMoreRef.current = false }, 300)
+  }, [])
+
+  // Optimistically add the current chat to the sidebar on navigation to /c/{id}
+  useEffect(() => {
+    const p = String(pathname || '')
+    if (!p.startsWith('/c/')) return
+    const id = p.slice(3).split(/[\/#?]/)[0]
+    if (!id) return
+    setAllChats(prev => {
+      if (prev.some(c => c.id === id)) return prev
+      const now = new Date()
+      const optimistic: ChatData = {
+        id,
+        userId: '',
+        title: 'New Chat',
+        createdAt: now as any,
+        updatedAt: now as any,
+        messages: [],
+        archived: false,
+        tags: [],
+        modelId: null,
+      }
+      return [optimistic, ...prev]
+    })
+  }, [pathname])
+
+  useEffect(() => {
+    const topEl = topRef.current
+    if (!topEl) return
+    const obs = new IntersectionObserver((entries) => {
+      const e = entries[0]
+      if (e.isIntersecting && isOpen && allChats.length > (initialPageRef.current?.length || 0) && !loading) {
+        resetToFirstPage()
+      }
+    }, { root: null, rootMargin: '0px', threshold: 0.01 })
+    obs.observe(topEl)
+    return () => obs.disconnect()
+  }, [isOpen, allChats.length, loading, resetToFirstPage])
 
   return (
     <SidebarGroup className="pt-0">
@@ -159,6 +246,7 @@ export function NavChats({ chats, timeZone = 'UTC' }: NavChatsProps) {
             </CollapsibleTrigger>
             <CollapsibleContent>
               <SidebarMenuSub className="border-l-0 pl-0 ml-0 mx-0 px-0">
+                <div ref={topRef} />
                 {chats.length === 0 ? (
                   <SidebarMenuSubItem>
                     <div className="px-2 py-1 text-sm text-muted-foreground">
@@ -244,6 +332,9 @@ export function NavChats({ chats, timeZone = 'UTC' }: NavChatsProps) {
                     </div>
                   ))
                 )}
+                <div ref={loadMoreRef} className="flex items-center justify-center py-2">
+                  {loading && <AnimatedLoader className="h-4 w-4 text-muted-foreground" />}
+                </div>
               </SidebarMenuSub>
             </CollapsibleContent>
           </SidebarMenuItem>

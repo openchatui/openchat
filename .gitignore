@@ -44,6 +44,7 @@ prisma/*_data.csv
 next-env.d.ts
 
 public/profiles/*
-public/images/*
+/data/images/*
+/public/images/*
 
 /prisma/*.db

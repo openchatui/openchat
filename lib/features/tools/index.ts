@@ -34,6 +34,23 @@ export type {
   OpenAIImageConfig,
 } from './image-generation/image.types';
 
+// Pyodide
+export {
+  PyodideManager,
+} from './pyodide/pyodide.service';
+
+export {
+  pyodideTools,
+} from './pyodide/pyodide.provider';
+
+export {
+  registerPyodideTools,
+} from './pyodide/pyodide.tools';
+
+export type {
+  PyodideRunInput,
+} from './pyodide/pyodide.types';
+
 // Web browsing
 export {
   WebBrowsingService,

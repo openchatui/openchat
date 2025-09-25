@@ -25,10 +25,10 @@ export const Image = ({
     ? src
     : `data:${mediaType};base64,${base64}`;
   return (
-    <div className={cn('relative inline-block', props.className)}>
+    <div className={cn('', props.className)}>
       {isLoading && (
         <div className="flex items-center justify-center w-full h-[200px] max-h-full bg-muted/30 rounded-md">
-          <Loader className="h-8 w-8" />
+          <Loader className="h-4 w-4" />
         </div>
       )}
       <img

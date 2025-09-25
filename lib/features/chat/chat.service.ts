@@ -164,6 +164,64 @@ export class ChatStore {
   }
 
   /**
+   * Get paginated chats for a user (for sidebar infinite scroll)
+   */
+  static async getUserChatsPage(
+    userId: string,
+    options: { offset?: number; limit?: number } = {}
+  ): Promise<{ items: ChatData[]; nextOffset: number | null; hasMore: boolean; total: number }> {
+    const rawOffset = Number.isFinite(options.offset as number) ? Number(options.offset) : 0;
+    const rawLimit = Number.isFinite(options.limit as number) ? Number(options.limit) : 0;
+    const offset = Math.max(0, rawOffset || 0);
+    const limit = Math.min(Math.max(1, rawLimit || 100), 200);
+
+    const where = {
+      userId,
+      archived: 0 as any,
+    } as const;
+
+    const total = await db.chat.count({ where: where as any });
+
+    const chats = await db.chat.findMany({
+      where: where as any,
+      select: {
+        id: true,
+        userId: true,
+        title: true,
+        chat: true,
+        createdAt: true,
+        updatedAt: true,
+        archived: true,
+      },
+      orderBy: {
+        updatedAt: 'desc',
+      },
+      skip: offset,
+      take: limit,
+    });
+
+    const items = chats.map(chat => {
+      const raw = chat.chat as unknown;
+      const messages = Array.isArray(raw) ? raw.filter(isUIMessage) as AppUIMessage[] : [];
+      return {
+        id: chat.id,
+        userId: chat.userId,
+        title: chat.title,
+        messages,
+        createdAt: chat.createdAt,
+        updatedAt: chat.updatedAt,
+        archived: chat.archived !== 0,
+        tags: [],
+        modelId: null,
+      } as ChatData;
+    });
+
+    const nextOffset = offset + items.length;
+    const hasMore = nextOffset < total;
+    return { items, nextOffset: hasMore ? nextOffset : null, hasMore, total };
+  }
+
+  /**
    * Get archived chats for a user
    */
   static async getUserArchivedChats(userId: string): Promise<ChatData[]> {
