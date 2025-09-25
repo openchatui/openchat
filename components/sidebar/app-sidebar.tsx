@@ -39,7 +39,7 @@ const data = {
     },
     {
       title: "Search",
-      url: "#",
+      url: "/search",
       icon: Search,
       type: "button" as const,
     },
