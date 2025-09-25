@@ -389,8 +389,8 @@ export default function ChatMessages({
                   <div className="relative mb-3">
                     <Reasoning isStreaming={isStreaming} defaultOpen>
                       <ReasoningTrigger />
-                      <ReasoningContent className='text-muted-foreground whitespace-pre-wrap'>
-                        {displayed}
+                      <ReasoningContent className='text-muted-foreground'>
+                          {displayed}
                       </ReasoningContent>
                     </Reasoning>
                   </div>

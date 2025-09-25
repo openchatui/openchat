@@ -46,6 +46,21 @@ function coerceTags(output: string): string[] {
   return Array.from(new Set(parts)).slice(0, 5)
 }
 
+function toTagId(name: string): string {
+  const base = String(name ?? '').toLowerCase().trim()
+  const snake = base.replace(/[^a-z0-9]+/g, '_').replace(/_+/g, '_')
+  return snake.replace(/^_+|_+$/g, '')
+}
+
+function toDisplayName(name: string): string {
+  const id = toTagId(name)
+  if (!id) return ''
+  return id
+    .split('_')
+    .map(part => (part ? part[0].toUpperCase() + part.slice(1) : part))
+    .join(' ')
+}
+
 /**
  * POST /api/v1/tasks/tags
  * Body: { chatId?: string, messages?: UIMessage[] }
@@ -150,6 +165,19 @@ export async function POST(req: NextRequest) {
       const currentMeta = isPlainObject(existing.meta) ? (existing.meta as any) : {}
       const nextMeta = { ...currentMeta, tags }
       await db.chat.updateMany({ where: { id: chatId, userId }, data: { meta: nextMeta, updatedAt: new Date() } })
+
+      // Upsert unique tags per user into the tag table for indexing
+      try {
+        const inserts = tags.map((raw) => {
+          const id = toTagId(raw)
+          const displayName = toDisplayName(raw)
+          return db.$executeRaw`INSERT INTO "tag" ("id", "user_id", "name", "meta") VALUES (${id}, ${userId}, ${displayName}, NULL) ON CONFLICT ("id", "user_id") DO NOTHING`
+        })
+        await db.$transaction(inserts)
+      } catch (e) {
+        // Non-fatal: indexing table write failure should not break the request
+        console.warn('Failed to upsert tags into tag table', e)
+      }
     }
 
     return NextResponse.json({ tags })

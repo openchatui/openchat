@@ -20,8 +20,7 @@ export function useChatTitles(chats: ChatData[]): UseChatTitlesResult {
     return chats.filter((c) => {
       if (!c || !c.id) return false
       const isNew = (c.title || '').trim().toLowerCase() === 'new chat'
-      const hasUserMsg = Array.isArray(c.messages) && c.messages.some((m: any) => m?.role === 'user')
-      return isNew && hasUserMsg
+      return isNew
     })
   }, [chats])
 
@@ -51,6 +50,11 @@ export function useChatTitles(chats: ChatData[]): UseChatTitlesResult {
           const newTitle = (data && typeof data.title === 'string') ? data.title : null
           if (newTitle) {
             setTitles((prev) => ({ ...prev, [chatId]: newTitle }))
+            try {
+              const bc = new BroadcastChannel('chats')
+              bc.postMessage({ type: 'title-updated', id: chatId, title: newTitle })
+              bc.close()
+            } catch {}
           }
         })
         .catch(() => {
@@ -60,6 +64,21 @@ export function useChatTitles(chats: ChatData[]): UseChatTitlesResult {
 
     candidates.forEach((chat) => attempt(chat.id))
   }, [candidates])
+
+  // Listen for title updates from other tabs or subsystems
+  useEffect(() => {
+    let bc: BroadcastChannel | null = null
+    try {
+      bc = new BroadcastChannel('chats')
+      bc.onmessage = (ev: MessageEvent) => {
+        const data = ev.data || {}
+        if (data?.type === 'title-updated' && typeof data?.id === 'string' && typeof data?.title === 'string') {
+          setTitles((prev) => ({ ...prev, [data.id]: data.title }))
+        }
+      }
+    } catch {}
+    return () => { try { bc && bc.close() } catch {} }
+  }, [])
 
   return { titles }
 }

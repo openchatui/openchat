@@ -9,7 +9,9 @@ import {
 import { cn } from "@/lib/utils";
 import { BrainIcon, ChevronDownIcon } from 'lucide-react';
 import type { ComponentProps } from 'react';
-import { createContext, memo, useContext, useEffect, useState } from 'react';
+import { createContext, memo, useContext, useEffect, useRef, useState } from 'react';
+import ReactMarkdown from 'react-markdown';
+import hardenReactMarkdown from 'harden-react-markdown';
 import { Response } from './response';
 
 type ReasoningContextValue = {
@@ -177,6 +179,69 @@ export type ReasoningContentProps = ComponentProps<
 export const ReasoningContent = memo(
   ({ className, children, ...props }: ReasoningContentProps) => {
     const { isStreaming } = useReasoning();
+    const HardenedMarkdown = hardenReactMarkdown(ReactMarkdown);
+    const containerRef = useRef<HTMLDivElement | null>(null);
+    const contentRef = useRef<HTMLDivElement | null>(null);
+    const [stickBottom, setStickBottom] = useState(false);
+
+    useEffect(() => {
+      const update = () => {
+        const container = containerRef.current;
+        const content = contentRef.current;
+        if (!container || !content) return;
+        const contentHeight = content.offsetHeight;
+        const containerHeight = container.clientHeight;
+        setStickBottom(contentHeight > containerHeight);
+      };
+
+      update();
+
+      let ro: ResizeObserver | null = null;
+      if (typeof window !== 'undefined' && 'ResizeObserver' in window && contentRef.current) {
+        ro = new ResizeObserver(() => update());
+        ro.observe(contentRef.current);
+      }
+
+      return () => {
+        if (ro) ro.disconnect();
+      };
+    }, [children]);
+    const inlineComponents = {
+      p: ({ children, className, ...rest }: any) => (
+        <p className={cn('my-0', className)} {...rest}>{children}</p>
+      ),
+      strong: ({ children, className, ...rest }: any) => (
+        <span className={cn('font-semibold', className)} {...rest}>{children}</span>
+      ),
+      em: ({ children, className, ...rest }: any) => (
+        <span className={cn('italic', className)} {...rest}>{children}</span>
+      ),
+      code: ({ children, className, ...rest }: any) => (
+        <code className={cn('rounded bg-muted px-1 py-0.5 font-mono', className)} {...rest}>{children}</code>
+      ),
+      a: ({ children, className, ...rest }: any) => (
+        <a className={cn('underline', className)} target="_blank" rel="noreferrer" {...rest}>{children}</a>
+      ),
+      h1: ({ children, className, ...rest }: any) => (
+        <div className={cn('font-semibold my-0', className)} {...rest}>{children}</div>
+      ),
+      h2: ({ children, className, ...rest }: any) => (
+        <div className={cn('font-semibold my-0', className)} {...rest}>{children}</div>
+      ),
+      h3: ({ children, className, ...rest }: any) => (
+        <div className={cn('font-semibold my-0', className)} {...rest}>{children}</div>
+      ),
+      h4: ({ children, className, ...rest }: any) => (
+        <div className={cn('font-semibold my-0', className)} {...rest}>{children}</div>
+      ),
+      h5: ({ children, className, ...rest }: any) => (
+        <div className={cn('font-semibold my-0', className)} {...rest}>{children}</div>
+      ),
+      h6: ({ children, className, ...rest }: any) => (
+        <div className={cn('font-semibold my-0', className)} {...rest}>{children}</div>
+      ),
+      br: (props: any) => <br {...props} />,
+    } as const;
     return (
       <CollapsibleContent
         className={cn(
@@ -188,14 +253,28 @@ export const ReasoningContent = memo(
       >
         {isStreaming ? (
           <div className="relative">
-            <div className="pointer-events-none absolute inset-x-0 top-0 h-6 bg-gradient-to-b from-background to-transparent" />
-            <div className="font-mono text-xs leading-5 h-[9rem] overflow-hidden whitespace-pre-wrap">
-              {children}
+            {stickBottom && (
+              <div className="pointer-events-none absolute inset-x-0 top-0 h-8 z-20 bg-gradient-to-b from-background to-transparent" />
+            )}
+            <div ref={containerRef} className="relative font-mono text-xs leading-5 h-[9rem] overflow-hidden">
+              <div
+                ref={contentRef}
+                className={cn(
+                  'whitespace-pre-wrap',
+                  stickBottom ? 'absolute inset-x-0 bottom-0' : 'relative'
+                )}
+              >
+                <HardenedMarkdown components={inlineComponents as any}>
+                  {children}
+                </HardenedMarkdown>
+              </div>
             </div>
           </div>
         ) : (
           <div className="font-mono text-xs leading-5 whitespace-pre-wrap">
-            {children}
+            <HardenedMarkdown components={inlineComponents as any}>
+              {children}
+            </HardenedMarkdown>
           </div>
         )}
       </CollapsibleContent>

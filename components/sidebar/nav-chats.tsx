@@ -49,6 +49,8 @@ export function NavChats({ chats, timeZone = 'UTC' }: NavChatsProps) {
   const topRef = useRef<HTMLDivElement | null>(null)
   const initialPageRef = useRef<ChatData[]>(chats)
   const suppressLoadMoreRef = useRef<boolean>(false)
+  // Track whether we've expanded the list via load more so we only auto-reset then
+  const hasLoadedMoreRef = useRef<boolean>(false)
   const pathname = usePathname()
   const router = useRouter()
   // Avoid scanning large chat arrays when collapsed by passing empty list to the hook
@@ -161,6 +163,9 @@ export function NavChats({ chats, timeZone = 'UTC' }: NavChatsProps) {
       const data = await res.json()
       const items: ChatData[] = data.items || data.chats || []
       setAllChats(prev => [...prev, ...items])
+      if (items.length > 0) {
+        hasLoadedMoreRef.current = true
+      }
       if (typeof data.nextOffset === 'number') {
         setOffset(data.nextOffset)
       }
@@ -189,6 +194,7 @@ export function NavChats({ chats, timeZone = 'UTC' }: NavChatsProps) {
     setOffset(initial.length)
     setHasMore(true)
     suppressLoadMoreRef.current = true
+    hasLoadedMoreRef.current = false
     setTimeout(() => { suppressLoadMoreRef.current = false }, 300)
   }, [])
 
@@ -212,6 +218,12 @@ export function NavChats({ chats, timeZone = 'UTC' }: NavChatsProps) {
         tags: [],
         modelId: null,
       }
+      // Ensure resets preserve this optimistic chat by including it in the initial page ref
+      const initial = initialPageRef.current || []
+      if (!initial.some(c => c.id === id)) {
+        initialPageRef.current = [optimistic, ...initial]
+        setOffset(o => o + 1)
+      }
       return [optimistic, ...prev]
     })
   }, [pathname])
@@ -221,7 +233,8 @@ export function NavChats({ chats, timeZone = 'UTC' }: NavChatsProps) {
     if (!topEl) return
     const obs = new IntersectionObserver((entries) => {
       const e = entries[0]
-      if (e.isIntersecting && isOpen && allChats.length > (initialPageRef.current?.length || 0) && !loading) {
+      // Only auto-reset when we've expanded the list via load more
+      if (e.isIntersecting && isOpen && hasLoadedMoreRef.current && allChats.length > (initialPageRef.current?.length || 0) && !loading) {
         resetToFirstPage()
       }
     }, { root: null, rootMargin: '0px', threshold: 0.01 })

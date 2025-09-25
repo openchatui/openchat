@@ -52,6 +52,12 @@ export function ChatStandard({
     if (currentChatId !== chatId) setCurrentChatId(chatId)
   }, [chatId, currentChatId, setCurrentChatId])
 
+  // Clear messages when navigating to a different chat so the loader can replace them
+  useEffect(() => {
+    setMessages([] as any)
+    hasAutoSentRef.current = false
+  }, [chatId, setMessages])
+
   // (removed) defer message loading until after streaming hook is available
 
   // Initialize selected model from messages or settings
