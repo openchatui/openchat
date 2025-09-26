@@ -18,6 +18,7 @@ import {
   SidebarMenuSubButton,
   SidebarMenuSubItem,
 } from "@/components/ui/sidebar"
+import type { IconType } from "react-icons/lib"
 
 export function NavMain({
   items,
@@ -25,7 +26,7 @@ export function NavMain({
   items: {
     title: string
     url: string
-    icon?: LucideIcon
+    icon?: LucideIcon | IconType
     type: "button" | "collapse"
     isActive?: boolean
     items?: {

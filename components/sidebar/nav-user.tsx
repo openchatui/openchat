@@ -70,8 +70,8 @@ export function NavUser({
       try {
         const res = await fetch('/api/v1/activity/active-users', { cache: 'no-store' })
         if (!res.ok) return
-        const data = await res.json()
-        if (!canceled) setActiveUsers(Array.isArray(data?.users) ? data.users.length : 0)
+        const data = await res.json().catch(() => null)
+        if (!canceled) setActiveUsers(Array.isArray((data as any)?.users) ? (data as any).users.length : 0)
       } catch {
         if (!canceled) setActiveUsers(null)
       }

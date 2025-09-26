@@ -29,9 +29,9 @@ export async function GET(_req: Request, context: any) {
 
   // Resolve potential locations where the image might have been written at runtime
   const candidates = [
-    path.join(process.cwd(), 'public', 'images', name),
-    path.join(process.cwd(), '.next', 'standalone', 'public', 'images', name),
-    path.join(process.cwd(), '.next', 'server', 'public', 'images', name),
+    path.join(process.cwd(), 'data', 'images', name),
+    path.join(process.cwd(), '.next', 'standalone', 'data', 'images', name),
+    path.join(process.cwd(), '.next', 'server', 'data', 'images', name),
   ]
 
   const file = await tryRead(candidates)

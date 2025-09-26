@@ -8,7 +8,9 @@ import {
   NotebookPen,
   Search,
   Users,
+  FolderClosed
 } from "lucide-react"
+import { RiHardDrive3Line } from "react-icons/ri";
 
 import { NavMain } from "@/components/sidebar/nav-main"
 import { NavModels } from "@/components/sidebar/nav-models"
@@ -44,35 +46,15 @@ const data = {
       type: "button" as const,
     },
     {
-      title: "Notes",
-      url: "#",
-      icon: NotebookPen,
+      title: "Drive",
+      url: "/drive",
+      icon: RiHardDrive3Line,
       type: "button" as const,
     },
     {
       title: "Workspaces",
       url: "#",
       icon: Users,
-      type: "button" as const,
-    },
-  ],
-  aiModels: [
-    {
-      title: "Llama",
-      url: "#",
-      icon: Bot,
-      type: "button" as const,
-    },
-    {
-      title: "gpt-4.1",
-      url: "#",
-      icon: Bot,
-      type: "button" as const,
-    },
-    {
-      title: "qwen2.5",
-      url: "#",
-      icon: Bot,
       type: "button" as const,
     },
   ],
