@@ -2,6 +2,7 @@
 
 import type { AppUIMessage, ChatData } from "@/lib/features/chat"
 import { cn } from "@/lib/utils"
+import { Response } from "@/components/ai/response"
 
 interface ChatPreviewProps {
   chat: ChatData
@@ -26,7 +27,7 @@ export function ChatPreview({ chat, className, maxMessages = 16 }: ChatPreviewPr
 
   return (
     <div className={cn("w-full h-full flex flex-col", className)}>
-      <div className="px-4 py-3 border-b">
+      <div className="px-4 py-3">
         <div className="text-sm font-medium truncate">{chat.title || 'Untitled'}</div>
       </div>
       <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
@@ -41,19 +42,19 @@ export function ChatPreview({ chat, className, maxMessages = 16 }: ChatPreviewPr
             return (
               <div key={m.id} className="w-full flex flex-col items-end gap-2">
                 <div className="flex flex-col gap-3 overflow-hidden rounded-4xl px-5 py-4 max-w-[80%] bg-muted text-primary">
-                  <div className="prose prose-sm leading-normal prose-invert max-w-none">
+                  <Response className="prose prose-sm leading-normal prose-invert max-w-none">
                     {content}
-                  </div>
+                  </Response>
                 </div>
               </div>
             )
           }
           return (
             <div key={m.id} className="w-full flex flex-col items-start gap-2">
-              <div className="flex flex-col gap-3 overflow-hidden rounded-4xl px-5 py-4 max-w-[80%] bg-background border">
-                <div className="prose prose-sm leading-normal max-w-none">
+              <div className="flex flex-col gap-3 overflow-hidden rounded-4xl px-5 py-4 max-w-[80%] bg-background">
+                <Response className="prose prose-sm leading-normal max-w-none">
                   {content}
-                </div>
+                </Response>
               </div>
             </div>
           )

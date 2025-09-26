@@ -3,7 +3,6 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import ChatsResults from "@/components/search/results/chats-results";
 import ModelsResults from "@/components/search/results/models-results";
-import RecentChatsResults from "@/components/search/results/recent-chats-results";
 
 interface SearchPageProps {
   searchParams?: Promise<{ q?: string | string[]; mention?: string | string[] }>;
@@ -59,7 +58,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
     return (
       <div className="mx-48 w-full px-2.5 py-3">
         <SearchBar query={q} initialMentions={mentions} className="max-w-[600px] mx-auto" />
-        <RecentChatsResults userId={userId} />
+        <ChatsResults userId={userId} />
       </div>
     );
   }

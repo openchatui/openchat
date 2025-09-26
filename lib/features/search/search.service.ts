@@ -3,6 +3,7 @@ import 'server-only'
 import db from '@/lib/db'
 import type { AppUIMessage, ChatData } from '@/lib/features/chat/chat.types'
 import type { Model } from '@/lib/features/models/model.types'
+import { getUserRole } from '@/lib/server/access-control/permissions.service'
 
 export interface SearchOptions {
   query: string
@@ -134,10 +135,11 @@ export async function searchUserArchivedChats(userId: string, options: SearchOpt
 export async function searchUserModels(userId: string, options: SearchOptions): Promise<Model[]> {
   const q = String(options.query || '').trim()
   if (!q) return []
+  const role = await getUserRole(userId)
+  const isAdmin = role === 'ADMIN' || role === 'admin'
   const rows = await (db as any).model.findMany({
     where: {
-      userId,
-      isActive: true as any,
+      ...(isAdmin ? {} : { userId }),
     },
     select: {
       id: true,

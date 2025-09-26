@@ -142,6 +142,14 @@ export function SearchBar({
 
   // Debounced dynamic search: update the URL as the user types or changes mentions
   useEffect(() => {
+    // If the user is currently typing an @-mention token (not yet a full option),
+    // do not initiate or update the search.
+    const hasActiveMentionToken =
+      tokenText.startsWith("@") &&
+      !MENTION_OPTIONS.includes(tokenText.slice(1).toLowerCase());
+
+    if (hasActiveMentionToken) return;
+
     const params = new URLSearchParams(sp?.toString());
     const currentQ = params.get("q") || "";
     const currentMentions = new Set((sp ? sp.getAll("mention") : []).map((m) => String(m).toLowerCase()));
@@ -187,7 +195,7 @@ export function SearchBar({
       router.replace(qs ? `${pathname}?${qs}` : pathname);
     }, 450);
     return () => clearTimeout(handle);
-  }, [value, mentions, pathname, router, sp]);
+  }, [value, mentions, pathname, router, sp, tokenText]);
 
   return (
     <div className={cn("w-full", className)}>
