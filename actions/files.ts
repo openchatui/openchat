@@ -105,4 +105,104 @@ export async function uploadFolderSubmitAction(formData: FormData): Promise<void
   await uploadFolderAction({ status: 'success' }, formData)
 }
 
+const MoveFolderSchema = z.object({
+  folderId: z.string().min(1),
+  targetParentId: z.string().min(1),
+})
+
+export async function moveFolderAction(_prev: ActionResult, formData: FormData): Promise<ActionResult> {
+  try {
+    const session = await auth()
+    if (!session?.user?.id) return { status: 'error', message: 'Unauthorized' }
+
+    const parsed = MoveFolderSchema.parse({
+      folderId: String(formData.get('folderId') ?? ''),
+      targetParentId: String(formData.get('targetParentId') ?? ''),
+    })
+
+    const userId = session.user.id
+    const nowSec = Math.floor(Date.now() / 1000)
+
+    // Update using Prisma if available, else raw SQL
+    const client: any = (await import('@/lib/db')).default as any
+    if (client?.folder?.update) {
+      await client.folder.update({
+        where: { id: parsed.folderId, userId },
+        data: { parentId: parsed.targetParentId, updatedAt: nowSec },
+      })
+    } else {
+      const db = (await import('@/lib/db')).default as any
+      await db.$executeRaw`UPDATE "folder" SET parent_id = ${parsed.targetParentId}, updated_at = ${nowSec} WHERE id = ${parsed.folderId} AND user_id = ${userId}`
+    }
+
+    // Revalidate root and the affected folder path
+    revalidatePath('/drive')
+    return { status: 'success' }
+  } catch (error: any) {
+    if (error && typeof error === 'object' && 'issues' in error) {
+      const validationError = error as any
+      const message = validationError.issues?.map((i: any) => i.message).join(', ') || 'Invalid input'
+      return { status: 'error', message }
+    }
+    return { status: 'error', message: error?.message || 'Failed to move folder' }
+  }
+}
+
+export async function moveFolderSubmitAction(formData: FormData): Promise<void> {
+  await moveFolderAction({ status: 'success' }, formData)
+}
+
+const MoveFileSchema = z.object({
+  fileId: z.string().min(1),
+  targetParentId: z.string().min(1),
+})
+
+export async function moveFileAction(_prev: ActionResult, formData: FormData): Promise<ActionResult> {
+  try {
+    const session = await auth()
+    if (!session?.user?.id) return { status: 'error', message: 'Unauthorized' }
+
+    const parsed = MoveFileSchema.parse({
+      fileId: String(formData.get('fileId') ?? ''),
+      targetParentId: String(formData.get('targetParentId') ?? ''),
+    })
+
+    const userId = session.user.id
+    const nowSec = Math.floor(Date.now() / 1000)
+
+    const client: any = (await import('@/lib/db')).default as any
+    if (client?.file?.update) {
+      // Read current meta to merge
+      const existing = await client.file.findUnique({ where: { id: parsed.fileId } })
+      const nextMeta = { ...(existing?.meta ?? {}), parent_id: parsed.targetParentId }
+      await client.file.update({
+        where: { id: parsed.fileId },
+        data: { meta: nextMeta, updatedAt: nowSec },
+      })
+    } else {
+      const db = (await import('@/lib/db')).default as any
+      // Try SQLite json_set, then Postgres jsonb_set/concat fallback
+      try {
+        await db.$executeRaw`UPDATE "file" SET meta = json_set(COALESCE(meta, '{}'), '$.parent_id', ${parsed.targetParentId}), updated_at = ${nowSec} WHERE id = ${parsed.fileId} AND user_id = ${userId}`
+      } catch {
+        await db.$executeRaw`UPDATE "file" SET meta = COALESCE(meta, '{}'::jsonb) || jsonb_build_object('parent_id', ${parsed.targetParentId})::jsonb, updated_at = ${nowSec} WHERE id = ${parsed.fileId} AND user_id = ${userId}`
+      }
+    }
+
+    revalidatePath('/drive')
+    return { status: 'success' }
+  } catch (error: any) {
+    if (error && typeof error === 'object' && 'issues' in error) {
+      const validationError = error as any
+      const message = validationError.issues?.map((i: any) => i.message).join(', ') || 'Invalid input'
+      return { status: 'error', message }
+    }
+    return { status: 'error', message: error?.message || 'Failed to move file' }
+  }
+}
+
+export async function moveFileSubmitAction(formData: FormData): Promise<void> {
+  await moveFileAction({ status: 'success' }, formData)
+}
+
 

@@ -3,7 +3,6 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { SaveStatusButton } from "@/components/ui/save-button"
-import { uploadFolderSubmitAction } from "@/actions/files"
 import { useRouter } from "next/navigation"
 
 interface UploadFolderDialogProps {
@@ -16,7 +15,7 @@ export function UploadFolderDialog({ open, onOpenChange, parent = "" }: UploadFo
   const router = useRouter()
 
   async function onSubmit(formData: FormData) {
-    await uploadFolderSubmitAction(formData)
+    await fetch('/api/files/upload', { method: 'POST', body: formData })
     onOpenChange(false)
     router.refresh()
   }
@@ -28,7 +27,7 @@ export function UploadFolderDialog({ open, onOpenChange, parent = "" }: UploadFo
           <DialogTitle>Upload folder</DialogTitle>
           <DialogDescription>Select a folder to upload its contents.</DialogDescription>
         </DialogHeader>
-        <form action={onSubmit} className="space-y-3" encType="multipart/form-data">
+        <form action={onSubmit} className="space-y-3">
           <input type="hidden" name="parent" value={parent} />
           <div className="space-y-2">
             <Label htmlFor="folder-input">Choose folder</Label>

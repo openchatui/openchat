@@ -3,7 +3,6 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { SaveStatusButton } from "@/components/ui/save-button"
-import { uploadFileSubmitAction } from "@/actions/files"
 import { useRouter } from "next/navigation"
 
 interface UploadFileDialogProps {
@@ -16,7 +15,7 @@ export function UploadFileDialog({ open, onOpenChange, parent = "" }: UploadFile
   const router = useRouter()
 
   async function onSubmit(formData: FormData) {
-    await uploadFileSubmitAction(formData)
+    await fetch('/api/files/upload', { method: 'POST', body: formData })
     onOpenChange(false)
     router.refresh()
   }
@@ -28,7 +27,7 @@ export function UploadFileDialog({ open, onOpenChange, parent = "" }: UploadFile
           <DialogTitle>Upload file</DialogTitle>
           <DialogDescription>Select a file to upload.</DialogDescription>
         </DialogHeader>
-        <form action={onSubmit} className="space-y-3" encType="multipart/form-data">
+        <form action={onSubmit} className="space-y-3">
           <input type="hidden" name="parent" value={parent} />
           <div className="space-y-2">
             <Label htmlFor="file-input">Choose file</Label>

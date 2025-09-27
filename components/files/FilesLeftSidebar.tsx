@@ -14,8 +14,10 @@ import Link from "next/link"
 import { CreateFolderDialog } from "./CreateFolderDialog"
 import { UploadFileDialog } from "./UploadFileDialog"
 import { UploadFolderDialog } from "./UploadFolderDialog"
+import { Separator } from "@/components/ui/separator"
+import { cn } from "@/lib/utils"
 
-export function FilesLeftSidebar() {
+export function FilesLeftSidebar({ parentId = "" }: { parentId?: string }) {
   const [showNewFolder, setShowNewFolder] = useState(false)
   const [showUploadFile, setShowUploadFile] = useState(false)
   const [showUploadFolder, setShowUploadFolder] = useState(false)
@@ -48,23 +50,25 @@ export function FilesLeftSidebar() {
       </div>
 
       <nav className="space-y-1">
-        <SidebarLink href="/drive" icon={<Home className="h-4 w-4" />} label="Home" />
+        <SidebarLink href="/drive" icon={<Home className="h-4 w-4" />} label="Home" className="my-4 mt-6"/>
+        <Separator className="my-4"/>
         <SidebarLink href="/drive" icon={<HardDrive className="h-4 w-4" />} label="My Drive" />
         <SidebarLink href="/drive/shared" icon={<Users className="h-4 w-4" />} label="Shared with me" />
+        <Separator className="my-4"/>
         <SidebarLink href="/drive/recent" icon={<Clock className="h-4 w-4" />} label="Recent" />
         <SidebarLink href="/drive/starred" icon={<Star className="h-4 w-4" />} label="Starred" />
         <SidebarLink href="/drive/trash" icon={<Trash2 className="h-4 w-4" />} label="Trash" />
       </nav>
-      <CreateFolderDialog open={showNewFolder} onOpenChange={setShowNewFolder} />
-      <UploadFileDialog open={showUploadFile} onOpenChange={setShowUploadFile} />
-      <UploadFolderDialog open={showUploadFolder} onOpenChange={setShowUploadFolder} />
+      <CreateFolderDialog open={showNewFolder} onOpenChange={setShowNewFolder} parent={parentId} />
+      <UploadFileDialog open={showUploadFile} onOpenChange={setShowUploadFile} parent={parentId} />
+      <UploadFolderDialog open={showUploadFolder} onOpenChange={setShowUploadFolder} parent={parentId} />
     </aside>
   )
 }
 
-function SidebarLink({ href, icon, label }: { href: string; icon: React.ReactNode; label: string }) {
+function SidebarLink({ href, icon, label, className }: { href: string; icon: React.ReactNode; label: string; className?: string }) {
   return (
-    <Link href={href} className="flex items-center gap-2 rounded-md px-2 py-2 text-sm hover:bg-muted">
+    <Link href={href} className={cn("flex items-center gap-2 rounded-md px-2 py-2 text-sm hover:bg-muted", className)}>
       <span className="text-muted-foreground">{icon}</span>
       <span>{label}</span>
     </Link>

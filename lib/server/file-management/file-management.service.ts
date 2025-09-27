@@ -33,9 +33,11 @@ export class FileManagementService {
     for (const entry of entries) {
       const entryPath = path.join(dir, entry.name)
       const s = await stat(entryPath)
+      const relPath = path.join(relative, entry.name)
       results.push({
+        id: relPath,
         name: entry.name,
-        path: path.join(relative, entry.name),
+        path: relPath,
         isDirectory: entry.isDirectory(),
         size: entry.isDirectory() ? null : s.size,
         modifiedMs: s.mtimeMs,
