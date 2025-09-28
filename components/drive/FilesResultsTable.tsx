@@ -1,12 +1,21 @@
 "use client"
 import type { FileEntry } from "@/lib/server/file-management"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { FolderClosed, FileText, Image, Table2 } from "lucide-react"
-import { MoreVertical } from "lucide-react"
+import { FolderClosed, FileText, Image, Table2, MoreVertical } from "lucide-react"
 import { useCallback, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import dynamic from "next/dynamic"
 import { Button } from "@/components/ui/button"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,15 +24,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { FolderContextMenu } from "./FolderContextMenu"
 const SelectionBar = dynamic(() => import("./SelectionBar").then(m => m.SelectionBar), { loading: () => <div className="mb-2 h-10" /> })
 const FiltersBar = dynamic(() => import("./FiltersBar").then(m => m.FiltersBar), { loading: () => <div className="mb-2 h-10" /> })
-const MoveFolderDialog = dynamic(() => import("./MoveFolderDialog").then(m => m.MoveFolderDialog))
-const MoveFileDialog = dynamic(() => import("./MoveFileDialog").then(m => m.MoveFileDialog))
-import { moveFileSubmitAction, moveFolderSubmitAction } from "@/actions/files"
+const MoveItemDialog = dynamic(() => import("./MoveItemDialog").then(m => m.MoveItemDialog))
+import { moveFileSubmitAction, moveFolderSubmitAction, restoreFolderFromTrashSubmitAction } from "@/actions/files"
 import { Breadcrumbs } from "./Breadcrumbs"
 import { DndContext, DragOverlay, type DragEndEvent, type DragStartEvent, type DragOverEvent, type Modifier, useSensor, useSensors, MouseSensor, TouchSensor, pointerWithin } from "@dnd-kit/core"
 import { useDroppable, useDraggable } from "@dnd-kit/core"
-import { CSS } from "@dnd-kit/utilities"
 import { snapCenterToCursor } from "@dnd-kit/modifiers"
 import { CreateContextMenu } from "./CreateContextMenu"
 import PreviewDialog from "./PreviewDialog"
@@ -82,6 +90,7 @@ export function FilesResultsTable({ entries, parentName, parentId, breadcrumb }:
   const [lastIndex, setLastIndex] = useState<number | null>(null)
   const [moveFolderId, setMoveFolderId] = useState<string | null>(null)
   const [moveFileId, setMoveFileId] = useState<string | null>(null)
+  const [restoreFolderId, setRestoreFolderId] = useState<string | null>(null)
   const [activeId, setActiveId] = useState<string | null>(null)
   const [overFolderId, setOverFolderId] = useState<string | null>(null)
   const [preview, setPreview] = useState<{ name: string; url: string } | null>(null)
@@ -101,6 +110,10 @@ export function FilesResultsTable({ entries, parentName, parentId, breadcrumb }:
 
   const handleRowDoubleClick = useCallback((item: FileEntry) => {
     if (item.isDirectory) {
+      if (parentName === 'Trash') {
+        setRestoreFolderId(item.id)
+        return
+      }
       router.push(`/drive/folder/${encodeURIComponent(item.path)}`)
       return
     }
@@ -197,10 +210,10 @@ export function FilesResultsTable({ entries, parentName, parentId, breadcrumb }:
 
   return (
     <DndContext sensors={sensors} collisionDetection={pointerWithin} onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd}>
-    <CreateContextMenu parentId={parentId ?? ''}>
+    <CreateContextMenu parentId={parentId ?? ''} disabled={parentName === 'Trash'}>
     <div className="w-full min-h-[70vh]" onClick={handleBackgroundClick}>
       {breadcrumb && breadcrumb.length > 0 && (
-        <div className="mb-2">
+        <div className="mb-2 min-w-0">
           <Breadcrumbs segments={breadcrumb} />
         </div>
       )}
@@ -212,10 +225,10 @@ export function FilesResultsTable({ entries, parentName, parentId, breadcrumb }:
       <Table onClick={handleTableClick} className="table-fixed w-full">
         <TableHeader>
           <TableRow>
-            <TableHead className="w-1/2">Name</TableHead>
-            <TableHead>Owner</TableHead>
-            <TableHead>Last Modified</TableHead>
-            <TableHead>Location</TableHead>
+            <TableHead className="w-[40%]">Name</TableHead>
+            <TableHead className="w-[10%]">Owner</TableHead>
+            <TableHead className="w-[10%]">Last Modified</TableHead>
+            <TableHead className="w-[20%]">Location</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -248,8 +261,37 @@ export function FilesResultsTable({ entries, parentName, parentId, breadcrumb }:
           )}
         </TableBody>
       </Table>
-      <MoveFolderDialog open={!!moveFolderId} onOpenChange={(next) => { if (!next) setMoveFolderId(null) }} folderId={moveFolderId ?? ''} />
-      <MoveFileDialog open={!!moveFileId} onOpenChange={(next) => { if (!next) setMoveFileId(null) }} fileId={moveFileId ?? ''} />
+      <AlertDialog open={!!restoreFolderId} onOpenChange={(next) => { if (!next) setRestoreFolderId(null) }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Restore folder?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This folder will be moved out of Trash. You will be redirected to it after restore.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <form action={restoreFolderFromTrashSubmitAction} method="post">
+              <input type="hidden" name="folderId" value={restoreFolderId ?? ''} />
+              <Button type="submit">Restore</Button>
+            </form>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      <MoveItemDialog
+        open={!!moveFolderId}
+        onOpenChange={(next) => { if (!next) setMoveFolderId(null) }}
+        itemId={moveFolderId ?? ''}
+        itemType="folder"
+        itemName={moveFolderId ? (idToItem.get(moveFolderId)?.name ?? '') : ''}
+      />
+      <MoveItemDialog
+        open={!!moveFileId}
+        onOpenChange={(next) => { if (!next) setMoveFileId(null) }}
+        itemId={moveFileId ?? ''}
+        itemType="file"
+        itemName={moveFileId ? (idToItem.get(moveFileId)?.name ?? '') : ''}
+      />
       <DragOverlay modifiers={[snapCenterToCursor]}>
         {activeId ? (() => {
           const it = idToItem.get(activeId)
@@ -298,7 +340,7 @@ function RowItem({ item, parentName, selected, onRowClick, onRowDoubleClick, set
   const setRowRef = (node: any) => { setNodeRef(node); if (item.isDirectory) setDropRef(node) }
   const isDragging = activeId === item.id
   const highlightDragged = isDragging && !!overFolderId
-  return (
+  const row = (
     <TableRow
       ref={setRowRef}
       onClick={(e) => onRowClick(e, allIds.indexOf(item.id), item)}
@@ -308,7 +350,7 @@ function RowItem({ item, parentName, selected, onRowClick, onRowDoubleClick, set
       {...listeners}
       {...attributes}
     >
-      <TableCell className="flex items-center gap-2 mt-2 w-1/2 min-w-0">
+      <TableCell className="flex items-center gap-2 mt-2 min-w-0">
         {item.isDirectory ? (
           <FolderClosed className="h-4 w-4" />
         ) : (
@@ -318,8 +360,8 @@ function RowItem({ item, parentName, selected, onRowClick, onRowDoubleClick, set
       </TableCell>
       <TableCell>You</TableCell>
       <TableCell>{new Date(item.modifiedMs).toLocaleString('en-US', { timeZone: 'UTC', year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true })}</TableCell>
-      <TableCell className="flex items-center justify-between">
-        <span>{parentName ? `/${parentName}` : '/'}</span>
+      <TableCell className="flex items-center justify-between gap-2 min-w-0">
+        <span className="flex-1 min-w-0 truncate">{parentName ? `/${parentName}` : '/'}</span>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -341,6 +383,18 @@ function RowItem({ item, parentName, selected, onRowClick, onRowDoubleClick, set
         </DropdownMenu>
       </TableCell>
     </TableRow>
+  )
+
+  if (!item.isDirectory) return row
+  const isTrashFolder = item.name.toLowerCase() === 'trash'
+  return (
+    <FolderContextMenu
+      folderId={item.id}
+      onMove={() => setMoveFolderId(item.id)}
+      disabled={isTrashFolder}
+    >
+      {row}
+    </FolderContextMenu>
   )
 }
 

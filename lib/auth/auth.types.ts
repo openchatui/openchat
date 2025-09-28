@@ -1,6 +1,6 @@
 import type { Account, User, Session, Profile } from "next-auth";
 import type { JWT, JWTEncodeParams } from "next-auth/jwt";
-import type { AdapterUser } from "@auth/core/adapters";
+import type { AdapterUser } from "next-auth/adapters";
 
 // Custom types for extended session and token
 // Note: These match the database values (mapped from Prisma enum)

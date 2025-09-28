@@ -17,12 +17,17 @@ import { UploadFolderDialog } from "./UploadFolderDialog"
 interface CreateContextMenuProps {
   parentId?: string
   children: React.ReactNode
+  disabled?: boolean
 }
 
-export function CreateContextMenu({ parentId = "", children }: CreateContextMenuProps) {
+export function CreateContextMenu({ parentId = "", children, disabled = false }: CreateContextMenuProps) {
   const [showNewFolder, setShowNewFolder] = useState(false)
   const [showUploadFile, setShowUploadFile] = useState(false)
   const [showUploadFolder, setShowUploadFolder] = useState(false)
+
+  if (disabled) {
+    return <div>{children}</div>
+  }
 
   return (
     <ContextMenu>

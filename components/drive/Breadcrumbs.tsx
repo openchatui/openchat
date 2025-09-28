@@ -26,7 +26,7 @@ function Crumb({ id, name, isLast }: { id: string; name: string; isLast: boolean
 export function Breadcrumbs({ segments }: BreadcrumbsProps) {
   if (!segments || segments.length === 0) return null
   return (
-    <nav className="flex items-center gap-2 text-base" aria-label="Breadcrumb">
+    <nav className="flex flex-wrap items-center gap-2 text-base" aria-label="Breadcrumb">
       {segments.map((s, idx) => (
         <div key={s.id} className="flex items-center gap-1">
           <Crumb id={s.id} name={s.name} isLast={idx === segments.length - 1} />

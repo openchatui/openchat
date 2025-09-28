@@ -15,12 +15,33 @@ export class FolderDbService {
         AND parent_id IS NULL
         AND LOWER(name) IN ('root', 'my drive')
       LIMIT 1`
-    if (existing && existing[0]?.id) return existing[0].id
+    if (existing && existing[0]?.id) {
+      // Ensure default system folders (e.g., Trash) exist as well
+      await FolderDbService.getTrashFolderId(userId)
+      return existing[0].id
+    }
 
     const id = FolderDbService.generateFolderId()
     const nowSec = Math.floor(Date.now() / 1000)
     await db.$executeRaw`INSERT INTO "folder" (id, user_id, parent_id, name, items, meta, is_expanded, created_at, updated_at, data)
       VALUES (${id}, ${userId}, ${null}, ${'My Drive'}, ${JSON.stringify({})}, ${JSON.stringify({})}, ${0}, ${nowSec}, ${nowSec}, ${JSON.stringify({})})`
+    // Also create Trash automatically
+    await FolderDbService.getTrashFolderId(userId)
+    return id
+  }
+  static async getTrashFolderId(userId: string): Promise<string> {
+    const existing = await db.$queryRaw<{ id: string }[]>`
+      SELECT id FROM "folder"
+      WHERE user_id = ${userId}
+        AND parent_id IS NULL
+        AND LOWER(name) IN ('trash', 'bin')
+      LIMIT 1`
+    if (existing && existing[0]?.id) return existing[0].id
+
+    const id = FolderDbService.generateFolderId()
+    const nowSec = Math.floor(Date.now() / 1000)
+    await db.$executeRaw`INSERT INTO "folder" (id, user_id, parent_id, name, items, meta, is_expanded, created_at, updated_at, data)
+      VALUES (${id}, ${userId}, ${null}, ${'Trash'}, ${JSON.stringify({})}, ${JSON.stringify({ system: 'trash' })}, ${0}, ${nowSec}, ${nowSec}, ${JSON.stringify({})})`
     return id
   }
   static async createFolderRecord(userId: string, name: string, parentId?: string | null): Promise<{ id: string }> {

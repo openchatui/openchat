@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Home, HardDrive, Users, Clock, Star, Trash2, Plus, FolderPlus, FileUp, FolderUp } from "lucide-react"
 import Link from "next/link"
+import { usePathname } from "next/navigation"
 import { CreateFolderDialog } from "./CreateFolderDialog"
 import { UploadFileDialog } from "./UploadFileDialog"
 import { UploadFolderDialog } from "./UploadFolderDialog"
@@ -21,15 +22,18 @@ export function FilesLeftSidebar({ parentId = "" }: { parentId?: string }) {
   const [showNewFolder, setShowNewFolder] = useState(false)
   const [showUploadFile, setShowUploadFile] = useState(false)
   const [showUploadFolder, setShowUploadFolder] = useState(false)
+  const pathname = usePathname()
+  const isTrash = pathname?.startsWith('/drive/trash')
   return (
     <aside className="w-64 shrink-0 border-r px-3 py-4 space-y-4">
       <div>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button className="w-full justify-center">
+            <Button className="w-full justify-center" disabled={!!isTrash}>
               <Plus className="mr-2 h-4 w-4" /> New
             </Button>
           </DropdownMenuTrigger>
+          {!isTrash && (
           <DropdownMenuContent side="bottom" align="start" className="w-56">
             <DropdownMenuLabel>Create</DropdownMenuLabel>
             <DropdownMenuSeparator />
@@ -46,6 +50,7 @@ export function FilesLeftSidebar({ parentId = "" }: { parentId?: string }) {
               <span>Folder Upload</span>
             </DropdownMenuItem>
           </DropdownMenuContent>
+          )}
         </DropdownMenu>
       </div>
 
@@ -59,9 +64,13 @@ export function FilesLeftSidebar({ parentId = "" }: { parentId?: string }) {
         <SidebarLink href="/drive/starred" icon={<Star className="h-4 w-4" />} label="Starred" />
         <SidebarLink href="/drive/trash" icon={<Trash2 className="h-4 w-4" />} label="Trash" />
       </nav>
-      <CreateFolderDialog open={showNewFolder} onOpenChange={setShowNewFolder} parent={parentId} />
-      <UploadFileDialog open={showUploadFile} onOpenChange={setShowUploadFile} parent={parentId} />
-      <UploadFolderDialog open={showUploadFolder} onOpenChange={setShowUploadFolder} parent={parentId} />
+      {!isTrash && (
+        <>
+          <CreateFolderDialog open={showNewFolder} onOpenChange={setShowNewFolder} parent={parentId} />
+          <UploadFileDialog open={showUploadFile} onOpenChange={setShowUploadFile} parent={parentId} />
+          <UploadFolderDialog open={showUploadFolder} onOpenChange={setShowUploadFolder} parent={parentId} />
+        </>
+      )}
     </aside>
   )
 }
