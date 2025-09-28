@@ -4,7 +4,7 @@ import path from 'path'
 import type { FileEntry } from './files.types'
 
 export class FileManagementService {
-  static readonly BASE_DIR = path.join(process.cwd(), 'data', 'files')
+  static readonly BASE_DIR = path.join(process.cwd(), 'data')
 
   private static sanitizeName(input: string): string | null {
     const safe = input.match(/^[a-zA-Z0-9._-]+$/) ? input : null

@@ -14,10 +14,11 @@ export default async function FolderPage({ params }: PageProps) {
   if (!session?.user?.id) redirect("/login");
   const { folderId } = await params
 
-  const [folders, files, parentName] = await Promise.all([
+  const [folders, files, parentName, breadcrumb] = await Promise.all([
     FolderDbService.listFoldersByParent(session.user.id, folderId),
     FolderDbService.listFilesByParent(session.user.id, folderId),
     FolderDbService.getFolderNameById(session.user.id, folderId),
+    FolderDbService.getFolderBreadcrumb(session.user.id, folderId),
   ])
   const entries = [...folders, ...files]
 
@@ -26,7 +27,7 @@ export default async function FolderPage({ params }: PageProps) {
       <FilesLeftSidebar parentId={folderId} />
       <main className="flex-1 mx-2 px-2.5 py-6 space-y-6">
         <FilesSearchBar />
-        <FilesResultsTable entries={entries} parentName={parentName ?? undefined} />
+        <FilesResultsTable entries={entries} parentName={parentName ?? undefined} parentId={folderId} breadcrumb={breadcrumb} />
       </main>
     </div>
   );

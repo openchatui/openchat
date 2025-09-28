@@ -21,9 +21,10 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
     ? parentId
     : await FolderDbService.getRootFolderId(session.user.id)
 
-  const [folders, files] = await Promise.all([
+  const [folders, files, breadcrumb] = await Promise.all([
     FolderDbService.listFoldersByParent(session.user.id, effectiveRootId),
     FolderDbService.listFilesByParent(session.user.id, effectiveRootId),
+    FolderDbService.getFolderBreadcrumb(session.user.id, effectiveRootId),
   ])
   const entries = [...folders, ...files]
 
@@ -32,7 +33,7 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
       <FilesLeftSidebar parentId={effectiveRootId} />
       <main className="flex-1 mx-2 px-2.5 py-6 space-y-6 min-h-screen">
         <FilesSearchBar />
-        <FilesResultsTable entries={entries} />
+        <FilesResultsTable entries={entries} parentId={effectiveRootId} breadcrumb={breadcrumb} />
       </main>
     </div>
   );

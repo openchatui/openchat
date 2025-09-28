@@ -1,10 +1,11 @@
 "use client"
 import type { FileEntry } from "@/lib/server/file-management"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { FolderClosed, FileText } from "lucide-react"
-import { X, UserPlus, Download, FolderOpen, Trash2, Link as LinkIcon, MoreVertical } from "lucide-react"
+import { FolderClosed, FileText, Image, Table2 } from "lucide-react"
+import { MoreVertical } from "lucide-react"
 import { useCallback, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
+import dynamic from "next/dynamic"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -14,22 +15,68 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { MoveFolderDialog } from "./MoveFolderDialog"
-import { MoveFileDialog } from "./MoveFileDialog"
+const SelectionBar = dynamic(() => import("./SelectionBar").then(m => m.SelectionBar), { loading: () => <div className="mb-2 h-10" /> })
+const FiltersBar = dynamic(() => import("./FiltersBar").then(m => m.FiltersBar), { loading: () => <div className="mb-2 h-10" /> })
+const MoveFolderDialog = dynamic(() => import("./MoveFolderDialog").then(m => m.MoveFolderDialog))
+const MoveFileDialog = dynamic(() => import("./MoveFileDialog").then(m => m.MoveFileDialog))
 import { moveFileSubmitAction, moveFolderSubmitAction } from "@/actions/files"
-import { DndContext, DragOverlay, type DragEndEvent, type DragStartEvent, type DragOverEvent, type Modifier, useSensor, useSensors, MouseSensor, TouchSensor } from "@dnd-kit/core"
+import { Breadcrumbs } from "./Breadcrumbs"
+import { DndContext, DragOverlay, type DragEndEvent, type DragStartEvent, type DragOverEvent, type Modifier, useSensor, useSensors, MouseSensor, TouchSensor, pointerWithin } from "@dnd-kit/core"
 import { useDroppable, useDraggable } from "@dnd-kit/core"
 import { CSS } from "@dnd-kit/utilities"
 import { snapCenterToCursor } from "@dnd-kit/modifiers"
+import { CreateContextMenu } from "./CreateContextMenu"
+import PreviewDialog from "./PreviewDialog"
 
 // Using snapCenterToCursor to ensure the pill follows the pointer
 
 interface FilesResultsTableProps {
   entries: FileEntry[]
   parentName?: string
+  parentId?: string
+  breadcrumb?: { id: string; name: string }[]
 }
 
-export function FilesResultsTable({ entries, parentName }: FilesResultsTableProps) {
+function getIconForFile(name: string) {
+  const ext = name.includes('.') ? name.split('.').pop()!.toLowerCase() : ''
+  if ([
+    'jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'tiff', 'tif', 'heic', 'heif', 'avif'
+  ].includes(ext)) {
+    return <Image className="h-4 w-4" />
+  }
+  if (ext === 'pdf') {
+    return <FileText className="h-4 w-4" />
+  }
+  if ([
+    'xls', 'xlsx', 'xlsm', 'csv', 'tsv', 'ods', 'numbers'
+  ].includes(ext)) {
+    return <Table2 className="h-4 w-4" />
+  }
+  if ([
+    'doc', 'docx', 'rtf', 'odt'
+  ].includes(ext)) {
+    return <FileText className="h-4 w-4" />
+  }
+  return <FileText className="h-4 w-4" />
+}
+
+function isPreviewable(name: string) {
+  const ext = name.includes('.') ? name.split('.').pop()!.toLowerCase() : ''
+  if ([
+    'jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'tiff', 'tif', 'heic', 'heif', 'avif',
+    'pdf'
+  ].includes(ext)) return true
+  return false
+}
+
+function isImageName(name: string) {
+  const ext = name.includes('.') ? name.split('.').pop()!.toLowerCase() : ''
+  return [
+    'jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'tiff', 'tif', 'heic', 'heif', 'avif'
+  ].includes(ext)
+}
+
+export function FilesResultsTable({ entries, parentName, parentId, breadcrumb }: FilesResultsTableProps) {
   const router = useRouter()
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [lastIndex, setLastIndex] = useState<number | null>(null)
@@ -37,6 +84,7 @@ export function FilesResultsTable({ entries, parentName }: FilesResultsTableProp
   const [moveFileId, setMoveFileId] = useState<string | null>(null)
   const [activeId, setActiveId] = useState<string | null>(null)
   const [overFolderId, setOverFolderId] = useState<string | null>(null)
+  const [preview, setPreview] = useState<{ name: string; url: string } | null>(null)
   const idToItem = useMemo(() => {
     const m = new Map<string, FileEntry>()
     for (const e of entries) m.set(e.id, e)
@@ -54,10 +102,13 @@ export function FilesResultsTable({ entries, parentName }: FilesResultsTableProp
   const handleRowDoubleClick = useCallback((item: FileEntry) => {
     if (item.isDirectory) {
       router.push(`/drive/folder/${encodeURIComponent(item.path)}`)
-    } else {
-      router.push(`/drive/${encodeURIComponent(item.path)}`)
+      return
     }
-  }, [router])
+    const url = isImageName(item.name)
+      ? `/images/${encodeURIComponent(item.name)}`
+      : `/files/${encodeURIComponent(item.name)}`
+    setPreview({ name: item.name, url })
+  }, [router, setPreview])
 
   const handleRowClick = useCallback((e: React.MouseEvent, index: number, item: FileEntry) => {
     // Ignore if this is part of a double-click
@@ -115,8 +166,12 @@ export function FilesResultsTable({ entries, parentName }: FilesResultsTableProp
 
   const handleDragEnd = async (event: DragEndEvent) => {
     try {
-      const overId = event.over?.id ? String(event.over.id) : null
+      let overId = event.over?.id ? String(event.over.id) : null
       const activeIdLocal = event.active?.id ? String(event.active.id) : null
+      // Fallback: sometimes over can be null at drop time with overlays; use last hovered folder
+      if (!overId && overFolderId) {
+        overId = `folder/${overFolderId}`
+      }
       if (!overId || !activeIdLocal) return
       if (!overId.startsWith('folder/')) return
       const targetParentId = overId.slice('folder/'.length)
@@ -141,67 +196,23 @@ export function FilesResultsTable({ entries, parentName }: FilesResultsTableProp
   }
 
   return (
-    <DndContext sensors={sensors} onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd}>
+    <DndContext sensors={sensors} collisionDetection={pointerWithin} onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd}>
+    <CreateContextMenu parentId={parentId ?? ''}>
     <div className="w-full min-h-[70vh]" onClick={handleBackgroundClick}>
-      {selected.size > 0 && (
-        <div data-selectionbar="true" className="mb-2 flex h-10 items-center gap-4 rounded-full bg-muted px-3 text-sm">
-          <div className="flex items-center gap-2">
-            <button aria-label="Clear selection" onClick={() => setSelected(new Set())} className="rounded-full p-1 hover:bg-background/60">
-              <X className="h-4 w-4" />
-            </button>
-            <span className="font-medium">{selected.size} selected</span>
-          </div>
-          <div className="flex items-center gap-3 text-muted-foreground">
-            <button className="rounded p-1 hover:bg-background/60" aria-label="Share"><UserPlus className="h-4 w-4" /></button>
-            <button className="rounded p-1 hover:bg-background/60" aria-label="Download"><Download className="h-4 w-4" /></button>
-            <button className="rounded p-1 hover:bg-background/60" aria-label="Move"><FolderOpen className="h-4 w-4" /></button>
-            <button className="rounded p-1 hover:bg-background/60" aria-label="Delete"><Trash2 className="h-4 w-4" /></button>
-            <button className="rounded p-1 hover:bg-background/60" aria-label="Get link"><LinkIcon className="h-4 w-4" /></button>
-            <button className="rounded p-1 hover:bg-background/60" aria-label="More"><MoreVertical className="h-4 w-4" /></button>
-          </div>
+      {breadcrumb && breadcrumb.length > 0 && (
+        <div className="mb-2">
+          <Breadcrumbs segments={breadcrumb} />
         </div>
       )}
-      {selected.size === 0 && (
-        <div className="mb-2 flex h-10 items-center gap-3 text-sm">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="h-8 rounded-full px-3">Type</Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-56">
-              <DropdownMenuLabel>Type</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem>Folder</DropdownMenuItem>
-              <DropdownMenuItem>File</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="h-8 rounded-full px-3">Modified</Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-64">
-              <DropdownMenuLabel>Modified</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem>Today</DropdownMenuItem>
-              <DropdownMenuItem>Last 7 days</DropdownMenuItem>
-              <DropdownMenuItem>This year</DropdownMenuItem>
-              <DropdownMenuItem>Last year</DropdownMenuItem>
-              <DropdownMenuItem>Custom date range…</DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <div className="flex items-center justify-between gap-2 p-2">
-                <Button variant="ghost" size="sm">Clear all</Button>
-                <div className="flex items-center gap-2">
-                  <Button variant="ghost" size="sm">Cancel</Button>
-                  <Button size="sm">Apply</Button>
-                </div>
-              </div>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
+      {selected.size > 0 ? (
+        <SelectionBar count={selected.size} onClear={() => { setSelected(new Set()); }} />
+      ) : (
+        <FiltersBar />
       )}
-      <Table onClick={handleTableClick}>
+      <Table onClick={handleTableClick} className="table-fixed w-full">
         <TableHeader>
           <TableRow>
-            <TableHead>Name</TableHead>
+            <TableHead className="w-1/2">Name</TableHead>
             <TableHead>Owner</TableHead>
             <TableHead>Last Modified</TableHead>
             <TableHead>Location</TableHead>
@@ -226,6 +237,12 @@ export function FilesResultsTable({ entries, parentName }: FilesResultsTableProp
                 activeId={activeId}
                 allIds={allIds}
                 overFolderId={overFolderId}
+                onPreview={(it) => {
+                  const url = isImageName(it.name)
+                    ? `/images/${encodeURIComponent(it.name)}`
+                    : `/files/${encodeURIComponent(it.name)}`
+                  setPreview({ name: it.name, url })
+                }}
               />
             ))
           )}
@@ -242,14 +259,21 @@ export function FilesResultsTable({ entries, parentName }: FilesResultsTableProp
               {it.isDirectory ? (
                 <FolderClosed className="h-4 w-4" />
               ) : (
-                <FileText className="h-4 w-4" />
+                getIconForFile(it.name)
               )}
               <span className="max-w-[320px] truncate font-medium">{it.name}</span>
             </div>
           )
         })() : null}
       </DragOverlay>
+      <PreviewDialog
+        open={!!preview}
+        onOpenChange={(next) => { if (!next) setPreview(null) }}
+        name={preview?.name ?? ''}
+        url={preview?.url ?? ''}
+      />
     </div>
+    </CreateContextMenu>
     </DndContext>
   )
 }
@@ -265,9 +289,10 @@ interface RowItemProps {
   activeId: string | null
   allIds: string[]
   overFolderId: string | null
+  onPreview: (item: FileEntry) => void
 }
 
-function RowItem({ item, parentName, selected, onRowClick, onRowDoubleClick, setMoveFolderId, setMoveFileId, activeId, allIds, overFolderId }: RowItemProps) {
+function RowItem({ item, parentName, selected, onRowClick, onRowDoubleClick, setMoveFolderId, setMoveFileId, activeId, allIds, overFolderId, onPreview }: RowItemProps) {
   const { attributes, listeners, setNodeRef } = useDraggable({ id: item.id })
   const { isOver, setNodeRef: setDropRef } = item.isDirectory ? useDroppable({ id: `folder/${item.id}` }) : ({ isOver: false, setNodeRef: (_: any) => {} } as any)
   const setRowRef = (node: any) => { setNodeRef(node); if (item.isDirectory) setDropRef(node) }
@@ -283,13 +308,13 @@ function RowItem({ item, parentName, selected, onRowClick, onRowDoubleClick, set
       {...listeners}
       {...attributes}
     >
-      <TableCell className="flex items-center gap-2 mt-2">
+      <TableCell className="flex items-center gap-2 mt-2 w-1/2 min-w-0">
         {item.isDirectory ? (
           <FolderClosed className="h-4 w-4" />
         ) : (
-          <FileText className="h-4 w-4" />
+          getIconForFile(item.name)
         )}
-        <span>{item.name}</span>
+        <span className="truncate flex-1 min-w-0">{item.name}</span>
       </TableCell>
       <TableCell>You</TableCell>
       <TableCell>{new Date(item.modifiedMs).toLocaleString('en-US', { timeZone: 'UTC', year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true })}</TableCell>
@@ -305,7 +330,12 @@ function RowItem({ item, parentName, selected, onRowClick, onRowDoubleClick, set
             {item.isDirectory ? (
               <DropdownMenuItem onSelect={(e) => { e.preventDefault(); setMoveFolderId(item.id) }}>Move folder…</DropdownMenuItem>
             ) : (
-              <DropdownMenuItem onSelect={(e) => { e.preventDefault(); setMoveFileId(item.id) }}>Move file…</DropdownMenuItem>
+              <>
+                {isPreviewable(item.name) && (
+                  <DropdownMenuItem onSelect={(e) => { e.preventDefault(); onPreview(item) }}>Preview…</DropdownMenuItem>
+                )}
+                <DropdownMenuItem onSelect={(e) => { e.preventDefault(); setMoveFileId(item.id) }}>Move file…</DropdownMenuItem>
+              </>
             )}
           </DropdownMenuContent>
         </DropdownMenu>

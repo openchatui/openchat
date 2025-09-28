@@ -30,7 +30,7 @@ export function FilesLeftSidebar({ parentId = "" }: { parentId?: string }) {
               <Plus className="mr-2 h-4 w-4" /> New
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent side="right" align="start" className="w-56">
+          <DropdownMenuContent side="bottom" align="start" className="w-56">
             <DropdownMenuLabel>Create</DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem onSelect={(e) => { e.preventDefault(); setShowNewFolder(true) }}>

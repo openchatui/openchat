@@ -126,10 +126,14 @@ export async function moveFolderAction(_prev: ActionResult, formData: FormData):
     // Update using Prisma if available, else raw SQL
     const client: any = (await import('@/lib/db')).default as any
     if (client?.folder?.update) {
-      await client.folder.update({
-        where: { id: parsed.folderId, userId },
-        data: { parentId: parsed.targetParentId, updatedAt: nowSec },
-      })
+      try {
+        await client.folder.update({
+          where: { id_userId: { id: parsed.folderId, userId } },
+          data: { parentId: parsed.targetParentId, updatedAt: nowSec },
+        })
+      } catch (_prismaErr) {
+        await client.$executeRaw`UPDATE "folder" SET parent_id = ${parsed.targetParentId}, updated_at = ${nowSec} WHERE id = ${parsed.folderId} AND user_id = ${userId}`
+      }
     } else {
       const db = (await import('@/lib/db')).default as any
       await db.$executeRaw`UPDATE "folder" SET parent_id = ${parsed.targetParentId}, updated_at = ${nowSec} WHERE id = ${parsed.folderId} AND user_id = ${userId}`

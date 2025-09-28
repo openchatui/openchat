@@ -10,13 +10,17 @@ export class FolderDbService {
   }
   static async getRootFolderId(userId: string): Promise<string> {
     const existing = await db.$queryRaw<{ id: string }[]>`
-      SELECT id FROM "folder" WHERE user_id = ${userId} AND parent_id IS NULL AND LOWER(name) = 'root' LIMIT 1`
+      SELECT id FROM "folder"
+      WHERE user_id = ${userId}
+        AND parent_id IS NULL
+        AND LOWER(name) IN ('root', 'my drive')
+      LIMIT 1`
     if (existing && existing[0]?.id) return existing[0].id
 
     const id = FolderDbService.generateFolderId()
     const nowSec = Math.floor(Date.now() / 1000)
     await db.$executeRaw`INSERT INTO "folder" (id, user_id, parent_id, name, items, meta, is_expanded, created_at, updated_at, data)
-      VALUES (${id}, ${userId}, ${null}, ${'root'}, ${JSON.stringify({})}, ${JSON.stringify({})}, ${0}, ${nowSec}, ${nowSec}, ${JSON.stringify({})})`
+      VALUES (${id}, ${userId}, ${null}, ${'My Drive'}, ${JSON.stringify({})}, ${JSON.stringify({})}, ${0}, ${nowSec}, ${nowSec}, ${JSON.stringify({})})`
     return id
   }
   static async createFolderRecord(userId: string, name: string, parentId?: string | null): Promise<{ id: string }> {
@@ -53,7 +57,9 @@ export class FolderDbService {
       SELECT id, name,
         CAST(CASE WHEN updated_at > 100000000000 THEN updated_at/1000 ELSE updated_at END AS INT) AS updatedAt
       FROM "folder"
-      WHERE user_id = ${userId} AND parent_id IS NULL AND LOWER(name) <> 'root'
+      WHERE user_id = ${userId}
+        AND parent_id IS NULL
+        AND LOWER(name) NOT IN ('root', 'my drive')
       ORDER BY name ASC
     `
 
@@ -179,6 +185,33 @@ export class FolderDbService {
     })
 
     return fileEntries
+  }
+
+  static async getFolderBreadcrumb(userId: string, folderId?: string | null): Promise<{ id: string; name: string }[]> {
+    const effectiveId = folderId && folderId.length > 0 ? folderId : await FolderDbService.getRootFolderId(userId)
+    // Walk up parents to root
+    const segments: { id: string; name: string; parentId: string | null }[] = []
+    let currentId: string | null = effectiveId
+    let guard = 0
+    while (currentId && guard < 64) {
+      type Row = { id: string; name: string; parentId: string | null }
+      const rs: any[] = await db.$queryRaw`SELECT id, name, parent_id as parentId FROM "folder" WHERE user_id = ${userId} AND id = ${currentId} LIMIT 1`
+      const row: Row | undefined = rs && rs[0]
+      if (!row) break
+      segments.push({ id: String(row.id), name: String(row.name), parentId: row.parentId ? String(row.parentId) : null })
+      currentId = row.parentId ? String(row.parentId) : null
+      guard++
+    }
+    // Also include a synthetic root if none has null parent (safety)
+    if (segments.length === 0) {
+      const rootId = await FolderDbService.getRootFolderId(userId)
+      segments.push({ id: rootId, name: 'root', parentId: null })
+    }
+    const ordered = segments.reverse()
+    if (ordered.length > 0) {
+      ordered[0] = { ...ordered[0], name: 'My Drive' }
+    }
+    return ordered.map(({ id, name }) => ({ id, name }))
   }
 }
 

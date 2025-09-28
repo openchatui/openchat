@@ -36,22 +36,29 @@ export async function POST(req: Request) {
 
       bb.on('file', (_name, fileStream, info) => {
         const filename = info.filename || 'file'
-        // For folder uploads, browsers often send relative paths in filename (e.g., photos/2025/img.jpg)
-        const relDir = path.dirname(filename)
-        const targetDir = path.join(FileManagementService.BASE_DIR, parent || '', relDir === '.' ? '' : relDir)
+        // Always save into the flat data directory; ignore folder structure
+        const targetDir = FileManagementService.BASE_DIR
         ensureDirSync(targetDir)
         const base = path.basename(filename)
-        const finalPath = path.join(targetDir, base)
+        let finalPath = path.join(targetDir, base)
+        // Deconflict on name collision by stamping
+        if (fs.existsSync(finalPath)) {
+          const ext = base.includes('.') ? '.' + base.split('.').pop() : ''
+          const raw = ext ? base.slice(0, -ext.length) : base
+          const stamped = `${raw}-${Date.now()}${ext}`
+          finalPath = path.join(targetDir, stamped)
+        }
         const writeStream = fs.createWriteStream(finalPath)
         fileStream.pipe(writeStream)
         writeStream.on('close', () => {
           const relativeFilePath = path.relative(FileManagementService.BASE_DIR, finalPath)
-          saved.push({ name: base, path: relativeFilePath })
+          saved.push({ name: path.basename(finalPath), path: relativeFilePath })
 
           // Prepare DB insert for this file
           const userId = session.user!.id as string
           const nowSec = Math.floor(Date.now() / 1000)
-          const storedPath = path.join('/data/files', relativeFilePath).replace(/\\/g, '/')
+          // Store empty or relative path; consumer composes final path using filename
+          const storedPath = ''
 
           const insertPromise = (async () => {
             try {
@@ -73,7 +80,7 @@ export async function POST(req: Request) {
                   data: {
                     id: randomUUID(),
                     userId,
-                    filename: base,
+                    filename: path.basename(finalPath),
                     meta: { parent_id: resolvedParentId },
                     createdAt: nowSec,
                     updatedAt: nowSec,
@@ -82,7 +89,7 @@ export async function POST(req: Request) {
                 })
               } else {
                 await db.$executeRaw`INSERT INTO "file" (id, user_id, filename, meta, created_at, updated_at, path)
-                  VALUES (${randomUUID()}, ${userId}, ${base}, ${JSON.stringify({ parent_id: resolvedParentId })}, ${nowSec}, ${nowSec}, ${storedPath})`
+                  VALUES (${randomUUID()}, ${userId}, ${path.basename(finalPath)}, ${JSON.stringify({ parent_id: resolvedParentId })}, ${nowSec}, ${nowSec}, ${storedPath})`
               }
             } catch (err) {
               insertErrors.push(err)
