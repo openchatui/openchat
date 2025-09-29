@@ -9,13 +9,14 @@ import {
   ContextMenuSubContent,
   ContextMenuSubTrigger,
 } from "@/components/ui/context-menu"
-import { Download, PencilLine, FolderOpen, FolderInput, Star, Redo } from "lucide-react"
+import { Download, PencilLine, FolderOpen, FolderInput, Star, Redo, MoreVertical } from "lucide-react"
 import { TrashButton } from "./TrashButton"
 import { moveFolderToTrashSubmitAction } from "@/actions/files"
+import { Button } from "@/components/ui/button"
 
 interface FolderContextMenuProps {
   folderId: string
-  children: React.ReactNode
+  children?: React.ReactNode
   onMove: () => void
   onDownload?: () => void
   onRename?: () => void
@@ -28,7 +29,16 @@ interface FolderContextMenuProps {
 export function FolderContextMenu({ folderId, children, onMove, onDownload, onRename, onTrash, onAddShortcut, onAddStarred, disabled = false }: FolderContextMenuProps) {
   function handleDownload() {
     if (onDownload) return onDownload()
-    try { window.open(`/api/folders/download?id=${encodeURIComponent(folderId)}`, '_blank') } catch {}
+    try {
+      const url = `/api/folders/download?id=${encodeURIComponent(folderId)}`
+      const a = document.createElement('a')
+      a.href = url
+      a.download = ''
+      a.style.display = 'none'
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+    } catch {}
   }
 
   if (disabled) {
@@ -38,7 +48,28 @@ export function FolderContextMenu({ folderId, children, onMove, onDownload, onRe
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>
-        {children}
+        {children ? (
+          children
+        ) : (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onMouseDown={(e) => {
+              if (e.button === 0) {
+                e.preventDefault()
+                e.currentTarget.dispatchEvent(new window.MouseEvent('contextmenu', {
+                  bubbles: true,
+                  cancelable: true,
+                  clientX: e.clientX,
+                  clientY: e.clientY,
+                }))
+              }
+            }}
+          >
+            <MoreVertical className="h-4 w-4" />
+          </Button>
+        )}
       </ContextMenuTrigger>
       <ContextMenuContent className="w-56">
         <ContextMenuItem onSelect={(e) => { e.preventDefault(); handleDownload() }}>

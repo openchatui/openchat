@@ -36,8 +36,8 @@ export async function POST(req: Request) {
 
       bb.on('file', (_name, fileStream, info) => {
         const filename = info.filename || 'file'
-        // Always save into the flat data directory; ignore folder structure
-        const targetDir = FileManagementService.BASE_DIR
+        // Save under data/files/<parentId>/; targetDir updated once we know parent
+        let targetDir = FileManagementService.BASE_DIR
         ensureDirSync(targetDir)
         const base = path.basename(filename)
         let finalPath = path.join(targetDir, base)
@@ -57,12 +57,12 @@ export async function POST(req: Request) {
           // Prepare DB insert for this file
           const userId = session.user!.id as string
           const nowSec = Math.floor(Date.now() / 1000)
-          // Store empty or relative path; consumer composes final path using filename
-          const storedPath = ''
+          // Store DB path relative to project data directory (we use 'files' base)
+          const storedPath = 'files'
 
           const insertPromise = (async () => {
             try {
-              // Resolve folder parent_id for meta
+              // Resolve folder parent_id
               let resolvedParentId: string | null = null
               if (!parent) {
                 resolvedParentId = await FolderDbService.getRootFolderId(userId)
@@ -74,6 +74,17 @@ export async function POST(req: Request) {
                 }
               }
 
+              // Move file under the resolved parent directory if we didn't already
+              if (resolvedParentId) {
+                const parentDir = path.join(FileManagementService.BASE_DIR, resolvedParentId)
+                ensureDirSync(parentDir)
+                const newPath = path.join(parentDir, path.basename(finalPath))
+                if (newPath !== finalPath) {
+                  fs.renameSync(finalPath, newPath)
+                }
+                finalPath = newPath
+              }
+
               const client: any = db as any
               if (client?.file?.create) {
                 await client.file.create({
@@ -81,15 +92,16 @@ export async function POST(req: Request) {
                     id: randomUUID(),
                     userId,
                     filename: path.basename(finalPath),
-                    meta: { parent_id: resolvedParentId },
+                    parentId: resolvedParentId,
+                    meta: {},
                     createdAt: nowSec,
                     updatedAt: nowSec,
-                    path: storedPath,
+                    path: `/data/files/${resolvedParentId}/${path.basename(finalPath)}`,
                   },
                 })
               } else {
-                await db.$executeRaw`INSERT INTO "file" (id, user_id, filename, meta, created_at, updated_at, path)
-                  VALUES (${randomUUID()}, ${userId}, ${path.basename(finalPath)}, ${JSON.stringify({ parent_id: resolvedParentId })}, ${nowSec}, ${nowSec}, ${storedPath})`
+                await db.$executeRaw`INSERT INTO "file" (id, user_id, filename, parent_id, meta, created_at, updated_at, path)
+                  VALUES (${randomUUID()}, ${userId}, ${path.basename(finalPath)}, ${resolvedParentId}, ${JSON.stringify({})}, ${nowSec}, ${nowSec}, ${`/data/files/${resolvedParentId}/${path.basename(finalPath)}`})`
               }
             } catch (err) {
               insertErrors.push(err)

@@ -1,8 +1,10 @@
 "use client"
 import { useEffect, useState } from "react"
+import { useFormStatus } from "react-dom"
+import { useRouter } from "next/navigation"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import { moveFileSubmitAction, moveFolderSubmitAction } from "@/actions/files"
+import { moveFileSubmitAction, moveFolderSubmitAction, moveItemsSubmitAction } from "@/actions/files"
 import { ArrowLeft, ChevronRight } from "lucide-react"
 
 interface MoveItemDialogProps {
@@ -11,17 +13,20 @@ interface MoveItemDialogProps {
   itemId: string
   itemType: "file" | "folder"
   itemName?: string
+  bulkItems?: { id: string; isDirectory: boolean; name: string }[]
 }
 
 interface FolderItem { id: string; name: string }
 
-export function MoveItemDialog({ open, onOpenChange, itemId, itemType, itemName }: MoveItemDialogProps) {
+export function MoveItemDialog({ open, onOpenChange, itemId, itemType, itemName, bulkItems }: MoveItemDialogProps) {
+  const router = useRouter()
   const [currentParent, setCurrentParent] = useState<string>("")
   const [folders, setFolders] = useState<FolderItem[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [currentParentName, setCurrentParentName] = useState<string>("Root")
   const [crumbs, setCrumbs] = useState<{ id: string; name: string }[]>([])
+  const [submitted, setSubmitted] = useState(false)
 
   async function load(parent: string) {
     setLoading(true)
@@ -64,10 +69,10 @@ export function MoveItemDialog({ open, onOpenChange, itemId, itemType, itemName 
   }
 
   async function onConfirm(formData: FormData) {
-    if (itemType === "folder") {
-      await moveFolderSubmitAction(formData)
-    } else {
-      await moveFileSubmitAction(formData)
+      if (itemType === "folder") {
+        await moveFolderSubmitAction(formData)
+      } else {
+        await moveFileSubmitAction(formData)
     }
     onOpenChange(false)
   }

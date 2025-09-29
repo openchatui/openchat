@@ -1,5 +1,7 @@
 import { readFile } from 'fs/promises'
 import path from 'path'
+import db from '@/lib/db'
+import { FileManagementService } from '@/lib/server/file-management'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -20,8 +22,9 @@ async function tryRead(paths: string[]): Promise<Buffer | null> {
   return null
 }
 
-export async function GET(_req: Request, context: any) {
-  const raw = context?.params?.name
+export async function GET(_req: Request, context: { params: Promise<{ name?: string }> }) {
+  const { name: rawName } = await context.params
+  const raw = rawName
   const name = typeof raw === 'string' ? sanitizeName(raw) : null
   if (!name) {
     return new Response('Not Found', { status: 404 })
@@ -34,7 +37,24 @@ export async function GET(_req: Request, context: any) {
     path.join(process.cwd(), '.next', 'server', 'data', 'images', name),
   ]
 
-  const file = await tryRead(candidates)
+  // Try legacy/static locations first
+  let file = await tryRead(candidates)
+  if (!file) {
+    // Fallback: resolve via DB file.path when stored under data/files/<parent>/<name>
+    try {
+      const rows = await (db as any).$queryRaw<{ path: string }[]>`SELECT path FROM "file" WHERE filename = ${name} LIMIT 1`
+      const p = rows && rows[0]?.path ? String(rows[0].path) : null
+      if (p) {
+        const tryPaths: string[] = []
+        if (p.startsWith('/')) {
+          tryPaths.push(path.join(process.cwd(), p.replace(/^\/+/, '')))
+        }
+        tryPaths.push(path.join(FileManagementService.BASE_DIR, p))
+        tryPaths.push(path.join(FileManagementService.BASE_DIR, 'files', p))
+        file = await tryRead(tryPaths)
+      }
+    } catch {}
+  }
   if (!file) {
     return new Response('Not Found', { status: 404 })
   }

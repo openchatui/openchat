@@ -149,39 +149,14 @@ export class FolderDbService {
       : await FolderDbService.getRootFolderId(userId)
 
     const nowSec = Math.floor(Date.now() / 1000)
-
-    // Try SQLite json_extract first; if it fails, fallback to Postgres (meta ->> 'parent_id').
-    // Also include a LIKE fallback in both dialects in case meta is stored as TEXT.
-    let files: any[] = []
-    try {
-      files = await db.$queryRaw<any[]>`
-        SELECT id, filename, path,
-          CAST(CASE WHEN updated_at > 100000000000 THEN updated_at/1000 ELSE updated_at END AS INT) AS updatedAt
-        FROM "file"
-        WHERE user_id = ${userId}
-          AND (
-            json_extract(meta, '$.parent_id') = ${effectiveParentId}
-            OR CAST(meta AS TEXT) LIKE ${`%"parent_id":"${effectiveParentId}"%`}
-          )
-        ORDER BY filename ASC
-      `
-    } catch (_sqliteErr) {
-      try {
-        files = await db.$queryRaw<any[]>`
-          SELECT id, filename, path,
-            CAST(CASE WHEN updated_at > 100000000000 THEN updated_at/1000 ELSE updated_at END AS INT) AS updatedAt
-          FROM "file"
-          WHERE user_id = ${userId}
-            AND (
-              (meta ->> 'parent_id') = ${effectiveParentId}
-              OR meta::text LIKE ${`%"parent_id":"${effectiveParentId}"%`}
-            )
-          ORDER BY filename ASC
-        `
-      } catch (_pgErr) {
-        files = []
-      }
-    }
+    const files = await db.$queryRaw<any[]>`
+      SELECT id, filename, path,
+        CAST(CASE WHEN updated_at > 100000000000 THEN updated_at/1000 ELSE updated_at END AS INT) AS updatedAt
+      FROM "file"
+      WHERE user_id = ${userId}
+        AND parent_id = ${effectiveParentId}
+      ORDER BY filename ASC
+    `
 
     const fileEntries: FileEntry[] = files.map((f: any) => {
       const rawPath = (f.path ?? '') as string

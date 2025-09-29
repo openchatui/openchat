@@ -28,7 +28,8 @@ import { FolderContextMenu } from "./FolderContextMenu"
 const SelectionBar = dynamic(() => import("./SelectionBar").then(m => m.SelectionBar), { loading: () => <div className="mb-2 h-10" /> })
 const FiltersBar = dynamic(() => import("./FiltersBar").then(m => m.FiltersBar), { loading: () => <div className="mb-2 h-10" /> })
 const MoveItemDialog = dynamic(() => import("./MoveItemDialog").then(m => m.MoveItemDialog))
-import { moveFileSubmitAction, moveFolderSubmitAction, restoreFolderFromTrashSubmitAction } from "@/actions/files"
+const RenameItemDialog = dynamic(() => import("./RenameItemDialog").then(m => m.RenameItemDialog))
+import { moveFileSubmitAction, moveFolderSubmitAction, restoreFolderFromTrashSubmitAction, moveFolderToTrashSubmitAction, moveFileToTrashSubmitAction, restoreFileFromTrashSubmitAction } from "@/actions/files"
 import { Breadcrumbs } from "./Breadcrumbs"
 import { DndContext, DragOverlay, type DragEndEvent, type DragStartEvent, type DragOverEvent, type Modifier, useSensor, useSensors, MouseSensor, TouchSensor, pointerWithin } from "@dnd-kit/core"
 import { useDroppable, useDraggable } from "@dnd-kit/core"
@@ -91,9 +92,12 @@ export function FilesResultsTable({ entries, parentName, parentId, breadcrumb }:
   const [moveFolderId, setMoveFolderId] = useState<string | null>(null)
   const [moveFileId, setMoveFileId] = useState<string | null>(null)
   const [restoreFolderId, setRestoreFolderId] = useState<string | null>(null)
+  const [moveBulkOpen, setMoveBulkOpen] = useState<boolean>(false)
   const [activeId, setActiveId] = useState<string | null>(null)
   const [overFolderId, setOverFolderId] = useState<string | null>(null)
   const [preview, setPreview] = useState<{ name: string; url: string } | null>(null)
+  const [renameFolderId, setRenameFolderId] = useState<string | null>(null)
+  const [renameFileId, setRenameFileId] = useState<string | null>(null)
   const idToItem = useMemo(() => {
     const m = new Map<string, FileEntry>()
     for (const e of entries) m.set(e.id, e)
@@ -117,9 +121,16 @@ export function FilesResultsTable({ entries, parentName, parentId, breadcrumb }:
       router.push(`/drive/folder/${encodeURIComponent(item.path)}`)
       return
     }
+    // Build file URL using the stored path if present
+    let rel = item.path || item.name
+    if (rel.startsWith('/data/files/')) {
+      rel = rel.slice('/data/files/'.length)
+    } else if (rel.startsWith('data/files/')) {
+      rel = rel.slice('data/files/'.length)
+    }
     const url = isImageName(item.name)
       ? `/images/${encodeURIComponent(item.name)}`
-      : `/files/${encodeURIComponent(item.name)}`
+      : `/files/${rel.split('/').map(encodeURIComponent).join('/')}`
     setPreview({ name: item.name, url })
   }, [router, setPreview])
 
@@ -153,6 +164,7 @@ export function FilesResultsTable({ entries, parentName, parentId, breadcrumb }:
     const target = e.target as HTMLElement
     if (target.closest('tr[data-row]')) return
     if (target.closest('[data-selectionbar="true"]')) return
+    if (target.closest('[role="dialog"]')) return
     setSelected(new Set())
     setLastIndex(null)
   }, [])
@@ -160,6 +172,7 @@ export function FilesResultsTable({ entries, parentName, parentId, breadcrumb }:
   const handleTableClick = useCallback((e: React.MouseEvent) => {
     const target = e.target as HTMLElement
     if (target.closest('tr[data-row]')) return
+    if (target.closest('[role="dialog"]')) return
     setSelected(new Set())
     setLastIndex(null)
   }, [])
@@ -218,7 +231,75 @@ export function FilesResultsTable({ entries, parentName, parentId, breadcrumb }:
         </div>
       )}
       {selected.size > 0 ? (
-        <SelectionBar count={selected.size} onClear={() => { setSelected(new Set()); }} />
+        <SelectionBar
+          count={selected.size}
+          onClear={() => { setSelected(new Set()); }}
+          onDownloadSelected={() => {
+            const ids = Array.from(selected)
+            for (const id of ids) {
+              const it = idToItem.get(id)
+              if (!it) continue
+              try {
+                const a = document.createElement('a')
+                if (it.isDirectory) {
+                  a.href = `/api/folders/download?id=${encodeURIComponent(it.id)}`
+                  a.download = ''
+                } else {
+                  a.href = `/files/${encodeURIComponent(it.name)}`
+                  a.download = it.name
+                }
+                a.style.display = 'none'
+                document.body.appendChild(a)
+                a.click()
+                a.remove()
+              } catch {}
+            }
+          }}
+          onMoveSelected={() => {
+            const ids = Array.from(selected)
+            if (ids.length === 1) {
+              const it = idToItem.get(ids[0]!)
+              if (!it) return
+              if (it.isDirectory) setMoveFolderId(it.id); else setMoveFileId(it.id)
+            } else if (ids.length > 1) {
+              setMoveBulkOpen(true)
+            }
+          }}
+          contextFolderId={(selected.size === 1 && (() => { const it = idToItem.get(Array.from(selected)[0]!); return it && it.isDirectory ? it.id : undefined })()) as string | undefined}
+          contextMenuDisabled={(selected.size === 1 && (() => { const it = idToItem.get(Array.from(selected)[0]!); return it && it.isDirectory ? (it.name.toLowerCase() === 'trash') : false })()) as boolean | undefined}
+          onTrashSelected={async () => {
+            const ids = Array.from(selected)
+            for (const id of ids) {
+              const it = idToItem.get(id)
+              if (!it) continue
+              const fd = new FormData()
+              if (it.isDirectory) {
+                fd.set('folderId', it.id)
+                await moveFolderToTrashSubmitAction(fd)
+              } else {
+                fd.set('fileId', it.id)
+                await moveFileToTrashSubmitAction(fd)
+              }
+            }
+            router.refresh()
+          }}
+          onRestoreSelected={parentName === 'Trash' ? async () => {
+            const ids = Array.from(selected)
+            for (const id of ids) {
+              const it = idToItem.get(id)
+              if (!it) continue
+              const fd = new FormData()
+              if (it.isDirectory) {
+                fd.set('folderId', it.id)
+                await restoreFolderFromTrashSubmitAction(fd)
+              } else {
+                fd.set('fileId', it.id)
+                await restoreFileFromTrashSubmitAction(fd)
+              }
+            }
+            router.refresh()
+          } : undefined}
+        />
       ) : (
         <FiltersBar />
       )}
@@ -247,13 +328,21 @@ export function FilesResultsTable({ entries, parentName, parentId, breadcrumb }:
                 onRowDoubleClick={handleRowDoubleClick}
                 setMoveFolderId={setMoveFolderId}
                 setMoveFileId={setMoveFileId}
+                setRenameFolderId={setRenameFolderId}
+                setRenameFileId={setRenameFileId}
                 activeId={activeId}
                 allIds={allIds}
                 overFolderId={overFolderId}
                 onPreview={(it) => {
+                  let rel = it.path || it.name
+                  if (rel.startsWith('/data/files/')) {
+                    rel = rel.slice('/data/files/'.length)
+                  } else if (rel.startsWith('data/files/')) {
+                    rel = rel.slice('data/files/'.length)
+                  }
                   const url = isImageName(it.name)
                     ? `/images/${encodeURIComponent(it.name)}`
-                    : `/files/${encodeURIComponent(it.name)}`
+                    : `/files/${rel.split('/').map(encodeURIComponent).join('/')}`
                   setPreview({ name: it.name, url })
                 }}
               />
@@ -292,6 +381,31 @@ export function FilesResultsTable({ entries, parentName, parentId, breadcrumb }:
         itemType="file"
         itemName={moveFileId ? (idToItem.get(moveFileId)?.name ?? '') : ''}
       />
+      <MoveItemDialog
+        open={moveBulkOpen}
+        onOpenChange={(next) => { setMoveBulkOpen(next) }}
+        itemId={''}
+        itemType="file"
+        itemName={''}
+        bulkItems={Array.from(selected)
+          .map(id => idToItem.get(id))
+          .filter((it): it is FileEntry => !!it)
+          .map(it => ({ id: it.id, isDirectory: it.isDirectory, name: it.name }))}
+      />
+      <RenameItemDialog
+        open={!!renameFolderId}
+        onOpenChange={(next) => { if (!next) setRenameFolderId(null) }}
+        itemId={renameFolderId ?? ''}
+        itemType="folder"
+        itemName={renameFolderId ? (idToItem.get(renameFolderId)?.name ?? '') : ''}
+      />
+      <RenameItemDialog
+        open={!!renameFileId}
+        onOpenChange={(next) => { if (!next) setRenameFileId(null) }}
+        itemId={renameFileId ?? ''}
+        itemType="file"
+        itemName={renameFileId ? (idToItem.get(renameFileId)?.name ?? '') : ''}
+      />
       <DragOverlay modifiers={[snapCenterToCursor]}>
         {activeId ? (() => {
           const it = idToItem.get(activeId)
@@ -328,17 +442,20 @@ interface RowItemProps {
   onRowDoubleClick: (item: FileEntry) => void
   setMoveFolderId: (id: string) => void
   setMoveFileId: (id: string) => void
+  setRenameFolderId: (id: string) => void
+  setRenameFileId: (id: string) => void
   activeId: string | null
   allIds: string[]
   overFolderId: string | null
   onPreview: (item: FileEntry) => void
 }
 
-function RowItem({ item, parentName, selected, onRowClick, onRowDoubleClick, setMoveFolderId, setMoveFileId, activeId, allIds, overFolderId, onPreview }: RowItemProps) {
+function RowItem({ item, parentName, selected, onRowClick, onRowDoubleClick, setMoveFolderId, setMoveFileId, setRenameFolderId, setRenameFileId, activeId, allIds, overFolderId, onPreview }: RowItemProps) {
   const { attributes, listeners, setNodeRef } = useDraggable({ id: item.id })
   const { isOver, setNodeRef: setDropRef } = item.isDirectory ? useDroppable({ id: `folder/${item.id}` }) : ({ isOver: false, setNodeRef: (_: any) => {} } as any)
   const setRowRef = (node: any) => { setNodeRef(node); if (item.isDirectory) setDropRef(node) }
   const isDragging = activeId === item.id
+  const isTrashFolder = item.name.toLowerCase() === 'trash'
   const highlightDragged = isDragging && !!overFolderId
   const row = (
     <TableRow
@@ -362,35 +479,39 @@ function RowItem({ item, parentName, selected, onRowClick, onRowDoubleClick, set
       <TableCell>{new Date(item.modifiedMs).toLocaleString('en-US', { timeZone: 'UTC', year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true })}</TableCell>
       <TableCell className="flex items-center justify-between gap-2 min-w-0">
         <span className="flex-1 min-w-0 truncate">{parentName ? `/${parentName}` : '/'}</span>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-8 w-8">
-              <MoreVertical className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-44">
-            {item.isDirectory ? (
-              <DropdownMenuItem onSelect={(e) => { e.preventDefault(); setMoveFolderId(item.id) }}>Move folder…</DropdownMenuItem>
-            ) : (
-              <>
-                {isPreviewable(item.name) && (
-                  <DropdownMenuItem onSelect={(e) => { e.preventDefault(); onPreview(item) }}>Preview…</DropdownMenuItem>
-                )}
-                <DropdownMenuItem onSelect={(e) => { e.preventDefault(); setMoveFileId(item.id) }}>Move file…</DropdownMenuItem>
-              </>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
+        {item.isDirectory ? (
+          <FolderContextMenu
+            folderId={item.id}
+            onMove={() => setMoveFolderId(item.id)}
+            onRename={() => setRenameFolderId(item.id)}
+            disabled={isTrashFolder}
+          />
+        ) : (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8">
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-44">
+              <DropdownMenuItem onSelect={(e) => { e.preventDefault(); setRenameFileId(item.id) }}>Rename…</DropdownMenuItem>
+              {isPreviewable(item.name) && (
+                <DropdownMenuItem onSelect={(e) => { e.preventDefault(); onPreview(item) }}>Preview…</DropdownMenuItem>
+              )}
+              <DropdownMenuItem onSelect={(e) => { e.preventDefault(); setMoveFileId(item.id) }}>Move file…</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </TableCell>
     </TableRow>
   )
 
   if (!item.isDirectory) return row
-  const isTrashFolder = item.name.toLowerCase() === 'trash'
   return (
     <FolderContextMenu
       folderId={item.id}
       onMove={() => setMoveFolderId(item.id)}
+      onRename={() => setRenameFolderId(item.id)}
       disabled={isTrashFolder}
     >
       {row}

@@ -31,12 +31,18 @@ export async function GET(_req: Request, context: { params: Promise<{ path?: str
     segments.push(safe)
   }
 
-  // Support both flat storage and legacy data/files structure by filename
+  // New layout: allow nested paths and absolute DB paths (/data/files/<parent>/<name>)
+  const candidates: (string | null)[] = []
+  // If request includes absolute-ish DB path segments starting with data/files, strip and resolve under BASE_DIR
+  if (segments.length >= 3 && segments[0] === 'data' && segments[1] === 'files') {
+    candidates.push(resolveSafePath(segments.slice(2)))
+  }
+  // Try full segments as a relative path under BASE_DIR (e.g., <parent>/<name>)
+  candidates.push(resolveSafePath(segments))
+  // Legacy fallbacks by filename only (flat storage)
   const last = segments[segments.length - 1]
-  const candidates: (string | null)[] = [
-    resolveSafePath([last]),
-    resolveSafePath(['files', last]),
-  ]
+  candidates.push(resolveSafePath([last]))
+  candidates.push(resolveSafePath(['files', last]))
   for (const cand of candidates) {
     if (!cand) continue
     try {

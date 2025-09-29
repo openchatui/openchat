@@ -2,6 +2,7 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { z } from 'zod'
+import { randomUUID } from 'crypto'
 import { auth } from '@/lib/auth'
 import { saveFile } from '@/lib/server/file-management'
 import { FolderDbService } from '@/lib/server/file-management/folder-db.service'
@@ -54,7 +55,35 @@ export async function uploadFileAction(_prev: ActionResult, formData: FormData):
       file,
     })
 
-    await saveFile(parsed.parent, parsed.file)
+    // Determine parent folder id first
+    const userId = session.user.id
+    const nowSec = Math.floor(Date.now() / 1000)
+    const resolvedParentId: string = parsed.parent && parsed.parent.length > 0
+      ? parsed.parent
+      : await FolderDbService.getRootFolderId(userId)
+
+    // Save into data/files/<parentId>/
+    const savedName = await saveFile(resolvedParentId, parsed.file)
+
+    const client: any = (await import('@/lib/db')).default as any
+    if (client?.file?.create) {
+      await client.file.create({
+        data: {
+          id: randomUUID(),
+          userId,
+          filename: savedName,
+          parentId: resolvedParentId,
+          meta: {},
+          createdAt: nowSec,
+          updatedAt: nowSec,
+          path: `/data/files/${resolvedParentId}/${savedName}`,
+        },
+      })
+    } else {
+      const db = (await import('@/lib/db')).default as any
+      await db.$executeRaw`INSERT INTO "file" (id, user_id, filename, parent_id, meta, created_at, updated_at, path)
+        VALUES (${randomUUID()}, ${userId}, ${savedName}, ${resolvedParentId}, ${JSON.stringify({})}, ${nowSec}, ${nowSec}, ${`/data/files/${resolvedParentId}/${savedName}`})`
+    }
     revalidatePath('/files')
     return { status: 'success' }
   } catch (error: any) {
@@ -177,21 +206,13 @@ export async function moveFileAction(_prev: ActionResult, formData: FormData): P
 
     const client: any = (await import('@/lib/db')).default as any
     if (client?.file?.update) {
-      // Read current meta to merge
-      const existing = await client.file.findUnique({ where: { id: parsed.fileId } })
-      const nextMeta = { ...(existing?.meta ?? {}), parent_id: parsed.targetParentId }
       await client.file.update({
         where: { id: parsed.fileId },
-        data: { meta: nextMeta, updatedAt: nowSec },
+        data: { parentId: parsed.targetParentId, updatedAt: nowSec },
       })
     } else {
       const db = (await import('@/lib/db')).default as any
-      // Try SQLite json_set, then Postgres jsonb_set/concat fallback
-      try {
-        await db.$executeRaw`UPDATE "file" SET meta = json_set(COALESCE(meta, '{}'), '$.parent_id', ${parsed.targetParentId}), updated_at = ${nowSec} WHERE id = ${parsed.fileId} AND user_id = ${userId}`
-      } catch {
-        await db.$executeRaw`UPDATE "file" SET meta = COALESCE(meta, '{}'::jsonb) || jsonb_build_object('parent_id', ${parsed.targetParentId})::jsonb, updated_at = ${nowSec} WHERE id = ${parsed.fileId} AND user_id = ${userId}`
-      }
+      await db.$executeRaw`UPDATE "file" SET parent_id = ${parsed.targetParentId}, updated_at = ${nowSec} WHERE id = ${parsed.fileId} AND user_id = ${userId}`
     }
 
     revalidatePath('/drive')
@@ -283,15 +304,20 @@ export async function moveFileToTrashAction(_prev: ActionResult, formData: FormD
     if (client?.file?.update && client?.file?.findUnique) {
       const existing = await client.file.findUnique({ where: { id: parsed.fileId } })
       const existingMeta = (existing?.meta ?? {}) as Record<string, any>
-      const previousParentId: string | null = (existingMeta?.parent_id as string | undefined) ?? null
-      const nextMeta = { ...existingMeta, parent_id: trashId, restore_id: previousParentId }
-      await client.file.update({ where: { id: parsed.fileId }, data: { meta: nextMeta, updatedAt: nowSec } })
+      const previousParentId: string | null = (existing?.parentId as string | undefined) ?? null
+      const nextMeta = { ...existingMeta, restore_id: previousParentId }
+      try {
+        await client.file.update({ where: { id: parsed.fileId }, data: { meta: nextMeta, parentId: trashId, updatedAt: nowSec } })
+      } catch {
+        await client.file.update({ where: { id: parsed.fileId }, data: { meta: nextMeta, updatedAt: nowSec } })
+        await client.$executeRaw`UPDATE "file" SET parent_id = ${trashId} WHERE id = ${parsed.fileId} AND user_id = ${userId}`
+      }
     } else {
       const db = (await import('@/lib/db')).default as any
       try {
-        await db.$executeRaw`UPDATE "file" SET meta = json_set(json_set(COALESCE(meta, '{}'), '$.restore_id', json_extract(meta, '$.parent_id')), '$.parent_id', ${trashId}), updated_at = ${nowSec} WHERE id = ${parsed.fileId} AND user_id = ${userId}`
+        await db.$executeRaw`UPDATE "file" SET meta = json_set(COALESCE(meta, '{}'), '$.restore_id', parent_id), parent_id = ${trashId}, updated_at = ${nowSec} WHERE id = ${parsed.fileId} AND user_id = ${userId}`
       } catch {
-        await db.$executeRaw`UPDATE "file" SET meta = (COALESCE(meta, '{}'::jsonb) || jsonb_build_object('restore_id', (meta->>'parent_id'))::jsonb || jsonb_build_object('parent_id', ${trashId})::jsonb), updated_at = ${nowSec} WHERE id = ${parsed.fileId} AND user_id = ${userId}`
+        await db.$executeRaw`UPDATE "file" SET meta = COALESCE(meta, '{}'::jsonb) || jsonb_build_object('restore_id', parent_id)::jsonb, parent_id = ${trashId}, updated_at = ${nowSec} WHERE id = ${parsed.fileId} AND user_id = ${userId}`
       }
     }
     revalidatePath('/drive/trash')
@@ -405,5 +431,173 @@ export async function restoreFolderFromTrashSubmitAction(formData: FormData): Pr
 
   await restoreFolderFromTrashAction({ status: 'success' }, formData)
   return redirect(`/drive/folder/${encodeURIComponent(previousParentId)}`)
+}
+
+// Rename folder
+const RenameFolderSchema = z.object({
+  folderId: z.string().min(1),
+  name: z.string().min(1).max(128),
+})
+
+export async function renameFolderAction(_prev: ActionResult, formData: FormData): Promise<ActionResult> {
+  try {
+    const session = await auth()
+    if (!session?.user?.id) return { status: 'error', message: 'Unauthorized' }
+
+    const parsed = RenameFolderSchema.parse({
+      folderId: String(formData.get('folderId') ?? ''),
+      name: String(formData.get('name') ?? ''),
+    })
+
+    const userId = session.user.id
+    const nowSec = Math.floor(Date.now() / 1000)
+
+    const client: any = (await import('@/lib/db')).default as any
+    if (client?.folder?.update) {
+      await client.folder.update({
+        where: { id_userId: { id: parsed.folderId, userId } },
+        data: { name: parsed.name, updatedAt: nowSec },
+      })
+    } else {
+      const db = (await import('@/lib/db')).default as any
+      await db.$executeRaw`UPDATE "folder" SET name = ${parsed.name}, updated_at = ${nowSec} WHERE id = ${parsed.folderId} AND user_id = ${userId}`
+    }
+
+    revalidatePath('/drive')
+    return { status: 'success' }
+  } catch (error: any) {
+    if (error && typeof error === 'object' && 'issues' in error) {
+      const validationError = error as any
+      const message = validationError.issues?.map((i: any) => i.message).join(', ') || 'Invalid input'
+      return { status: 'error', message }
+    }
+    return { status: 'error', message: error?.message || 'Failed to rename folder' }
+  }
+}
+
+export async function renameFolderSubmitAction(formData: FormData): Promise<void> {
+  await renameFolderAction({ status: 'success' }, formData)
+}
+
+// Rename file
+const RenameFileSchema = z.object({
+  fileId: z.string().min(1),
+  filename: z.string().min(1).max(255),
+})
+
+export async function renameFileAction(_prev: ActionResult, formData: FormData): Promise<ActionResult> {
+  try {
+    const session = await auth()
+    if (!session?.user?.id) return { status: 'error', message: 'Unauthorized' }
+
+    const parsed = RenameFileSchema.parse({
+      fileId: String(formData.get('fileId') ?? ''),
+      filename: String(formData.get('filename') ?? ''),
+    })
+
+    const userId = session.user.id
+    const nowSec = Math.floor(Date.now() / 1000)
+
+    const client: any = (await import('@/lib/db')).default as any
+    if (client?.file?.update) {
+      await client.file.update({
+        where: { id: parsed.fileId },
+        data: { filename: parsed.filename, updatedAt: nowSec },
+      })
+    } else {
+      const db = (await import('@/lib/db')).default as any
+      await db.$executeRaw`UPDATE "file" SET filename = ${parsed.filename}, updated_at = ${nowSec} WHERE id = ${parsed.fileId} AND user_id = ${userId}`
+    }
+
+    revalidatePath('/drive')
+    return { status: 'success' }
+  } catch (error: any) {
+    if (error && typeof error === 'object' && 'issues' in error) {
+      const validationError = error as any
+      const message = validationError.issues?.map((i: any) => i.message).join(', ') || 'Invalid input'
+      return { status: 'error', message }
+    }
+    return { status: 'error', message: error?.message || 'Failed to rename file' }
+  }
+}
+
+export async function renameFileSubmitAction(formData: FormData): Promise<void> {
+  await renameFileAction({ status: 'success' }, formData)
+}
+
+const RestoreFileSchema = z.object({ fileId: z.string().min(1) })
+
+export async function restoreFileFromTrashAction(_prev: ActionResult, formData: FormData): Promise<ActionResult> {
+  try {
+    const session = await auth()
+    if (!session?.user?.id) return { status: 'error', message: 'Unauthorized' }
+
+    const parsed = RestoreFileSchema.parse({ fileId: String(formData.get('fileId') ?? '') })
+    const userId = session.user.id
+    const nowSec = Math.floor(Date.now() / 1000)
+
+    const client: any = (await import('@/lib/db')).default as any
+    if (client?.file?.update && client?.file?.findUnique) {
+      const existing = await client.file.findUnique({ where: { id: parsed.fileId } })
+      const meta = (existing?.meta ?? {}) as Record<string, any>
+      const previousParentId: string | null = (meta?.restore_id as string | undefined) ?? null
+      const nextMeta: Record<string, any> = { ...meta }
+      delete (nextMeta as any).restore_id
+      try {
+        await client.file.update({ where: { id: parsed.fileId }, data: { meta: nextMeta, parentId: previousParentId, updatedAt: nowSec } })
+      } catch {
+        await client.file.update({ where: { id: parsed.fileId }, data: { meta: nextMeta, updatedAt: nowSec } })
+        await client.$executeRaw`UPDATE "file" SET parent_id = ${previousParentId} WHERE id = ${parsed.fileId} AND user_id = ${userId}`
+      }
+    } else {
+      const db = (await import('@/lib/db')).default as any
+      try {
+        await db.$executeRaw`UPDATE "file" SET parent_id = json_extract(meta, '$.restore_id'), meta = json_remove(COALESCE(meta, '{}'), '$.restore_id'), updated_at = ${nowSec} WHERE id = ${parsed.fileId} AND user_id = ${userId}`
+      } catch {
+        await db.$executeRaw`UPDATE "file" SET parent_id = (meta ->> 'restore_id'), meta = (COALESCE(meta, '{}'::jsonb) - 'restore_id'), updated_at = ${nowSec} WHERE id = ${parsed.fileId} AND user_id = ${userId}`
+      }
+    }
+
+    revalidatePath('/drive')
+    revalidatePath('/drive/trash')
+    return { status: 'success' }
+  } catch (error: any) {
+    if (error && typeof error === 'object' && 'issues' in error) {
+      const validationError = error as any
+      const message = validationError.issues?.map((i: any) => i.message).join(', ') || 'Invalid input'
+      return { status: 'error', message }
+    }
+    return { status: 'error', message: error?.message || 'Failed to restore file' }
+  }
+}
+
+export async function restoreFileFromTrashSubmitAction(formData: FormData): Promise<void> {
+  await restoreFileFromTrashAction({ status: 'success' }, formData)
+}
+
+// Bulk move items
+export async function moveItemsSubmitAction(formData: FormData): Promise<void> {
+  const session = await auth()
+  if (!session?.user?.id) return
+  const targetParentId = String(formData.get('targetParentId') ?? '')
+  const folderIds = formData.getAll('folderIds') as string[]
+  const fileIds = formData.getAll('fileIds') as string[]
+  for (const id of folderIds) {
+    const fd = new FormData()
+    fd.set('folderId', String(id))
+    fd.set('targetParentId', targetParentId)
+    await moveFolderAction({ status: 'success' }, fd)
+  }
+  for (const id of fileIds) {
+    const fd = new FormData()
+    fd.set('fileId', String(id))
+    fd.set('targetParentId', targetParentId)
+    await moveFileAction({ status: 'success' }, fd)
+  }
+  // Revalidate common views
+  revalidatePath('/drive')
+  if (targetParentId) {
+    revalidatePath(`/drive/folder/${encodeURIComponent(targetParentId)}`)
+  }
 }
 
