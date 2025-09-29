@@ -69,10 +69,23 @@ export function MoveItemDialog({ open, onOpenChange, itemId, itemType, itemName,
   }
 
   async function onConfirm(formData: FormData) {
-      if (itemType === "folder") {
-        await moveFolderSubmitAction(formData)
-      } else {
-        await moveFileSubmitAction(formData)
+    // Bulk move when bulkItems provided
+    if (bulkItems && bulkItems.length > 0) {
+      const targetParentId = String(formData.get('targetParentId') ?? '')
+      const fd = new FormData()
+      fd.set('targetParentId', targetParentId)
+      for (const it of bulkItems) {
+        if (it.isDirectory) fd.append('folderIds', it.id); else fd.append('fileIds', it.id)
+      }
+      await moveItemsSubmitAction(fd)
+      onOpenChange(false)
+      router.refresh()
+      return
+    }
+    if (itemType === "folder") {
+      await moveFolderSubmitAction(formData)
+    } else {
+      await moveFileSubmitAction(formData)
     }
     onOpenChange(false)
   }

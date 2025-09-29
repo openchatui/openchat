@@ -29,7 +29,7 @@ const SelectionBar = dynamic(() => import("./SelectionBar").then(m => m.Selectio
 const FiltersBar = dynamic(() => import("./FiltersBar").then(m => m.FiltersBar), { loading: () => <div className="mb-2 h-10" /> })
 const MoveItemDialog = dynamic(() => import("./MoveItemDialog").then(m => m.MoveItemDialog))
 const RenameItemDialog = dynamic(() => import("./RenameItemDialog").then(m => m.RenameItemDialog))
-import { moveFileSubmitAction, moveFolderSubmitAction, restoreFolderFromTrashSubmitAction, moveFolderToTrashSubmitAction, moveFileToTrashSubmitAction, restoreFileFromTrashSubmitAction } from "@/actions/files"
+import { moveFileSubmitAction, moveFolderSubmitAction, restoreFolderFromTrashSubmitAction, moveFolderToTrashSubmitAction, moveFileToTrashSubmitAction, restoreFileFromTrashSubmitAction, moveItemsSubmitAction } from "@/actions/files"
 import { Breadcrumbs } from "./Breadcrumbs"
 import { DndContext, DragOverlay, type DragEndEvent, type DragStartEvent, type DragOverEvent, type Modifier, useSensor, useSensors, MouseSensor, TouchSensor, pointerWithin } from "@dnd-kit/core"
 import { useDroppable, useDraggable } from "@dnd-kit/core"
@@ -178,7 +178,10 @@ export function FilesResultsTable({ entries, parentName, parentId, breadcrumb }:
   }, [])
 
   const handleDragStart = (event: DragStartEvent) => {
-    setActiveId(String(event.active.id))
+    const id = String(event.active.id)
+    setActiveId(id)
+    // If the dragged item isn't in the current selection, select it
+    setSelected(prev => (prev.has(id) ? prev : new Set([id])))
   }
 
   const handleDragOver = (event: DragOverEvent) => {
@@ -201,19 +204,26 @@ export function FilesResultsTable({ entries, parentName, parentId, breadcrumb }:
       if (!overId || !activeIdLocal) return
       if (!overId.startsWith('folder/')) return
       const targetParentId = overId.slice('folder/'.length)
-      if (!targetParentId || targetParentId === activeIdLocal) return
-      const item = idToItem.get(activeIdLocal)
-      if (!item) return
-      const form = new FormData()
-      if (item.isDirectory) {
-        form.set('folderId', activeIdLocal)
-        form.set('targetParentId', targetParentId)
-        await moveFolderSubmitAction(form)
-      } else {
-        form.set('fileId', activeIdLocal)
-        form.set('targetParentId', targetParentId)
-        await moveFileSubmitAction(form)
+      if (!targetParentId) return
+      // Determine items to move: if the active is part of selection, move all selected; otherwise move only active
+      const idsToMove: string[] = (selected.size > 1 && selected.has(activeIdLocal))
+        ? Array.from(selected)
+        : [activeIdLocal]
+      // Separate into folders and files, skip moving an item into itself
+      const folderIds: string[] = []
+      const fileIds: string[] = []
+      for (const id of idsToMove) {
+        if (id === targetParentId) continue
+        const it = idToItem.get(id)
+        if (!it) continue
+        if (it.isDirectory) folderIds.push(id); else fileIds.push(id)
       }
+      if (folderIds.length === 0 && fileIds.length === 0) return
+      const form = new FormData()
+      form.set('targetParentId', targetParentId)
+      for (const id of folderIds) form.append('folderIds', id)
+      for (const id of fileIds) form.append('fileIds', id)
+      await moveItemsSubmitAction(form)
       router.refresh()
     } finally {
       setActiveId(null)
@@ -410,6 +420,15 @@ export function FilesResultsTable({ entries, parentName, parentId, breadcrumb }:
         {activeId ? (() => {
           const it = idToItem.get(activeId)
           if (!it) return null
+          const isMulti = selected.size > 1 && selected.has(activeId)
+          if (isMulti) {
+            return (
+              <div className="inline-flex pointer-events-none rounded-full border bg-muted text-foreground shadow-md px-3 py-1.5 text-sm items-center gap-2 w-auto">
+                <FolderClosed className="h-4 w-4" />
+                <span className="font-medium">{selected.size} items</span>
+              </div>
+            )
+          }
           return (
             <div className="inline-flex pointer-events-none rounded-full border bg-muted text-foreground shadow-md px-3 py-1.5 text-sm items-center gap-2 w-auto">
               {it.isDirectory ? (
@@ -454,7 +473,7 @@ function RowItem({ item, parentName, selected, onRowClick, onRowDoubleClick, set
   const { attributes, listeners, setNodeRef } = useDraggable({ id: item.id })
   const { isOver, setNodeRef: setDropRef } = item.isDirectory ? useDroppable({ id: `folder/${item.id}` }) : ({ isOver: false, setNodeRef: (_: any) => {} } as any)
   const setRowRef = (node: any) => { setNodeRef(node); if (item.isDirectory) setDropRef(node) }
-  const isDragging = activeId === item.id
+  const isDragging = !!activeId && (activeId === item.id || (selected.size > 1 && selected.has(activeId) && selected.has(item.id)))
   const isTrashFolder = item.name.toLowerCase() === 'trash'
   const highlightDragged = isDragging && !!overFolderId
   const row = (
