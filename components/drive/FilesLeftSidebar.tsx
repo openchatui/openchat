@@ -17,6 +17,7 @@ import { UploadFileDialog } from "./UploadFileDialog"
 import { UploadFolderDialog } from "./UploadFolderDialog"
 import { Separator } from "@/components/ui/separator"
 import { cn } from "@/lib/utils"
+import { FaStar, FaRegStar } from "react-icons/fa";
 
 export function FilesLeftSidebar({ parentId = "" }: { parentId?: string }) {
   const [showNewFolder, setShowNewFolder] = useState(false)
@@ -61,7 +62,7 @@ export function FilesLeftSidebar({ parentId = "" }: { parentId?: string }) {
         <SidebarLink href="/drive/shared" icon={<Users className="h-4 w-4" />} label="Shared with me" />
         <Separator className="my-4"/>
         <SidebarLink href="/drive/recent" icon={<Clock className="h-4 w-4" />} label="Recent" />
-        <SidebarLink href="/drive/starred" icon={<Star className="h-4 w-4" />} label="Starred" />
+        <SidebarLink href="/drive/starred" icon={<FaRegStar className="h-4 w-4" />} label="Starred" />
         <SidebarLink href="/drive/trash" icon={<Trash2 className="h-4 w-4" />} label="Trash" />
       </nav>
       {!isTrash && (

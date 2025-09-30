@@ -74,23 +74,51 @@ export class FolderDbService {
   static async listRootEntries(userId: string): Promise<FileEntry[]> {
     const nowSec = Math.floor(Date.now() / 1000)
     // Use raw queries with safe downcast from ms->s when needed to avoid Prisma Int overflow
-    const folders = await db.$queryRaw<any[]>`
-      SELECT id, name,
-        CAST(CASE WHEN updated_at > 100000000000 THEN updated_at/1000 ELSE updated_at END AS INT) AS updatedAt
-      FROM "folder"
-      WHERE user_id = ${userId}
-        AND parent_id IS NULL
-        AND LOWER(name) NOT IN ('root', 'my drive')
-      ORDER BY name ASC
-    `
+    let folders: any[] = []
+    try {
+      folders = await db.$queryRaw<any[]>`
+        SELECT id, name,
+          CAST(CASE WHEN updated_at > 100000000000 THEN updated_at/1000 ELSE updated_at END AS INT) AS updatedAt,
+          COALESCE(CAST(json_extract(meta, '$.starred') AS INT), 0) AS starred
+        FROM "folder"
+        WHERE user_id = ${userId}
+          AND parent_id IS NULL
+          AND LOWER(name) NOT IN ('root', 'my drive')
+        ORDER BY name ASC
+      `
+    } catch {
+      folders = await db.$queryRaw<any[]>`
+        SELECT id, name,
+          CAST(CASE WHEN updated_at > 100000000000 THEN updated_at/1000 ELSE updated_at END AS INT) AS updatedAt,
+          COALESCE((meta ->> 'starred')::boolean::int, 0) AS starred
+        FROM "folder"
+        WHERE user_id = ${userId}
+          AND parent_id IS NULL
+          AND LOWER(name) NOT IN ('root', 'my drive')
+        ORDER BY name ASC
+      `
+    }
 
-    const files = await db.$queryRaw<any[]>`
-      SELECT id, filename, path,
-        CAST(CASE WHEN updated_at > 100000000000 THEN updated_at/1000 ELSE updated_at END AS INT) AS updatedAt
-      FROM "file"
-      WHERE user_id = ${userId} AND (path IS NULL OR path = '')
-      ORDER BY filename ASC
-    `
+    let files: any[] = []
+    try {
+      files = await db.$queryRaw<any[]>`
+        SELECT id, filename, path,
+          CAST(CASE WHEN updated_at > 100000000000 THEN updated_at/1000 ELSE updated_at END AS INT) AS updatedAt,
+          COALESCE(CAST(json_extract(meta, '$.starred') AS INT), 0) AS starred
+        FROM "file"
+        WHERE user_id = ${userId} AND (path IS NULL OR path = '')
+        ORDER BY filename ASC
+      `
+    } catch {
+      files = await db.$queryRaw<any[]>`
+        SELECT id, filename, path,
+          CAST(CASE WHEN updated_at > 100000000000 THEN updated_at/1000 ELSE updated_at END AS INT) AS updatedAt,
+          COALESCE((meta ->> 'starred')::boolean::int, 0) AS starred
+        FROM "file"
+        WHERE user_id = ${userId} AND (path IS NULL OR path = '')
+        ORDER BY filename ASC
+      `
+    }
 
     const folderEntries: FileEntry[] = folders.map((f: any) => ({
       id: f.id,
@@ -99,6 +127,7 @@ export class FolderDbService {
       isDirectory: true,
       size: null,
       modifiedMs: Number(f.updatedAt ?? nowSec) * 1000,
+      starred: Boolean(Number(f.starred ?? 0)),
     }))
 
     const fileEntries: FileEntry[] = files.map((f: any) => ({
@@ -108,6 +137,7 @@ export class FolderDbService {
       isDirectory: false,
       size: null,
       modifiedMs: Number(f.updatedAt ?? nowSec) * 1000,
+      starred: Boolean(Number(f.starred ?? 0)),
     }))
 
     return [...folderEntries, ...fileEntries]
@@ -118,13 +148,26 @@ export class FolderDbService {
       ? parentId
       : await FolderDbService.getRootFolderId(userId)
 
-    const rows = await db.$queryRaw<any[]>`
-      SELECT id, name,
-        CAST(CASE WHEN updated_at > 100000000000 THEN updated_at/1000 ELSE updated_at END AS INT) AS updatedAt
-      FROM "folder"
-      WHERE user_id = ${userId} AND parent_id = ${effectiveParentId}
-      ORDER BY name ASC
-    `
+    let rows: any[] = []
+    try {
+      rows = await db.$queryRaw<any[]>`
+        SELECT id, name,
+          CAST(CASE WHEN updated_at > 100000000000 THEN updated_at/1000 ELSE updated_at END AS INT) AS updatedAt,
+          COALESCE(CAST(json_extract(meta, '$.starred') AS INT), 0) AS starred
+        FROM "folder"
+        WHERE user_id = ${userId} AND parent_id = ${effectiveParentId}
+        ORDER BY name ASC
+      `
+    } catch {
+      rows = await db.$queryRaw<any[]>`
+        SELECT id, name,
+          CAST(CASE WHEN updated_at > 100000000000 THEN updated_at/1000 ELSE updated_at END AS INT) AS updatedAt,
+          COALESCE((meta ->> 'starred')::boolean::int, 0) AS starred
+        FROM "folder"
+        WHERE user_id = ${userId} AND parent_id = ${effectiveParentId}
+        ORDER BY name ASC
+      `
+    }
 
     const nowSec = Math.floor(Date.now() / 1000)
     return rows.map((f: any) => ({
@@ -134,6 +177,7 @@ export class FolderDbService {
       isDirectory: true,
       size: null,
       modifiedMs: Number(f.updatedAt ?? nowSec) * 1000,
+      starred: Boolean(Number(f.starred ?? 0)),
     }))
   }
 
@@ -149,14 +193,29 @@ export class FolderDbService {
       : await FolderDbService.getRootFolderId(userId)
 
     const nowSec = Math.floor(Date.now() / 1000)
-    const files = await db.$queryRaw<any[]>`
-      SELECT id, filename, path,
-        CAST(CASE WHEN updated_at > 100000000000 THEN updated_at/1000 ELSE updated_at END AS INT) AS updatedAt
-      FROM "file"
-      WHERE user_id = ${userId}
-        AND parent_id = ${effectiveParentId}
-      ORDER BY filename ASC
-    `
+    let files = await (async () => {
+      try {
+        return await db.$queryRaw<any[]>`
+          SELECT id, filename, path,
+            CAST(CASE WHEN updated_at > 100000000000 THEN updated_at/1000 ELSE updated_at END AS INT) AS updatedAt,
+            COALESCE(CAST(json_extract(meta, '$.starred') AS INT), 0) AS starred
+          FROM "file"
+          WHERE user_id = ${userId}
+            AND parent_id = ${effectiveParentId}
+          ORDER BY filename ASC
+        `
+      } catch {
+        return await db.$queryRaw<any[]>`
+          SELECT id, filename, path,
+            CAST(CASE WHEN updated_at > 100000000000 THEN updated_at/1000 ELSE updated_at END AS INT) AS updatedAt,
+            COALESCE((meta ->> 'starred')::boolean::int, 0) AS starred
+          FROM "file"
+          WHERE user_id = ${userId}
+            AND parent_id = ${effectiveParentId}
+          ORDER BY filename ASC
+        `
+      }
+    })()
 
     const fileEntries: FileEntry[] = files.map((f: any) => {
       const rawPath = (f.path ?? '') as string
@@ -177,6 +236,7 @@ export class FolderDbService {
         isDirectory: false,
         size: null,
         modifiedMs: Number(f.updatedAt ?? nowSec) * 1000,
+        starred: Boolean(Number(f.starred ?? 0)),
       }
     })
 
@@ -211,4 +271,83 @@ export class FolderDbService {
   }
 }
 
+
+
+export async function listStarredEntries(userId: string): Promise<FileEntry[]> {
+  const nowSec = Math.floor(Date.now() / 1000)
+
+  // Folders starred
+  let folders: any[] = []
+  try {
+    folders = await db.$queryRaw<any[]>`
+      SELECT id, name,
+        CAST(CASE WHEN updated_at > 100000000000 THEN updated_at/1000 ELSE updated_at END AS INT) AS updatedAt
+      FROM "folder"
+      WHERE user_id = ${userId} AND COALESCE(CAST(json_extract(meta, '$.starred') AS INT), 0) = 1
+      ORDER BY name ASC
+    `
+  } catch {
+    folders = await db.$queryRaw<any[]>`
+      SELECT id, name,
+        CAST(CASE WHEN updated_at > 100000000000 THEN updated_at/1000 ELSE updated_at END AS INT) AS updatedAt
+      FROM "folder"
+      WHERE user_id = ${userId} AND COALESCE((meta ->> 'starred')::boolean, false) = true
+      ORDER BY name ASC
+    `
+  }
+
+  // Files starred
+  let files: any[] = []
+  try {
+    files = await db.$queryRaw<any[]>`
+      SELECT id, filename, path,
+        CAST(CASE WHEN updated_at > 100000000000 THEN updated_at/1000 ELSE updated_at END AS INT) AS updatedAt
+      FROM "file"
+      WHERE user_id = ${userId} AND COALESCE(CAST(json_extract(meta, '$.starred') AS INT), 0) = 1
+      ORDER BY filename ASC
+    `
+  } catch {
+    files = await db.$queryRaw<any[]>`
+      SELECT id, filename, path,
+        CAST(CASE WHEN updated_at > 100000000000 THEN updated_at/1000 ELSE updated_at END AS INT) AS updatedAt
+      FROM "file"
+      WHERE user_id = ${userId} AND COALESCE((meta ->> 'starred')::boolean, false) = true
+      ORDER BY filename ASC
+    `
+  }
+
+  const folderEntries: FileEntry[] = folders.map((f: any) => ({
+    id: f.id,
+    name: f.name,
+    path: f.id,
+    isDirectory: true,
+    size: null,
+    modifiedMs: Number(f.updatedAt ?? nowSec) * 1000,
+    starred: true,
+  }))
+
+  const fileEntries: FileEntry[] = files.map((f: any) => {
+    const rawPath = (f.path ?? '') as string
+    let combined = ''
+    if (rawPath) {
+      const normalized = rawPath.replace(/^\/+/, '')
+      combined = normalized.endsWith('/' + f.filename) || normalized === f.filename
+        ? normalized
+        : normalized + '/' + f.filename
+    } else {
+      combined = f.filename
+    }
+    return {
+      id: f.id,
+      name: f.filename,
+      path: combined,
+      isDirectory: false,
+      size: null,
+      modifiedMs: Number(f.updatedAt ?? nowSec) * 1000,
+      starred: true,
+    }
+  })
+
+  return [...folderEntries, ...fileEntries]
+}
 

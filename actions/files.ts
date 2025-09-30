@@ -601,3 +601,107 @@ export async function moveItemsSubmitAction(formData: FormData): Promise<void> {
   }
 }
 
+// Star/unstar file
+const SetFileStarredSchema = z.object({
+  fileId: z.string().min(1),
+  starred: z.union([z.string(), z.boolean()]).transform(v => v === true || v === 'true'),
+  currentFolderId: z.string().optional(),
+})
+
+export async function setFileStarredAction(_prev: ActionResult, formData: FormData): Promise<ActionResult> {
+  try {
+    const session = await auth()
+    if (!session?.user?.id) return { status: 'error', message: 'Unauthorized' }
+
+    const parsed = SetFileStarredSchema.parse({
+      fileId: String(formData.get('fileId') ?? ''),
+      starred: (formData.get('starred') as any) ?? 'false',
+      currentFolderId: formData.get('currentFolderId') ? String(formData.get('currentFolderId')) : undefined,
+    })
+
+    const userId = session.user.id
+    const nowSec = Math.floor(Date.now() / 1000)
+    const client: any = (await import('@/lib/db')).default as any
+    if (client?.file?.update && client?.file?.findUnique) {
+      const existing = await client.file.findUnique({ where: { id: parsed.fileId } })
+      const meta = { ...((existing?.meta ?? {}) as Record<string, any>), starred: parsed.starred }
+      await client.file.update({ where: { id: parsed.fileId }, data: { meta, updatedAt: nowSec } })
+    } else {
+      const db = (await import('@/lib/db')).default as any
+      try {
+        await db.$executeRaw`UPDATE "file" SET meta = json_set(COALESCE(meta, '{}'), '$.starred', ${parsed.starred ? 1 : 0}), updated_at = ${nowSec} WHERE id = ${parsed.fileId} AND user_id = ${userId}`
+      } catch {
+        await db.$executeRaw`UPDATE "file" SET meta = COALESCE(meta, '{}'::jsonb) || jsonb_build_object('starred', ${parsed.starred})::jsonb, updated_at = ${nowSec} WHERE id = ${parsed.fileId} AND user_id = ${userId}`
+      }
+    }
+
+    revalidatePath('/drive')
+    revalidatePath('/drive/starred')
+    if (parsed.currentFolderId) revalidatePath(`/drive/folder/${encodeURIComponent(parsed.currentFolderId)}`)
+    return { status: 'success' }
+  } catch (error: any) {
+    if (error && typeof error === 'object' && 'issues' in error) {
+      const validationError = error as any
+      const message = validationError.issues?.map((i: any) => i.message).join(', ') || 'Invalid input'
+      return { status: 'error', message }
+    }
+    return { status: 'error', message: error?.message || 'Failed to update star' }
+  }
+}
+
+export async function setFileStarredSubmitAction(formData: FormData): Promise<void> {
+  await setFileStarredAction({ status: 'success' }, formData)
+}
+
+// Star/unstar folder
+const SetFolderStarredSchema = z.object({
+  folderId: z.string().min(1),
+  starred: z.union([z.string(), z.boolean()]).transform(v => v === true || v === 'true'),
+  currentFolderId: z.string().optional(),
+})
+
+export async function setFolderStarredAction(_prev: ActionResult, formData: FormData): Promise<ActionResult> {
+  try {
+    const session = await auth()
+    if (!session?.user?.id) return { status: 'error', message: 'Unauthorized' }
+
+    const parsed = SetFolderStarredSchema.parse({
+      folderId: String(formData.get('folderId') ?? ''),
+      starred: (formData.get('starred') as any) ?? 'false',
+      currentFolderId: formData.get('currentFolderId') ? String(formData.get('currentFolderId')) : undefined,
+    })
+
+    const userId = session.user.id
+    const nowSec = Math.floor(Date.now() / 1000)
+    const client: any = (await import('@/lib/db')).default as any
+    if (client?.folder?.update && client?.folder?.findUnique) {
+      const existing = await client.folder.findUnique({ where: { id_userId: { id: parsed.folderId, userId } } })
+      const meta = { ...((existing?.meta ?? {}) as Record<string, any>), starred: parsed.starred }
+      await client.folder.update({ where: { id_userId: { id: parsed.folderId, userId } }, data: { meta, updatedAt: nowSec } })
+    } else {
+      const db = (await import('@/lib/db')).default as any
+      try {
+        await db.$executeRaw`UPDATE "folder" SET meta = json_set(COALESCE(meta, '{}'), '$.starred', ${parsed.starred ? 1 : 0}), updated_at = ${nowSec} WHERE id = ${parsed.folderId} AND user_id = ${userId}`
+      } catch {
+        await db.$executeRaw`UPDATE "folder" SET meta = COALESCE(meta, '{}'::jsonb) || jsonb_build_object('starred', ${parsed.starred})::jsonb, updated_at = ${nowSec} WHERE id = ${parsed.folderId} AND user_id = ${userId}`
+      }
+    }
+
+    revalidatePath('/drive')
+    revalidatePath('/drive/starred')
+    if (parsed.currentFolderId) revalidatePath(`/drive/folder/${encodeURIComponent(parsed.currentFolderId)}`)
+    return { status: 'success' }
+  } catch (error: any) {
+    if (error && typeof error === 'object' && 'issues' in error) {
+      const validationError = error as any
+      const message = validationError.issues?.map((i: any) => i.message).join(', ') || 'Invalid input'
+      return { status: 'error', message }
+    }
+    return { status: 'error', message: error?.message || 'Failed to update star' }
+  }
+}
+
+export async function setFolderStarredSubmitAction(formData: FormData): Promise<void> {
+  await setFolderStarredAction({ status: 'success' }, formData)
+}
+

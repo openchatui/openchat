@@ -35,12 +35,11 @@ export function CreateContextMenu({ parentId = "", children, disabled = false }:
         <div>{children}</div>
       </ContextMenuTrigger>
       <ContextMenuContent className="w-56">
-        <ContextMenuLabel>Create</ContextMenuLabel>
-        <ContextMenuSeparator />
         <ContextMenuItem onSelect={(e) => { e.preventDefault(); setShowNewFolder(true) }}>
           <FolderPlus className="mr-2 h-4 w-4" />
           <span>New Folder</span>
         </ContextMenuItem>
+        <ContextMenuSeparator />
         <ContextMenuItem onSelect={(e) => { e.preventDefault(); setShowUploadFile(true) }}>
           <FileUp className="mr-2 h-4 w-4" />
           <span>File Upload</span>

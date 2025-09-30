@@ -1,7 +1,8 @@
 "use client"
 import type { FileEntry } from "@/lib/server/file-management"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { FolderClosed, FileText, Image, Table2, MoreVertical } from "lucide-react"
+import { FileText, Download, Pencil } from "lucide-react"
+import { FaStar, FaRegStar } from "react-icons/fa";
 import { useCallback, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import dynamic from "next/dynamic"
@@ -16,20 +17,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { FolderContextMenu } from "./FolderContextMenu"
+import { FaFilePdf, FaImage, FaFolder } from "react-icons/fa";
+import { BsFileEarmarkSpreadsheetFill } from "react-icons/bs";
+import { FaFilm } from "react-icons/fa6";
+import { ItemContextMenu } from "./ItemContextMenu"
 const SelectionBar = dynamic(() => import("./SelectionBar").then(m => m.SelectionBar), { loading: () => <div className="mb-2 h-10" /> })
 const FiltersBar = dynamic(() => import("./FiltersBar").then(m => m.FiltersBar), { loading: () => <div className="mb-2 h-10" /> })
 const MoveItemDialog = dynamic(() => import("./MoveItemDialog").then(m => m.MoveItemDialog))
 const RenameItemDialog = dynamic(() => import("./RenameItemDialog").then(m => m.RenameItemDialog))
-import { moveFileSubmitAction, moveFolderSubmitAction, restoreFolderFromTrashSubmitAction, moveFolderToTrashSubmitAction, moveFileToTrashSubmitAction, restoreFileFromTrashSubmitAction, moveItemsSubmitAction } from "@/actions/files"
+import { moveFileSubmitAction, moveFolderSubmitAction, restoreFolderFromTrashSubmitAction, moveFolderToTrashSubmitAction, moveFileToTrashSubmitAction, restoreFileFromTrashSubmitAction, moveItemsSubmitAction, setFileStarredSubmitAction, setFolderStarredSubmitAction } from "@/actions/files"
 import { Breadcrumbs } from "./Breadcrumbs"
 import { DndContext, DragOverlay, type DragEndEvent, type DragStartEvent, type DragOverEvent, type Modifier, useSensor, useSensors, MouseSensor, TouchSensor, pointerWithin } from "@dnd-kit/core"
 import { useDroppable, useDraggable } from "@dnd-kit/core"
@@ -51,22 +47,27 @@ function getIconForFile(name: string) {
   if ([
     'jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'tiff', 'tif', 'heic', 'heif', 'avif'
   ].includes(ext)) {
-    return <Image className="h-4 w-4" />
+    return <FaImage className="h-4 w-4 text-red-400" />
+  }
+  if ([
+    'mp4', 'webm', 'ogg', 'ogv', 'mov', 'm4v', 'mkv'
+  ].includes(ext)) {
+    return <FaFilm className="h-4 w-4 text-red-400" />
   }
   if (ext === 'pdf') {
-    return <FileText className="h-4 w-4" />
+    return <FaFilePdf  className="text-red-400"/>
   }
   if ([
     'xls', 'xlsx', 'xlsm', 'csv', 'tsv', 'ods', 'numbers'
   ].includes(ext)) {
-    return <Table2 className="h-4 w-4" />
+    return <BsFileEarmarkSpreadsheetFill className="h-4 w-4 text-green-400" />
   }
   if ([
     'doc', 'docx', 'rtf', 'odt'
   ].includes(ext)) {
-    return <FileText className="h-4 w-4" />
+    return <FileText className="h-4 w-4 text-blue-400" />
   }
-  return <FileText className="h-4 w-4" />
+  return <FileText className="h-4 w-4 text-blue-400" />
 }
 
 function isPreviewable(name: string) {
@@ -98,6 +99,8 @@ export function FilesResultsTable({ entries, parentName, parentId, breadcrumb }:
   const [preview, setPreview] = useState<{ name: string; url: string } | null>(null)
   const [renameFolderId, setRenameFolderId] = useState<string | null>(null)
   const [renameFileId, setRenameFileId] = useState<string | null>(null)
+  // Optimistic star overrides for instant UI feedback
+  const [starredOverrides, setStarredOverrides] = useState<Map<string, boolean>>(new Map())
   const idToItem = useMemo(() => {
     const m = new Map<string, FileEntry>()
     for (const e of entries) m.set(e.id, e)
@@ -234,7 +237,7 @@ export function FilesResultsTable({ entries, parentName, parentId, breadcrumb }:
   return (
     <DndContext sensors={sensors} collisionDetection={pointerWithin} onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd}>
     <CreateContextMenu parentId={parentId ?? ''} disabled={parentName === 'Trash'}>
-    <div className="w-full min-h-[70vh]" onClick={handleBackgroundClick}>
+    <div className="w-full flex flex-col border p-4 rounded-2xl h-[90vh]" onClick={handleBackgroundClick}>
       {breadcrumb && breadcrumb.length > 0 && (
         <div className="mb-2 min-w-0">
           <Breadcrumbs segments={breadcrumb} />
@@ -313,20 +316,38 @@ export function FilesResultsTable({ entries, parentName, parentId, breadcrumb }:
       ) : (
         <FiltersBar />
       )}
-      <Table onClick={handleTableClick} className="table-fixed w-full">
+      <Table className="table-fixed w-full">
+        <colgroup>
+          <col style={{ width: '45%' }} />
+          <col style={{ width: '15%' }} />
+          <col style={{ width: '15%' }} />
+          <col style={{ width: '15%' }} />
+          <col style={{ width: '10%' }} />
+        </colgroup>
         <TableHeader>
           <TableRow>
-            <TableHead className="w-[40%]">Name</TableHead>
-            <TableHead className="w-[10%]">Owner</TableHead>
-            <TableHead className="w-[10%]">Last Modified</TableHead>
-            <TableHead className="w-[20%]">Location</TableHead>
+            <TableHead className="w-[45%]">Name</TableHead>
+            <TableHead className="w-[15%]">Owner</TableHead>
+            <TableHead className="w-[15%]">Last Modified</TableHead>
+            <TableHead className="w-[15%]">Location</TableHead>
+            <TableHead className="w-[10%] text-right"></TableHead>
           </TableRow>
         </TableHeader>
-        <TableBody>
-          {entries.length === 0 ? (
-            <TableRow>
-              <TableCell colSpan={4} className="text-muted-foreground">No results</TableCell>
-            </TableRow>
+      </Table>
+      <div onClick={handleTableClick} className="flex-1 overflow-auto">
+        <Table className="table-fixed w-full">
+          <colgroup>
+            <col style={{ width: '45%' }} />
+            <col style={{ width: '15%' }} />
+            <col style={{ width: '15%' }} />
+            <col style={{ width: '15%' }} />
+            <col style={{ width: '10%' }} />
+          </colgroup>
+          <TableBody>
+            {entries.length === 0 ? (
+              <TableRow>
+               <TableCell colSpan={5} className="text-muted-foreground">No results</TableCell>
+              </TableRow>
           ) : (
             entries.map((item) => (
               <RowItem
@@ -355,11 +376,44 @@ export function FilesResultsTable({ entries, parentName, parentId, breadcrumb }:
                     : `/files/${rel.split('/').map(encodeURIComponent).join('/')}`
                   setPreview({ name: it.name, url })
                 }}
+                isStarred={starredOverrides.has(item.id) ? starredOverrides.get(item.id)! : Boolean((item as any).starred)}
+                onToggleStar={async () => {
+                  const current = starredOverrides.has(item.id) ? starredOverrides.get(item.id)! : Boolean((item as any).starred)
+                  const next = !current
+                  setStarredOverrides(prev => {
+                    const m = new Map(prev)
+                    m.set(item.id, next)
+                    return m
+                  })
+                  try {
+                    if (item.isDirectory) {
+                      const fd = new FormData()
+                      fd.set('folderId', item.id)
+                      fd.set('starred', String(next))
+                      if (parentId) fd.set('currentFolderId', parentId)
+                      await setFolderStarredSubmitAction(fd)
+                    } else {
+                      const fd = new FormData()
+                      fd.set('fileId', item.id)
+                      fd.set('starred', String(next))
+                      if (parentId) fd.set('currentFolderId', parentId)
+                      await setFileStarredSubmitAction(fd)
+                    }
+                  } catch {
+                    // Revert on error
+                    setStarredOverrides(prev => {
+                      const m = new Map(prev)
+                      m.set(item.id, current)
+                      return m
+                    })
+                  }
+                }}
               />
             ))
           )}
-        </TableBody>
-      </Table>
+          </TableBody>
+        </Table>
+      </div>
       <AlertDialog open={!!restoreFolderId} onOpenChange={(next) => { if (!next) setRestoreFolderId(null) }}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -424,7 +478,7 @@ export function FilesResultsTable({ entries, parentName, parentId, breadcrumb }:
           if (isMulti) {
             return (
               <div className="inline-flex pointer-events-none rounded-full border bg-muted text-foreground shadow-md px-3 py-1.5 text-sm items-center gap-2 w-auto">
-                <FolderClosed className="h-4 w-4" />
+                <FaFolder className="h-4 w-4" />
                 <span className="font-medium">{selected.size} items</span>
               </div>
             )
@@ -432,7 +486,7 @@ export function FilesResultsTable({ entries, parentName, parentId, breadcrumb }:
           return (
             <div className="inline-flex pointer-events-none rounded-full border bg-muted text-foreground shadow-md px-3 py-1.5 text-sm items-center gap-2 w-auto">
               {it.isDirectory ? (
-                <FolderClosed className="h-4 w-4" />
+                <FaFolder className="h-4 w-4" />
               ) : (
                 getIconForFile(it.name)
               )}
@@ -467,9 +521,11 @@ interface RowItemProps {
   allIds: string[]
   overFolderId: string | null
   onPreview: (item: FileEntry) => void
+  isStarred: boolean
+  onToggleStar: () => void
 }
 
-function RowItem({ item, parentName, selected, onRowClick, onRowDoubleClick, setMoveFolderId, setMoveFileId, setRenameFolderId, setRenameFileId, activeId, allIds, overFolderId, onPreview }: RowItemProps) {
+function RowItem({ item, parentName, selected, onRowClick, onRowDoubleClick, setMoveFolderId, setMoveFileId, setRenameFolderId, setRenameFileId, activeId, allIds, overFolderId, onPreview, isStarred, onToggleStar }: RowItemProps) {
   const { attributes, listeners, setNodeRef } = useDraggable({ id: item.id })
   const { isOver, setNodeRef: setDropRef } = item.isDirectory ? useDroppable({ id: `folder/${item.id}` }) : ({ isOver: false, setNodeRef: (_: any) => {} } as any)
   const setRowRef = (node: any) => { setNodeRef(node); if (item.isDirectory) setDropRef(node) }
@@ -482,59 +538,147 @@ function RowItem({ item, parentName, selected, onRowClick, onRowDoubleClick, set
       onClick={(e) => onRowClick(e, allIds.indexOf(item.id), item)}
       onDoubleClick={() => onRowDoubleClick(item)}
       data-row
-      className={`h-14 select-none cursor-pointer [&>td]:align-middle ${selected.has(item.id) ? 'bg-muted' : 'hover:bg-muted/50'} ${isDragging ? 'opacity-50' : ''} ${item.isDirectory && isOver ? 'ring-2 ring-primary/40' : ''} ${highlightDragged ? 'ring-2 ring-primary/50' : ''}`}
+      className={`group h-14 select-none cursor-pointer [&>td]:align-middle ${selected.has(item.id) ? 'bg-muted' : 'hover:bg-muted/50'} ${isDragging ? 'opacity-50' : ''} ${item.isDirectory && isOver ? 'ring-2 ring-primary/40' : ''} ${highlightDragged ? 'ring-2 ring-primary/50' : ''}`}
       {...listeners}
       {...attributes}
     >
-      <TableCell className="flex items-center gap-2 mt-2 min-w-0">
+      <TableCell className="w-[45%] flex items-center gap-2 mt-2 min-w-0">
         {item.isDirectory ? (
-          <FolderClosed className="h-4 w-4" />
+          <FaFolder className="h-4 w-4" />
         ) : (
           getIconForFile(item.name)
         )}
         <span className="truncate flex-1 min-w-0">{item.name}</span>
       </TableCell>
-      <TableCell>You</TableCell>
-      <TableCell>{new Date(item.modifiedMs).toLocaleString('en-US', { timeZone: 'UTC', year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true })}</TableCell>
-      <TableCell className="flex items-center justify-between gap-2 min-w-0">
-        <span className="flex-1 min-w-0 truncate">{parentName ? `/${parentName}` : '/'}</span>
-        {item.isDirectory ? (
-          <FolderContextMenu
-            folderId={item.id}
-            onMove={() => setMoveFolderId(item.id)}
-            onRename={() => setRenameFolderId(item.id)}
-            disabled={isTrashFolder}
-          />
-        ) : (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8">
-                <MoreVertical className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-44">
-              <DropdownMenuItem onSelect={(e) => { e.preventDefault(); setRenameFileId(item.id) }}>Rename…</DropdownMenuItem>
-              {isPreviewable(item.name) && (
-                <DropdownMenuItem onSelect={(e) => { e.preventDefault(); onPreview(item) }}>Preview…</DropdownMenuItem>
-              )}
-              <DropdownMenuItem onSelect={(e) => { e.preventDefault(); setMoveFileId(item.id) }}>Move file…</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
+      <TableCell className="w-[15%]">You</TableCell>
+      <TableCell className="w-[15%]">{new Date(item.modifiedMs).toLocaleString('en-US', { timeZone: 'UTC', year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true })}</TableCell>
+      <TableCell className="w-[15%] min-w-0">
+        <span className="block truncate">{parentName ? `/${parentName}` : '/'}</span>
+      </TableCell>
+      <TableCell className="w-[10%] text-right">
+        <div className="flex items-center justify-end gap-1">
+          <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+            <Button variant="ghost" size="icon" aria-label="Download" onClick={() => {
+              try {
+                const a = document.createElement('a')
+                if (item.isDirectory) {
+                  a.href = `/api/folders/download?id=${encodeURIComponent(item.id)}`
+                  a.download = ''
+                } else {
+                  let rel = item.path || item.name
+                  if (rel.startsWith('/data/files/')) {
+                    rel = rel.slice('/data/files/'.length)
+                  } else if (rel.startsWith('data/files/')) {
+                    rel = rel.slice('data/files/'.length)
+                  }
+                  const href = isImageName(item.name)
+                    ? `/images/${encodeURIComponent(item.name)}`
+                    : `/files/${rel.split('/').map(encodeURIComponent).join('/')}`
+                  a.href = href
+                  a.download = item.name
+                }
+                a.style.display = 'none'
+                document.body.appendChild(a)
+                a.click()
+                a.remove()
+              } catch {}
+            }}>
+              <Download className="h-4 w-4" />
+            </Button>
+            <Button variant="ghost" size="icon" aria-label="Rename" onClick={() => {
+              if (item.isDirectory) setRenameFolderId(item.id); else setRenameFileId(item.id)
+            }}>
+              <Pencil className="h-4 w-4" />
+            </Button>
+            <Button variant="ghost" size="icon" aria-label="Star" onClick={onToggleStar}>
+              {isStarred ? <FaStar className="h-4 w-4" /> : <FaRegStar className="h-4 w-4" />}
+            </Button>
+          </div>
+          {item.isDirectory ? (
+            <ItemContextMenu
+              itemId={item.id}
+              itemType="folder"
+              onMove={() => setMoveFolderId(item.id)}
+              onRename={() => setRenameFolderId(item.id)}
+              disabled={isTrashFolder}
+            />
+          ) : (
+            <ItemContextMenu
+              itemId={item.id}
+              itemType="file"
+              onMove={() => setMoveFileId(item.id)}
+              onRename={() => setRenameFileId(item.id)}
+              onPreview={isPreviewable(item.name) ? (() => onPreview(item)) : undefined}
+              onDownload={() => {
+                try {
+                  let rel = item.path || item.name
+                  if (rel.startsWith('/data/files/')) {
+                    rel = rel.slice('/data/files/'.length)
+                  } else if (rel.startsWith('data/files/')) {
+                    rel = rel.slice('data/files/'.length)
+                  }
+                  const href = isImageName(item.name)
+                    ? `/images/${encodeURIComponent(item.name)}`
+                    : `/files/${rel.split('/').map(encodeURIComponent).join('/')}`
+                  const a = document.createElement('a')
+                  a.href = href
+                  a.download = item.name
+                  a.style.display = 'none'
+                  document.body.appendChild(a)
+                  a.click()
+                  a.remove()
+                } catch {}
+              }}
+            />
+          )}
+        </div>
       </TableCell>
     </TableRow>
   )
 
-  if (!item.isDirectory) return row
+  if (!item.isDirectory) {
+    return (
+      <ItemContextMenu
+        itemId={item.id}
+        itemType="file"
+        onMove={() => setMoveFileId(item.id)}
+        onRename={() => setRenameFileId(item.id)}
+        onPreview={isPreviewable(item.name) ? (() => onPreview(item)) : undefined}
+        onDownload={() => {
+          try {
+            let rel = item.path || item.name
+            if (rel.startsWith('/data/files/')) {
+              rel = rel.slice('/data/files/'.length)
+            } else if (rel.startsWith('data/files/')) {
+              rel = rel.slice('data/files/'.length)
+            }
+            const href = isImageName(item.name)
+              ? `/images/${encodeURIComponent(item.name)}`
+              : `/files/${rel.split('/').map(encodeURIComponent).join('/')}`
+            const a = document.createElement('a')
+            a.href = href
+            a.download = item.name
+            a.style.display = 'none'
+            document.body.appendChild(a)
+            a.click()
+            a.remove()
+          } catch {}
+        }}
+      >
+        {row}
+      </ItemContextMenu>
+    )
+  }
   return (
-    <FolderContextMenu
-      folderId={item.id}
+    <ItemContextMenu
+      itemId={item.id}
+      itemType="folder"
       onMove={() => setMoveFolderId(item.id)}
       onRename={() => setRenameFolderId(item.id)}
       disabled={isTrashFolder}
     >
       {row}
-    </FolderContextMenu>
+    </ItemContextMenu>
   )
 }
 

@@ -11,11 +11,12 @@ import {
 } from "@/components/ui/context-menu"
 import { Download, PencilLine, FolderOpen, FolderInput, Star, Redo, MoreVertical } from "lucide-react"
 import { TrashButton } from "./TrashButton"
-import { moveFolderToTrashSubmitAction } from "@/actions/files"
+import { moveFolderToTrashSubmitAction, moveFileToTrashSubmitAction } from "@/actions/files"
 import { Button } from "@/components/ui/button"
 
-interface FolderContextMenuProps {
-  folderId: string
+interface ItemContextMenuProps {
+  itemId: string
+  itemType: 'folder' | 'file'
   children?: React.ReactNode
   onMove: () => void
   onDownload?: () => void
@@ -23,21 +24,26 @@ interface FolderContextMenuProps {
   onTrash?: () => void
   onAddShortcut?: () => void
   onAddStarred?: () => void
+  onPreview?: () => void
   disabled?: boolean
 }
 
-export function FolderContextMenu({ folderId, children, onMove, onDownload, onRename, onTrash, onAddShortcut, onAddStarred, disabled = false }: FolderContextMenuProps) {
+export function ItemContextMenu({ itemId, itemType, children, onMove, onDownload, onRename, onTrash, onAddShortcut, onAddStarred, onPreview, disabled = false }: ItemContextMenuProps) {
   function handleDownload() {
     if (onDownload) return onDownload()
     try {
-      const url = `/api/folders/download?id=${encodeURIComponent(folderId)}`
-      const a = document.createElement('a')
-      a.href = url
-      a.download = ''
-      a.style.display = 'none'
-      document.body.appendChild(a)
-      a.click()
-      a.remove()
+      if (itemType === 'folder') {
+        const url = `/api/folders/download?id=${encodeURIComponent(itemId)}`
+        const a = document.createElement('a')
+        a.href = url
+        a.download = ''
+        a.style.display = 'none'
+        document.body.appendChild(a)
+        a.click()
+        a.remove()
+      } else {
+        // For files we require onDownload to be provided to generate the correct URL
+      }
     } catch {}
   }
 
@@ -80,6 +86,12 @@ export function FolderContextMenu({ folderId, children, onMove, onDownload, onRe
           <PencilLine className="mr-2 h-4 w-4" />
           Rename
         </ContextMenuItem>
+        {onPreview ? (
+          <ContextMenuItem onSelect={(e) => { e.preventDefault(); onPreview?.() }}>
+            <PencilLine className="mr-2 h-4 w-4" />
+            Preview
+          </ContextMenuItem>
+        ) : null}
         <ContextMenuSeparator />
         <ContextMenuSub>
           <ContextMenuSubTrigger>
@@ -102,10 +114,15 @@ export function FolderContextMenu({ folderId, children, onMove, onDownload, onRe
           </ContextMenuSubContent>
         </ContextMenuSub>
         <ContextMenuSeparator />
-        <TrashButton asMenuItem formAction={moveFolderToTrashSubmitAction} hiddenFields={{ folderId }} />
+        {itemType === 'folder' ? (
+          <TrashButton asMenuItem formAction={moveFolderToTrashSubmitAction} hiddenFields={{ folderId: itemId }} />
+        ) : (
+          <TrashButton asMenuItem formAction={moveFileToTrashSubmitAction} hiddenFields={{ fileId: itemId }} />
+        )}
       </ContextMenuContent>
     </ContextMenu>
   )
 }
+
 
 

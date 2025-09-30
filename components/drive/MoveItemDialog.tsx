@@ -26,7 +26,6 @@ export function MoveItemDialog({ open, onOpenChange, itemId, itemType, itemName,
   const [error, setError] = useState<string | null>(null)
   const [currentParentName, setCurrentParentName] = useState<string>("Root")
   const [crumbs, setCrumbs] = useState<{ id: string; name: string }[]>([])
-  const [submitted, setSubmitted] = useState(false)
 
   async function load(parent: string) {
     setLoading(true)

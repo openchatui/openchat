@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { FolderDbService } from "@/lib/server/file-management/folder-db.service";
 import { FilesResultsTable } from "@/components/drive/FilesResultsTable";
+import { FilesSearchBar } from "@/components/drive/FilesSearchBar";
 
 export default async function TrashPage() {
   const session = await auth();
@@ -19,7 +20,10 @@ export default async function TrashPage() {
   const breadcrumb = [{ id: trashId, name: 'Trash' }]
 
   return (
-    <FilesResultsTable entries={entries} parentId={trashId} parentName="Trash" breadcrumb={breadcrumb} />
+    <div className="space-y-6">
+      <FilesSearchBar />
+      <FilesResultsTable entries={entries} parentId={trashId} parentName="Trash" breadcrumb={breadcrumb} />
+    </div>
   );
 }
 

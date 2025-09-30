@@ -2,7 +2,7 @@
 
 import { X, UserPlus, Download, FolderOpen, Link as LinkIcon, MoreVertical, Undo2 } from "lucide-react"
 import { TrashButton } from "@/components/drive/TrashButton"
-import { FolderContextMenu } from "@/components/drive/FolderContextMenu"
+import { ItemContextMenu } from "@/components/drive/ItemContextMenu"
 
 interface SelectionBarProps {
   count: number
@@ -34,7 +34,7 @@ export function SelectionBar({ count, onClear, onTrashSelected, onDownloadSelect
         )}
         <button className="rounded p-1 hover:bg-background/60" aria-label="Get link"><LinkIcon className="h-4 w-4" /></button>
         {contextFolderId ? (
-          <FolderContextMenu folderId={contextFolderId} onMove={() => onMoveSelected?.()} onDownload={() => onDownloadSelected?.()} disabled={!!contextMenuDisabled} />
+          <ItemContextMenu itemId={contextFolderId} itemType="folder" onMove={() => onMoveSelected?.()} onDownload={() => onDownloadSelected?.()} disabled={!!contextMenuDisabled} />
         ) : (
           <button className="rounded p-1 hover:bg-background/60" aria-label="More">
             <MoreVertical className="h-4 w-4" />

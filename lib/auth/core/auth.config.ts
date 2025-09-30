@@ -11,6 +11,7 @@ import Credentials from "next-auth/providers/credentials";
 import { loginSchema } from "../validation/auth.validation";
 import { CredentialsProvider } from "../providers/credentials.provider";
 import { v4 as uuid } from "uuid";
+import GoogleProvider from "next-auth/providers/google";
 
 const adapter = PrismaAdapter(db);
 
@@ -19,6 +20,11 @@ export const authOptions = {
   adapter,
   session: { strategy: "jwt" as const },
   providers: [
+    GoogleProvider({
+      id: "google-drive",
+      clientId: process.env.DRIVE_CLIENT_ID,
+      clientSecret: process.env.DRIVE_CLIENT_SECRET
+    }),
     Credentials({
       credentials: {
         email: {},

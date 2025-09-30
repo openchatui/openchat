@@ -6,6 +6,7 @@ import { XIcon, DownloadIcon } from "lucide-react"
 import ZoomableImage from "./ZoomableImage"
 import dynamic from "next/dynamic"
 const PdfAsImages = dynamic(() => import("./PdfAsImages"), { ssr: false })
+const VideoPreviewer = dynamic(() => import("./VideoPreviewer"), { ssr: false })
 
 interface PreviewDialogProps {
   open: boolean
@@ -25,10 +26,18 @@ function isPdfFile(nameOrUrl: string): boolean {
   return nameOrUrl.toLowerCase().endsWith(".pdf")
 }
 
+function isVideoFile(nameOrUrl: string): boolean {
+  const lower = nameOrUrl.toLowerCase()
+  return [
+    ".mp4", ".webm", ".ogg", ".ogv", ".mov", ".m4v", ".mkv"
+  ].some(ext => lower.endsWith(ext))
+}
+
 export function PreviewDialog({ open, onOpenChange, name, url }: PreviewDialogProps) {
-  const kind: "image" | "pdf" | "other" = useMemo(() => {
+  const kind: "image" | "pdf" | "video" | "other" = useMemo(() => {
     if (isImageFile(name) || isImageFile(url)) return "image"
     if (isPdfFile(name) || isPdfFile(url)) return "pdf"
+    if (isVideoFile(name) || isVideoFile(url)) return "video"
     return "other"
   }, [name, url])
 
@@ -63,6 +72,9 @@ export function PreviewDialog({ open, onOpenChange, name, url }: PreviewDialogPr
             )}
             {kind === "pdf" && (
               <PdfAsImages fileUrl={url} />
+            )}
+            {kind === "video" && (
+              <VideoPreviewer url={url} name={name} />
             )}
             {kind === "other" && (
               <div className="w-full h-full flex items-center justify-center text-muted-foreground text-sm">

@@ -5,6 +5,7 @@ export interface FileEntry {
   isDirectory: boolean
   size: number | null
   modifiedMs: number
+  starred?: boolean
 }
 
 
