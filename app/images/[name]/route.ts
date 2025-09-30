@@ -1,7 +1,7 @@
 import { readFile } from 'fs/promises'
 import path from 'path'
 import db from '@/lib/db'
-import { FileManagementService } from '@/lib/server/file-management'
+import { LOCAL_BASE_DIR } from '@/lib/server/drive/providers/local.service'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -49,8 +49,8 @@ export async function GET(_req: Request, context: { params: Promise<{ name?: str
         if (p.startsWith('/')) {
           tryPaths.push(path.join(process.cwd(), p.replace(/^\/+/, '')))
         }
-        tryPaths.push(path.join(FileManagementService.BASE_DIR, p))
-        tryPaths.push(path.join(FileManagementService.BASE_DIR, 'files', p))
+        tryPaths.push(path.join(LOCAL_BASE_DIR, p))
+        tryPaths.push(path.join(LOCAL_BASE_DIR, 'files', p))
         file = await tryRead(tryPaths)
       }
     } catch {}

@@ -1,6 +1,6 @@
 import { readFile, stat } from 'fs/promises'
 import path from 'path'
-import { FileManagementService } from '@/lib/server/file-management'
+import { LOCAL_BASE_DIR } from '@/lib/server/drive/providers/local.service'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -11,7 +11,7 @@ function sanitize(input: string): string | null {
 }
 
 function resolveSafePath(segments: string[]): string | null {
-  const base = path.resolve(FileManagementService.BASE_DIR)
+  const base = path.resolve(LOCAL_BASE_DIR)
   const joined = path.join(base, ...segments)
   const resolved = path.resolve(joined)
   if (!resolved.startsWith(base)) return null

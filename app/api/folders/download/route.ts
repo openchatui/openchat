@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
-import { FolderDbService } from '@/lib/server/file-management/folder-db.service'
-import { FileManagementService } from '@/lib/server/file-management'
+import { listFoldersByParent, listFilesByParent, getFolderNameById } from '@/lib/server/drive'
+import { LOCAL_BASE_DIR } from '@/lib/server/drive/providers/local.service'
 import path from 'path'
 import os from 'os'
 import { mkdtemp, mkdir, copyFile, stat, rm } from 'fs/promises'
@@ -30,7 +30,7 @@ export async function GET(request: Request) {
 
   try {
     const userId = session.user.id
-    const rootName = (await FolderDbService.getFolderNameById(userId, folderId)) || 'folder'
+    const rootName = (await getFolderNameById(userId, folderId)) || 'folder'
 
     // Prepare temp workspace
     const tmpRoot = await mkdtemp(path.join(os.tmpdir(), 'oc-zip-'))
@@ -41,13 +41,13 @@ export async function GET(request: Request) {
     const queue: { id: string; rel: string }[] = [{ id: folderId, rel: rootName }]
     while (queue.length > 0) {
       const { id, rel } = queue.shift()!
-      const subfolders = await FolderDbService.listFoldersByParent(userId, id)
+      const subfolders = await listFoldersByParent(userId, id)
       for (const f of subfolders) {
         const nextRel = path.join(rel, f.name)
         await mkdir(path.join(tmpRoot, nextRel), { recursive: true })
         queue.push({ id: f.id, rel: nextRel })
       }
-      const files = await FolderDbService.listFilesByParent(userId, id)
+      const files = await listFilesByParent(userId, id)
       for (const file of files) {
         const candidates = [] as string[]
         // If DB path is absolute (/data/files/...), try it directly
@@ -55,11 +55,11 @@ export async function GET(request: Request) {
           candidates.push(path.join(process.cwd(), file.path.replace(/^\/+/, '')))
         }
         // Relative under BASE_DIR
-        candidates.push(path.join(FileManagementService.BASE_DIR, file.path))
-        candidates.push(path.join(FileManagementService.BASE_DIR, 'files', file.path))
+        candidates.push(path.join(LOCAL_BASE_DIR, file.path))
+        candidates.push(path.join(LOCAL_BASE_DIR, 'files', file.path))
         // Fallbacks by filename only
-        candidates.push(path.join(FileManagementService.BASE_DIR, file.name))
-        candidates.push(path.join(FileManagementService.BASE_DIR, 'files', file.name))
+        candidates.push(path.join(LOCAL_BASE_DIR, file.name))
+        candidates.push(path.join(LOCAL_BASE_DIR, 'files', file.name))
         let src: string | null = null
         for (const cand of candidates) {
           if (await pathExists(cand)) { src = cand; break }

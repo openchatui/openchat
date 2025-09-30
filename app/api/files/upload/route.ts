@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
-import { FileManagementService } from '@/lib/server/file-management'
+import { LOCAL_BASE_DIR } from '@/lib/server/drive/providers/local.service'
 import db from '@/lib/db'
-import { FolderDbService } from '@/lib/server/file-management/folder-db.service'
+import { getRootFolderId } from '@/lib/server/drive'
 import { randomUUID } from 'crypto'
 import path from 'path'
 import fs from 'fs'
@@ -37,7 +37,7 @@ export async function POST(req: Request) {
       bb.on('file', (_name, fileStream, info) => {
         const filename = info.filename || 'file'
         // Save under data/files/<parentId>/; targetDir updated once we know parent
-        let targetDir = FileManagementService.BASE_DIR
+        let targetDir = LOCAL_BASE_DIR
         ensureDirSync(targetDir)
         const base = path.basename(filename)
         let finalPath = path.join(targetDir, base)
@@ -51,7 +51,7 @@ export async function POST(req: Request) {
         const writeStream = fs.createWriteStream(finalPath)
         fileStream.pipe(writeStream)
         writeStream.on('close', () => {
-          const relativeFilePath = path.relative(FileManagementService.BASE_DIR, finalPath)
+          const relativeFilePath = path.relative(LOCAL_BASE_DIR, finalPath)
           saved.push({ name: path.basename(finalPath), path: relativeFilePath })
 
           // Prepare DB insert for this file
@@ -65,7 +65,7 @@ export async function POST(req: Request) {
               // Resolve folder parent_id
               let resolvedParentId: string | null = null
               if (!parent) {
-                resolvedParentId = await FolderDbService.getRootFolderId(userId)
+                resolvedParentId = await getRootFolderId(userId)
               } else {
                 const rows = await db.$queryRaw<{ id: string }[]>`
                   SELECT id FROM "folder" WHERE user_id = ${userId} AND id = ${parent} LIMIT 1`
@@ -76,7 +76,7 @@ export async function POST(req: Request) {
 
               // Move file under the resolved parent directory if we didn't already
               if (resolvedParentId) {
-                const parentDir = path.join(FileManagementService.BASE_DIR, resolvedParentId)
+                const parentDir = path.join(LOCAL_BASE_DIR, resolvedParentId)
                 ensureDirSync(parentDir)
                 const newPath = path.join(parentDir, path.basename(finalPath))
                 if (newPath !== finalPath) {

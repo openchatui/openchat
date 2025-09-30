@@ -2,7 +2,7 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { FilesSearchBar } from "@/components/drive/FilesSearchBar";
 import { FilesResultsTable } from "@/components/drive/FilesResultsTable";
-import { listStarredEntries } from "@/lib/server/file-management/folder-db.service";
+import { listStarredEntries } from "@/lib/server/drive";
 
 export default async function StarredPage() {
   const session = await auth()

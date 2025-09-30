@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
-import { FolderDbService } from '@/lib/server/file-management/folder-db.service'
+import { getRootFolderId, listFoldersByParent } from '@/lib/server/drive'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -15,9 +15,9 @@ export async function GET(request: Request) {
   try {
     const effectiveParentId = parent && parent.length > 0
       ? parent
-      : await FolderDbService.getRootFolderId(session.user.id)
+      : await getRootFolderId(session.user.id)
 
-    const entries = await FolderDbService.listFoldersByParent(session.user.id, effectiveParentId)
+    const entries = await listFoldersByParent(session.user.id, effectiveParentId)
     // Transform to id/name pairs from FileEntry
     const folders = entries.map(e => ({ id: e.path, name: e.name }))
     return NextResponse.json({ parentId: effectiveParentId, folders })

@@ -4,8 +4,8 @@ import { redirect } from 'next/navigation'
 import { z } from 'zod'
 import { randomUUID } from 'crypto'
 import { auth } from '@/lib/auth'
-import { saveFile } from '@/lib/server/file-management'
-import { FolderDbService } from '@/lib/server/file-management/folder-db.service'
+import { saveFile, getRootFolderId } from '@/lib/server/drive'
+import { createFolderRecord, getTrashFolderId } from '@/lib/server/drive'
 
 export type ActionResult =
   | { status: 'success'; message?: string }
@@ -26,7 +26,7 @@ export async function createFolderAction(_prev: ActionResult, formData: FormData
       name: String(formData.get('name') ?? ''),
     })
 
-    await FolderDbService.createFolderRecord(session.user.id, parsed.name, parsed.parent || null)
+    await createFolderRecord(session.user.id, parsed.name, parsed.parent || null)
     revalidatePath('/files')
     return { status: 'success' }
   } catch (error: any) {
@@ -60,7 +60,7 @@ export async function uploadFileAction(_prev: ActionResult, formData: FormData):
     const nowSec = Math.floor(Date.now() / 1000)
     const resolvedParentId: string = parsed.parent && parsed.parent.length > 0
       ? parsed.parent
-      : await FolderDbService.getRootFolderId(userId)
+      : await getRootFolderId(userId)
 
     // Save into data/files/<parentId>/
     const savedName = await saveFile(resolvedParentId, parsed.file)
@@ -246,7 +246,7 @@ export async function moveFolderToTrashAction(_prev: ActionResult, formData: For
     })
 
     const userId = session.user.id
-    const trashId = await FolderDbService.getTrashFolderId(userId)
+    const trashId = await getTrashFolderId(userId)
 
     const client: any = (await import('@/lib/db')).default as any
     const nowSec = Math.floor(Date.now() / 1000)
@@ -297,7 +297,7 @@ export async function moveFileToTrashAction(_prev: ActionResult, formData: FormD
 
     const parsed = MoveFileToTrashSchema.parse({ fileId: String(formData.get('fileId') ?? '') })
     const userId = session.user.id
-    const trashId = await FolderDbService.getTrashFolderId(userId)
+    const trashId = await getTrashFolderId(userId)
     const nowSec = Math.floor(Date.now() / 1000)
 
     const client: any = (await import('@/lib/db')).default as any
@@ -369,7 +369,7 @@ export async function restoreFolderFromTrashAction(_prev: ActionResult, formData
     }
 
     if (!previousParentId) {
-      previousParentId = await FolderDbService.getRootFolderId(userId)
+      previousParentId = await getRootFolderId(userId)
     }
 
     if (client?.folder?.update && client?.folder?.findUnique) {
@@ -427,10 +427,11 @@ export async function restoreFolderFromTrashSubmitAction(formData: FormData): Pr
       previousParentId = rs && rs[0] ? (rs[0].prev ? String(rs[0].prev) : null) : null
     }
   }
-  if (!previousParentId) previousParentId = await FolderDbService.getRootFolderId(userId)
+  if (!previousParentId) previousParentId = await getRootFolderId(userId)
 
   await restoreFolderFromTrashAction({ status: 'success' }, formData)
-  return redirect(`/drive/folder/${encodeURIComponent(previousParentId)}`)
+  const restoreTargetId: string = previousParentId || await getRootFolderId(userId)
+  return redirect(`/drive/folder/${encodeURIComponent(restoreTargetId)}`)
 }
 
 // Rename folder

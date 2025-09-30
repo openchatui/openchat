@@ -71,6 +71,7 @@
     "disposable-email-domains": "^1.0.62",
     "embla-carousel-react": "^8.6.0",
     "harden-react-markdown": "^1.0.5",
+    "googleapis": "^140.0.1",
     "input-otp": "^1.4.2",
     "jsdom": "^27.0.0",
     "katex": "^0.16.22",

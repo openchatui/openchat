@@ -1,6 +1,6 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import { FolderDbService } from "@/lib/server/file-management/folder-db.service";
+import { getTrashFolderId, listFoldersByParent, listFilesByParent } from "@/lib/server/drive";
 import { FilesResultsTable } from "@/components/drive/FilesResultsTable";
 import { FilesSearchBar } from "@/components/drive/FilesSearchBar";
 
@@ -9,12 +9,12 @@ export default async function TrashPage() {
   if (!session?.user?.id) redirect("/login");
 
   // Ensure the user's Trash system folder exists
-  const trashId = await FolderDbService.getTrashFolderId(session.user.id);
+  const trashId = await getTrashFolderId(session.user.id);
 
   // Load only Trash folder contents (not My Drive root)
   const [folders, files] = await Promise.all([
-    FolderDbService.listFoldersByParent(session.user.id, trashId),
-    FolderDbService.listFilesByParent(session.user.id, trashId),
+    listFoldersByParent(session.user.id, trashId),
+    listFilesByParent(session.user.id, trashId),
   ])
   const entries = [...folders, ...files]
   const breadcrumb = [{ id: trashId, name: 'Trash' }]

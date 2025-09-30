@@ -1,6 +1,6 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import { FolderDbService } from "@/lib/server/file-management/folder-db.service";
+import { getRootFolderId, listFoldersByParent, listFilesByParent, getFolderBreadcrumb } from "@/lib/server/drive";
 import { FilesSearchBar } from "@/components/drive/FilesSearchBar";
 import { FilesResultsTable } from "@/components/drive/FilesResultsTable";
 
@@ -18,12 +18,12 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
 
   const effectiveRootId = parentId && parentId.length > 0
     ? parentId
-    : await FolderDbService.getRootFolderId(session.user.id)
+    : await getRootFolderId(session.user.id)
 
   const [folders, files, breadcrumb] = await Promise.all([
-    FolderDbService.listFoldersByParent(session.user.id, effectiveRootId),
-    FolderDbService.listFilesByParent(session.user.id, effectiveRootId),
-    FolderDbService.getFolderBreadcrumb(session.user.id, effectiveRootId),
+    listFoldersByParent(session.user.id, effectiveRootId),
+    listFilesByParent(session.user.id, effectiveRootId),
+    getFolderBreadcrumb(session.user.id, effectiveRootId),
   ])
   const entries = [...folders, ...files]
 

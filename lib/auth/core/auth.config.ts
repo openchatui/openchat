@@ -23,7 +23,17 @@ export const authOptions = {
     GoogleProvider({
       id: "google-drive",
       clientId: process.env.DRIVE_CLIENT_ID,
-      clientSecret: process.env.DRIVE_CLIENT_SECRET
+      clientSecret: process.env.DRIVE_CLIENT_SECRET,
+      authorization: {
+        params: {
+          // Request offline access + explicit consent to obtain refresh_token
+          access_type: 'offline',
+          prompt: 'consent',
+          include_granted_scopes: 'true',
+          // Minimal scope to list metadata. Use drive.readonly if you plan to download content.
+          scope: 'openid email profile https://www.googleapis.com/auth/drive.metadata.readonly'
+        }
+      }
     }),
     Credentials({
       credentials: {

@@ -5,6 +5,7 @@ import Image from 'next/image'
 import { auth, signIn } from '@/lib/auth'
 import db from '@/lib/db'
 import { revalidatePath } from 'next/cache'
+import { syncUserGoogleDrive } from '@/lib/server/drive/providers/google-drive.service'
 
 export async function Integrations() {
   const session = await auth()
@@ -34,20 +35,32 @@ export async function Integrations() {
             </CardDescription>
             <CardAction>
               {isConnected ? (
-                <form
-                  action={async () => {
-                    'use server'
-                    const sess = await auth()
-                    const uid = sess?.user?.id
-                    if (!uid) return
-                    await db.account.deleteMany({ where: { userId: uid, provider: 'google-drive' } })
-                    revalidatePath('/settings/integrations')
-                  }}
-                >
-                  <Button variant="destructive">
-                    Disconnect
-                  </Button>
-                </form>
+                <div className="flex gap-2">
+                  <form
+                    action={async () => {
+                      'use server'
+                      const sess = await auth()
+                      const uid = sess?.user?.id
+                      if (!uid) return
+                      await syncUserGoogleDrive(uid)
+                      revalidatePath('/settings/integrations')
+                    }}
+                  >
+                    <Button variant="outline">Sync now</Button>
+                  </form>
+                  <form
+                    action={async () => {
+                      'use server'
+                      const sess = await auth()
+                      const uid = sess?.user?.id
+                      if (!uid) return
+                      await db.account.deleteMany({ where: { userId: uid, provider: 'google-drive' } })
+                      revalidatePath('/settings/integrations')
+                    }}
+                  >
+                    <Button variant="destructive">Disconnect</Button>
+                  </form>
+                </div>
               ) : (
                 <form
                   action={async () => {
@@ -55,9 +68,7 @@ export async function Integrations() {
                     await signIn('google-drive')
                   }}
                 >
-                  <Button variant="outline">
-                    Connect
-                  </Button>
+                  <Button variant="outline">Connect</Button>
                 </form>
               )}
             </CardAction>
