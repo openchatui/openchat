@@ -11,8 +11,10 @@ export {
   listFilesByParent,
   getFolderBreadcrumb,
   getRootFolderId,
+  getGoogleRootFolderId,
   getTrashFolderId,
   getFolderNameById,
+  isGoogleDriveFolder,
   createFolderRecord,
   listStarredEntries,
 } from '@/lib/server/drive/db.service'

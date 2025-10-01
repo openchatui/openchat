@@ -7,12 +7,16 @@ import ZoomableImage from "./ZoomableImage"
 import dynamic from "next/dynamic"
 const PdfAsImages = dynamic(() => import("./PdfAsImages"), { ssr: false })
 const VideoPreviewer = dynamic(() => import("./VideoPreviewer"), { ssr: false })
+const CsvViewer = dynamic(() => import("./CsvViewer"), { ssr: false })
+const OfficeViewer = dynamic(() => import("./OfficeViewer"), { ssr: false })
 
 interface PreviewDialogProps {
   open: boolean
   onOpenChange: (next: boolean) => void
   name: string
   url: string
+  mimeType?: string
+  fileId?: string
 }
 
 function isImageFile(nameOrUrl: string): boolean {
@@ -33,13 +37,55 @@ function isVideoFile(nameOrUrl: string): boolean {
   ].some(ext => lower.endsWith(ext))
 }
 
-export function PreviewDialog({ open, onOpenChange, name, url }: PreviewDialogProps) {
-  const kind: "image" | "pdf" | "video" | "other" = useMemo(() => {
+function isCsvFile(nameOrUrl: string): boolean {
+  return nameOrUrl.toLowerCase().endsWith(".csv")
+}
+
+function isOfficeDoc(nameOrUrl: string, mimeType?: string): boolean {
+  if (mimeType) {
+    // Check for Office MIME types
+    if ([
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.ms-excel'
+    ].includes(mimeType)) {
+      return true
+    }
+  }
+  
+  const lower = nameOrUrl.toLowerCase()
+  return [
+    ".docx", ".doc", ".xlsx", ".xls"
+  ].some(ext => lower.endsWith(ext))
+}
+
+function isGoogleWorkspaceDoc(mimeType?: string): boolean {
+  if (!mimeType) return false
+  return [
+    'application/vnd.google-apps.document',
+    'application/vnd.google-apps.spreadsheet',
+    'application/vnd.google-apps.presentation'
+  ].includes(mimeType)
+}
+
+export function PreviewDialog({ open, onOpenChange, name, url, mimeType, fileId }: PreviewDialogProps) {
+  const kind: "image" | "pdf" | "video" | "csv" | "office" | "google-workspace" | "other" = useMemo(() => {
+    if (isGoogleWorkspaceDoc(mimeType)) return "google-workspace"
     if (isImageFile(name) || isImageFile(url)) return "image"
     if (isPdfFile(name) || isPdfFile(url)) return "pdf"
     if (isVideoFile(name) || isVideoFile(url)) return "video"
+    if (isCsvFile(name) || isCsvFile(url)) return "csv"
+    if (isOfficeDoc(name, mimeType)) return "office"
     return "other"
-  }, [name, url])
+  }, [name, url, mimeType])
+  
+  const previewUrl = useMemo(() => {
+    if (kind === "google-workspace" && fileId) {
+      return `/api/drive/file/export/${encodeURIComponent(fileId)}`
+    }
+    return url
+  }, [kind, fileId, url])
 
   const INITIAL_SCALE = 0.75
 
@@ -73,8 +119,17 @@ export function PreviewDialog({ open, onOpenChange, name, url }: PreviewDialogPr
             {kind === "pdf" && (
               <PdfAsImages fileUrl={url} />
             )}
+            {kind === "google-workspace" && (
+              <PdfAsImages fileUrl={previewUrl} />
+            )}
             {kind === "video" && (
               <VideoPreviewer url={url} name={name} />
+            )}
+            {kind === "csv" && (
+              <CsvViewer fileUrl={url} />
+            )}
+            {kind === "office" && (
+              <OfficeViewer fileUrl={url} fileName={name} />
             )}
             {kind === "other" && (
               <div className="w-full h-full flex items-center justify-center text-muted-foreground text-sm">

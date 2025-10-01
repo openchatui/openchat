@@ -1,63 +1,85 @@
 "use client"
 
 import type { Session } from "next-auth"
-import { useState, useTransition } from "react"
 import { AdminSidebar } from "@/components/admin/AdminSidebar"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { updateDriveProviderAction } from "@/actions/drive"
+import { Switch } from "@/components/ui/switch"
+import { useDrive } from "@/hooks/useDrive"
  
 
 interface AdminDriveProps {
   session: Session | null
-  initialProvider: "local" | "gdrive"
+  initialConfig?: {
+    enabled: boolean
+    workspace: { enabled: boolean; provider: 'local' | 'aws' | 'azure' }
+    user: { enabled: boolean }
+  }
+  initialProvider?: "local" | "gdrive"
 }
 
-export function AdminDrive({ session, initialProvider }: AdminDriveProps) {
-  const [provider, setProvider] = useState<"local" | "gdrive">(initialProvider)
-  const [pending, startTransition] = useTransition()
+export function AdminDrive({ session, initialConfig, initialProvider }: AdminDriveProps) {
+  const fallbackConfig = { enabled: false, workspace: { enabled: false, provider: 'local' as const }, user: { enabled: false } }
+  const cfg = initialConfig ?? fallbackConfig
+  const { enabled, workspace, user, isSaving, setEnabled, setWorkspaceEnabled, setWorkspaceProvider, setUserEnabled } = useDrive(cfg)
   return (
     <AdminSidebar session={session} activeTab="drive">
       <div className="space-y-6">
         <div>
           <h2 className="text-2xl font-semibold">Drive</h2>
-          <p className="text-muted-foreground">Configure storage provider and integration for Drive.</p>
+          <p className="text-muted-foreground">Enable Drive and configure workspace or user storage.</p>
         </div>
 
         <Card>
           <CardHeader>
-            <CardTitle>Storage Provider</CardTitle>
-            <CardDescription>Select where file bytes are stored. UI and DB listing remain unchanged.</CardDescription>
+            <CardTitle>Drive Settings</CardTitle>
+            <CardDescription>Enable Drive and choose storage options.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between gap-4">
               <div className="space-y-1">
-                <Label htmlFor="drive-provider">Active Provider</Label>
-                <p className="text-sm text-muted-foreground">This reflects the server-side configuration.</p>
+                <Label htmlFor="drive-enabled">Enable Drive</Label>
+                <p className="text-sm text-muted-foreground">Turn on file storage features.</p>
               </div>
-              <Select
-                value={provider}
-                onValueChange={(v) => {
-                  const next = v as "local" | "gdrive"
-                  setProvider(next)
-                  const fd = new FormData()
-                  fd.set('provider', next)
-                  startTransition(async () => {
-                    await updateDriveProviderAction(fd)
-                  })
-                }}
-              >
-                <SelectTrigger id="drive-provider" className="min-w-56">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="local">Local (Filesystem)</SelectItem>
-                  <SelectItem value="gdrive">Google Drive</SelectItem>
-                </SelectContent>
-              </Select>
+              <Switch id="drive-enabled" checked={enabled} onCheckedChange={setEnabled} />
             </div>
-            <p className="text-xs text-muted-foreground">Switching providers will be managed server-side. Frontend remains unchanged.</p>
+
+            <div className="flex items-center justify-between gap-4">
+              <div className="space-y-1">
+                <Label htmlFor="workspace-enabled">Enable workspace level storage</Label>
+                <p className="text-sm text-muted-foreground">Use a single provider for all users.</p>
+              </div>
+              <Switch id="workspace-enabled" checked={workspace.enabled} onCheckedChange={setWorkspaceEnabled} />
+            </div>
+
+            {workspace.enabled && (
+              <div className="flex items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <Label htmlFor="workspace-provider">Workspace provider</Label>
+                  <p className="text-sm text-muted-foreground">Select where file bytes are stored.</p>
+                </div>
+                <Select value={workspace.provider} onValueChange={(v) => setWorkspaceProvider(v as 'local' | 'aws' | 'azure')}>
+                  <SelectTrigger id="workspace-provider" className="min-w-56">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="local">Local (Filesystem)</SelectItem>
+                    <SelectItem value="aws">AWS (S3)</SelectItem>
+                    <SelectItem value="azure">Azure (Blob)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            <div className="flex items-center justify-between gap-4">
+              <div className="space-y-1">
+                <Label htmlFor="user-enabled">Enable user level storage</Label>
+                <p className="text-sm text-muted-foreground">User integration with Google Drive or Microsoft OneDrive.</p>
+              </div>
+              <Switch id="user-enabled" checked={user.enabled} onCheckedChange={setUserEnabled} />
+            </div>
+            <p className="text-xs text-muted-foreground">Settings save automatically.</p>
           </CardContent>
         </Card>
       </div>

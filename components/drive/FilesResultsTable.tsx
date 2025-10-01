@@ -1,9 +1,10 @@
 "use client"
 import type { FileEntry } from "@/lib/server/drive"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { FileText, Download, Pencil } from "lucide-react"
+import { FileText, Download, Pencil, Users, Table2 } from "lucide-react"
 import { FaStar, FaRegStar } from "react-icons/fa";
-import { useCallback, useMemo, useState } from "react"
+import { LuSquareMenu } from "react-icons/lu";
+import { useCallback, useMemo, useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import dynamic from "next/dynamic"
 import { Button } from "@/components/ui/button"
@@ -40,9 +41,23 @@ interface FilesResultsTableProps {
   parentName?: string
   parentId?: string
   breadcrumb?: { id: string; name: string }[]
+  isGoogleDriveFolder?: boolean
 }
 
-function getIconForFile(name: string) {
+function getIconForFile(name: string, item?: FileEntry) {
+  // Check for Google Workspace files by MIME type
+  if (item && (item as any).meta) {
+    const meta = (item as any).meta as any
+    if (meta.mimeType) {
+      if (meta.mimeType === 'application/vnd.google-apps.document') {
+        return <LuSquareMenu className="h-4 w-4 text-blue-500" />
+      }
+      if (meta.mimeType === 'application/vnd.google-apps.spreadsheet') {
+        return <Table2 className="h-4 w-4 text-green-500" />
+      }
+    }
+  }
+
   const ext = name.includes('.') ? name.split('.').pop()!.toLowerCase() : ''
   if ([
     'jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'tiff', 'tif', 'heic', 'heif', 'avif'
@@ -70,11 +85,23 @@ function getIconForFile(name: string) {
   return <FileText className="h-4 w-4 text-blue-400" />
 }
 
-function isPreviewable(name: string) {
+function isPreviewable(name: string, item?: FileEntry) {
+  // Check if it's a Google Workspace file
+  if (item && (item as any).meta) {
+    const meta = (item as any).meta as any
+    if (meta.mimeType && meta.mimeType.startsWith('application/vnd.google-apps.')) {
+      return ['document', 'spreadsheet', 'presentation'].some(type => 
+        meta.mimeType === `application/vnd.google-apps.${type}`
+      )
+    }
+  }
+  
   const ext = name.includes('.') ? name.split('.').pop()!.toLowerCase() : ''
   if ([
     'jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'tiff', 'tif', 'heic', 'heif', 'avif',
-    'pdf'
+    'pdf',
+    'csv',
+    'docx', 'doc', 'xlsx', 'xls'
   ].includes(ext)) return true
   return false
 }
@@ -86,7 +113,68 @@ function isImageName(name: string) {
   ].includes(ext)
 }
 
-export function FilesResultsTable({ entries, parentName, parentId, breadcrumb }: FilesResultsTableProps) {
+function isGoogleDriveFile(item: FileEntry): boolean {
+  // Google Drive files have IDs that are not file paths
+  // They typically don't contain slashes and are alphanumeric with dashes/underscores
+  // Also, their path equals their name (since DB path is null -> becomes filename)
+  return item.path === item.name && !item.path.includes('/')
+}
+
+function getFileUrl(item: FileEntry): string {
+  // Check if this is a Google Drive file
+  if (isGoogleDriveFile(item)) {
+    return `/api/drive/file/${encodeURIComponent(item.id)}`
+  }
+  
+  // Local file handling
+  let rel = item.path || item.name
+  if (rel.startsWith('/data/files/')) {
+    rel = rel.slice('/data/files/'.length)
+  } else if (rel.startsWith('data/files/')) {
+    rel = rel.slice('data/files/'.length)
+  }
+  
+  return isImageName(item.name)
+    ? `/images/${encodeURIComponent(item.name)}`
+    : `/files/${rel.split('/').map(encodeURIComponent).join('/')}`
+}
+
+function getDownloadUrl(item: FileEntry): string {
+  // Check if this is a Google Drive file
+  if (isGoogleDriveFile(item)) {
+    // If it's a shared file, open in Google Drive instead
+    if (item.ownedByMe === false && item.webViewLink) {
+      return item.webViewLink
+    }
+    return `/api/drive/file/download/${encodeURIComponent(item.id)}`
+  }
+  
+  // For local files, use the same URL as getFileUrl
+  return getFileUrl(item)
+}
+
+function handleFileDownload(item: FileEntry): void {
+  try {
+    // For shared Google Drive files, open in new tab
+    if (isGoogleDriveFile(item) && item.ownedByMe === false && item.webViewLink) {
+      window.open(item.webViewLink, '_blank')
+      return
+    }
+    
+    // For regular files, trigger download
+    const a = document.createElement('a')
+    a.href = getDownloadUrl(item)
+    a.download = item.name
+    a.style.display = 'none'
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+  } catch (error) {
+    console.error('Download failed:', error)
+  }
+}
+
+export function FilesResultsTable({ entries, parentName, parentId, breadcrumb, isGoogleDriveFolder }: FilesResultsTableProps) {
   const router = useRouter()
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [lastIndex, setLastIndex] = useState<number | null>(null)
@@ -96,16 +184,36 @@ export function FilesResultsTable({ entries, parentName, parentId, breadcrumb }:
   const [moveBulkOpen, setMoveBulkOpen] = useState<boolean>(false)
   const [activeId, setActiveId] = useState<string | null>(null)
   const [overFolderId, setOverFolderId] = useState<string | null>(null)
-  const [preview, setPreview] = useState<{ name: string; url: string } | null>(null)
+  const [preview, setPreview] = useState<{ name: string; url: string; mimeType?: string; fileId?: string } | null>(null)
   const [renameFolderId, setRenameFolderId] = useState<string | null>(null)
   const [renameFileId, setRenameFileId] = useState<string | null>(null)
   // Optimistic star overrides for instant UI feedback
   const [starredOverrides, setStarredOverrides] = useState<Map<string, boolean>>(new Map())
+  // Only enable drag and drop on client to avoid hydration mismatch
+  const [isDndReady, setIsDndReady] = useState(false)
   const idToItem = useMemo(() => {
     const m = new Map<string, FileEntry>()
     for (const e of entries) m.set(e.id, e)
     return m
   }, [entries])
+
+  // Only enable DnD after client-side hydration to avoid hydration mismatch
+  useEffect(() => {
+    setIsDndReady(true)
+  }, [])
+
+  // Trigger a one-time sync on load when viewing a Google Drive folder
+  useEffect(() => {
+    if (!isGoogleDriveFolder) return
+    let cancelled = false
+    ;(async () => {
+      try {
+        await fetch('/api/drive/sync', { method: 'POST' })
+        if (!cancelled) router.refresh()
+      } catch {}
+    })()
+    return () => { cancelled = true }
+  }, [isGoogleDriveFolder, router])
 
   // Require a small pointer movement (and press delay on touch) before starting drag
   const sensors = useSensors(
@@ -124,18 +232,26 @@ export function FilesResultsTable({ entries, parentName, parentId, breadcrumb }:
       router.push(`/drive/folder/${encodeURIComponent(item.path)}`)
       return
     }
-    // Build file URL using the stored path if present
-    let rel = item.path || item.name
-    if (rel.startsWith('/data/files/')) {
-      rel = rel.slice('/data/files/'.length)
-    } else if (rel.startsWith('data/files/')) {
-      rel = rel.slice('data/files/'.length)
+    // Prefer in-app preview for previewable types; only fall back to Drive for non-previewable shared files
+    const lower = item.name.toLowerCase()
+    const isPreviewableByExt = isImageName(item.name) || lower.endsWith('.pdf') || [
+      'mp4','webm','ogg','ogv','mov','m4v','mkv','csv','doc','docx','xls','xlsx'
+    ].some(ext => lower.endsWith('.' + ext))
+    if (!isPreviewableByExt && (item.ownedByMe === false || (item.shared && item.webViewLink))) {
+      const driveUrl = item.webViewLink || `https://drive.google.com/file/d/${item.id}/view`
+      window.open(driveUrl, '_blank')
+      return
     }
-    const url = isImageName(item.name)
-      ? `/images/${encodeURIComponent(item.name)}`
-      : `/files/${rel.split('/').map(encodeURIComponent).join('/')}`
-    setPreview({ name: item.name, url })
-  }, [router, setPreview])
+
+    const url = getFileUrl(item)
+    const meta = (item as any).meta as any
+    setPreview({ 
+      name: item.name, 
+      url,
+      mimeType: meta?.mimeType,
+      fileId: item.id
+    })
+  }, [router, setPreview, parentName])
 
   const handleRowClick = useCallback((e: React.MouseEvent, index: number, item: FileEntry) => {
     // Ignore if this is part of a double-click
@@ -234,8 +350,7 @@ export function FilesResultsTable({ entries, parentName, parentId, breadcrumb }:
     }
   }
 
-  return (
-    <DndContext sensors={sensors} collisionDetection={pointerWithin} onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd}>
+  const content = (
     <CreateContextMenu parentId={parentId ?? ''} disabled={parentName === 'Trash'}>
     <div className="w-full flex flex-col border p-4 rounded-2xl h-[90vh]" onClick={handleBackgroundClick}>
       {breadcrumb && breadcrumb.length > 0 && (
@@ -252,20 +367,19 @@ export function FilesResultsTable({ entries, parentName, parentId, breadcrumb }:
             for (const id of ids) {
               const it = idToItem.get(id)
               if (!it) continue
-              try {
-                const a = document.createElement('a')
-                if (it.isDirectory) {
+              if (it.isDirectory) {
+                try {
+                  const a = document.createElement('a')
                   a.href = `/api/folders/download?id=${encodeURIComponent(it.id)}`
                   a.download = ''
-                } else {
-                  a.href = `/files/${encodeURIComponent(it.name)}`
-                  a.download = it.name
-                }
-                a.style.display = 'none'
-                document.body.appendChild(a)
-                a.click()
-                a.remove()
-              } catch {}
+                  a.style.display = 'none'
+                  document.body.appendChild(a)
+                  a.click()
+                  a.remove()
+                } catch {}
+              } else {
+                handleFileDownload(it)
+              }
             }
           }}
           onMoveSelected={() => {
@@ -365,16 +479,14 @@ export function FilesResultsTable({ entries, parentName, parentId, breadcrumb }:
                 allIds={allIds}
                 overFolderId={overFolderId}
                 onPreview={(it) => {
-                  let rel = it.path || it.name
-                  if (rel.startsWith('/data/files/')) {
-                    rel = rel.slice('/data/files/'.length)
-                  } else if (rel.startsWith('data/files/')) {
-                    rel = rel.slice('data/files/'.length)
-                  }
-                  const url = isImageName(it.name)
-                    ? `/images/${encodeURIComponent(it.name)}`
-                    : `/files/${rel.split('/').map(encodeURIComponent).join('/')}`
-                  setPreview({ name: it.name, url })
+                  const url = getFileUrl(it)
+                  const meta = (it as any).meta as any
+                  setPreview({ 
+                    name: it.name, 
+                    url,
+                    mimeType: meta?.mimeType,
+                    fileId: it.id
+                  })
                 }}
                 isStarred={starredOverrides.has(item.id) ? starredOverrides.get(item.id)! : Boolean((item as any).starred)}
                 onToggleStar={async () => {
@@ -488,7 +600,7 @@ export function FilesResultsTable({ entries, parentName, parentId, breadcrumb }:
               {it.isDirectory ? (
                 <FaFolder className="h-4 w-4" />
               ) : (
-                getIconForFile(it.name)
+                getIconForFile(it.name, it)
               )}
               <span className="max-w-[320px] truncate font-medium">{it.name}</span>
             </div>
@@ -500,11 +612,23 @@ export function FilesResultsTable({ entries, parentName, parentId, breadcrumb }:
         onOpenChange={(next) => { if (!next) setPreview(null) }}
         name={preview?.name ?? ''}
         url={preview?.url ?? ''}
+        mimeType={preview?.mimeType}
+        fileId={preview?.fileId}
       />
     </div>
     </CreateContextMenu>
+  );
+
+  // Wrap with DndContext only after client-side hydration
+  if (!isDndReady) {
+    return content;
+  }
+
+  return (
+    <DndContext sensors={sensors} collisionDetection={pointerWithin} onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd}>
+      {content}
     </DndContext>
-  )
+  );
 }
 
 interface RowItemProps {
@@ -546,9 +670,14 @@ function RowItem({ item, parentName, selected, onRowClick, onRowDoubleClick, set
         {item.isDirectory ? (
           <FaFolder className="h-4 w-4" />
         ) : (
-          getIconForFile(item.name)
+          getIconForFile(item.name, item)
         )}
         <span className="truncate flex-1 min-w-0">{item.name}</span>
+        {!item.isDirectory && item.ownedByMe === false && (
+          <span title="Shared with me" className="flex-shrink-0">
+            <Users className="h-4 w-4 text-blue-500" />
+          </span>
+        )}
       </TableCell>
       <TableCell className="w-[15%]">You</TableCell>
       <TableCell className="w-[15%]">{new Date(item.modifiedMs).toLocaleString('en-US', { timeZone: 'UTC', year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true })}</TableCell>
@@ -559,29 +688,19 @@ function RowItem({ item, parentName, selected, onRowClick, onRowDoubleClick, set
         <div className="flex items-center justify-end gap-1">
           <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
             <Button variant="ghost" size="icon" aria-label="Download" onClick={() => {
-              try {
-                const a = document.createElement('a')
-                if (item.isDirectory) {
+              if (item.isDirectory) {
+                try {
+                  const a = document.createElement('a')
                   a.href = `/api/folders/download?id=${encodeURIComponent(item.id)}`
                   a.download = ''
-                } else {
-                  let rel = item.path || item.name
-                  if (rel.startsWith('/data/files/')) {
-                    rel = rel.slice('/data/files/'.length)
-                  } else if (rel.startsWith('data/files/')) {
-                    rel = rel.slice('data/files/'.length)
-                  }
-                  const href = isImageName(item.name)
-                    ? `/images/${encodeURIComponent(item.name)}`
-                    : `/files/${rel.split('/').map(encodeURIComponent).join('/')}`
-                  a.href = href
-                  a.download = item.name
-                }
-                a.style.display = 'none'
-                document.body.appendChild(a)
-                a.click()
-                a.remove()
-              } catch {}
+                  a.style.display = 'none'
+                  document.body.appendChild(a)
+                  a.click()
+                  a.remove()
+                } catch {}
+              } else {
+                handleFileDownload(item)
+              }
             }}>
               <Download className="h-4 w-4" />
             </Button>
@@ -608,27 +727,8 @@ function RowItem({ item, parentName, selected, onRowClick, onRowDoubleClick, set
               itemType="file"
               onMove={() => setMoveFileId(item.id)}
               onRename={() => setRenameFileId(item.id)}
-              onPreview={isPreviewable(item.name) ? (() => onPreview(item)) : undefined}
-              onDownload={() => {
-                try {
-                  let rel = item.path || item.name
-                  if (rel.startsWith('/data/files/')) {
-                    rel = rel.slice('/data/files/'.length)
-                  } else if (rel.startsWith('data/files/')) {
-                    rel = rel.slice('data/files/'.length)
-                  }
-                  const href = isImageName(item.name)
-                    ? `/images/${encodeURIComponent(item.name)}`
-                    : `/files/${rel.split('/').map(encodeURIComponent).join('/')}`
-                  const a = document.createElement('a')
-                  a.href = href
-                  a.download = item.name
-                  a.style.display = 'none'
-                  document.body.appendChild(a)
-                  a.click()
-                  a.remove()
-                } catch {}
-              }}
+              onPreview={isPreviewable(item.name, item) ? (() => onPreview(item)) : undefined}
+              onDownload={() => handleFileDownload(item)}
             />
           )}
         </div>
@@ -643,27 +743,8 @@ function RowItem({ item, parentName, selected, onRowClick, onRowDoubleClick, set
         itemType="file"
         onMove={() => setMoveFileId(item.id)}
         onRename={() => setRenameFileId(item.id)}
-        onPreview={isPreviewable(item.name) ? (() => onPreview(item)) : undefined}
-        onDownload={() => {
-          try {
-            let rel = item.path || item.name
-            if (rel.startsWith('/data/files/')) {
-              rel = rel.slice('/data/files/'.length)
-            } else if (rel.startsWith('data/files/')) {
-              rel = rel.slice('data/files/'.length)
-            }
-            const href = isImageName(item.name)
-              ? `/images/${encodeURIComponent(item.name)}`
-              : `/files/${rel.split('/').map(encodeURIComponent).join('/')}`
-            const a = document.createElement('a')
-            a.href = href
-            a.download = item.name
-            a.style.display = 'none'
-            document.body.appendChild(a)
-            a.click()
-            a.remove()
-          } catch {}
-        }}
+        onPreview={isPreviewable(item.name, item) ? (() => onPreview(item)) : undefined}
+        onDownload={() => handleFileDownload(item)}
       >
         {row}
       </ItemContextMenu>

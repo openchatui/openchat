@@ -3,6 +3,7 @@ import db from '@/lib/db'
 import { google, drive_v3 } from 'googleapis'
 import { auth } from '@/lib/auth'
 import { getTrashFolderId, getRootFolderId } from '@/lib/server/drive/db.service'
+ 
 
 type GoogleDriveFile = {
   id: string
@@ -12,6 +13,9 @@ type GoogleDriveFile = {
   trashed?: boolean
   createdTime?: string
   modifiedTime?: string
+  ownedByMe?: boolean
+  shared?: boolean
+  webViewLink?: string
 }
 
 function toUnixSeconds(dateIso?: string | null): number {
@@ -71,10 +75,11 @@ async function getAuthedDriveClientForUser(userId: string) {
   return drive
 }
 
+
 async function listAllDriveFiles(drive: drive_v3.Drive): Promise<GoogleDriveFile[]> {
   const files: GoogleDriveFile[] = []
   let pageToken: string | undefined = undefined
-  const fields = 'nextPageToken, files(id, name, mimeType, parents, trashed, createdTime, modifiedTime)'
+  const fields = 'nextPageToken, files(id, name, mimeType, parents, trashed, createdTime, modifiedTime, ownedByMe, shared, webViewLink)'
   const q = "trashed = false and not mimeType = 'application/vnd.google-apps.shortcut'"
   do {
     const { data }: { data: drive_v3.Schema$FileList } = await drive.files.list({
@@ -197,7 +202,12 @@ export async function syncUserGoogleDrive(userId: string): Promise<{ folders: nu
         name: f.name,
         parentId,
         updatedAt,
-        meta: { provider: 'google-drive' },
+        meta: { 
+          provider: 'google-drive',
+          ownedByMe: f.ownedByMe ?? true,
+          shared: f.shared ?? false,
+          webViewLink: f.webViewLink ?? undefined
+        },
       },
       create: {
         id: f.id,
@@ -205,7 +215,12 @@ export async function syncUserGoogleDrive(userId: string): Promise<{ folders: nu
         parentId,
         name: f.name,
         items: {},
-        meta: { provider: 'google-drive' },
+        meta: { 
+          provider: 'google-drive',
+          ownedByMe: f.ownedByMe ?? true,
+          shared: f.shared ?? false,
+          webViewLink: f.webViewLink ?? undefined
+        },
         isExpanded: false,
         createdAt: createdAt || nowSec,
         updatedAt: updatedAt || nowSec,
@@ -229,18 +244,29 @@ export async function syncUserGoogleDrive(userId: string): Promise<{ folders: nu
         parentId,
         filename: fi.name,
         updatedAt,
-        meta: { provider: 'google-drive', mimeType: fi.mimeType },
+        meta: { 
+          provider: 'google-drive', 
+          mimeType: fi.mimeType,
+          ownedByMe: fi.ownedByMe ?? true,
+          shared: fi.shared ?? false,
+          webViewLink: fi.webViewLink ?? undefined
+        },
       },
       create: {
         id: fi.id,
         userId,
         parentId,
         filename: fi.name,
-        meta: { provider: 'google-drive', mimeType: fi.mimeType },
+        meta: { 
+          provider: 'google-drive', 
+          mimeType: fi.mimeType,
+          ownedByMe: fi.ownedByMe ?? true,
+          shared: fi.shared ?? false,
+          webViewLink: fi.webViewLink ?? undefined
+        },
         createdAt: createdAt || nowSec,
         updatedAt: updatedAt || nowSec,
         path: null,
-        accessControl: {},
       },
     })
   }
@@ -253,6 +279,85 @@ export async function syncCurrentUserGoogleDrive(): Promise<{ folders: number; f
   const userId = session?.user?.id
   if (!userId) throw new Error('Not authenticated')
   return syncUserGoogleDrive(userId)
+}
+
+export async function getGoogleDriveFileStream(userId: string, fileId: string): Promise<{ stream: NodeJS.ReadableStream; mimeType: string; size?: number }> {
+  const drive = await getAuthedDriveClientForUser(userId)
+  
+  // Get file metadata to determine mime type and size
+  const { data: metadata } = await drive.files.get({
+    fileId,
+    fields: 'mimeType,size'
+  })
+  
+  // Get file content as stream
+  const response = await drive.files.get(
+    { fileId, alt: 'media' },
+    { responseType: 'stream' }
+  )
+  
+  return {
+    stream: response.data as any,
+    mimeType: metadata.mimeType ?? 'application/octet-stream',
+    size: metadata.size ? parseInt(metadata.size, 10) : undefined
+  }
+}
+
+export async function exportGoogleDriveFile(
+  userId: string, 
+  fileId: string, 
+  mimeType: string
+): Promise<{ stream: NodeJS.ReadableStream; mimeType: string; size?: number }> {
+  const drive = await getAuthedDriveClientForUser(userId)
+  
+  // Export Google Workspace files (Docs, Sheets, etc.) to specified format
+  const response = await drive.files.export(
+    { fileId, mimeType },
+    { responseType: 'stream' }
+  )
+  
+  return {
+    stream: response.data as any,
+    mimeType,
+    size: undefined
+  }
+}
+
+export function isGoogleWorkspaceFile(mimeType: string): boolean {
+  return mimeType.startsWith('application/vnd.google-apps.')
+}
+
+export function getExportMimeType(googleMimeType: string): string | null {
+  const exportMap: Record<string, string> = {
+    'application/vnd.google-apps.document': 'application/pdf',
+    'application/vnd.google-apps.spreadsheet': 'application/pdf',
+    'application/vnd.google-apps.presentation': 'application/pdf',
+    'application/vnd.google-apps.drawing': 'application/pdf',
+  }
+  return exportMap[googleMimeType] || null
+}
+
+export async function getGoogleDriveAbout(userId: string): Promise<{ 
+  storageQuota: { limit: string; usage: string; usageInDrive: string } | null
+  user: { emailAddress?: string; displayName?: string } | null
+}> {
+  const drive = await getAuthedDriveClientForUser(userId)
+  
+  const { data } = await drive.about.get({
+    fields: 'storageQuota,user'
+  })
+  
+  return {
+    storageQuota: data.storageQuota ? {
+      limit: data.storageQuota.limit ?? '0',
+      usage: data.storageQuota.usage ?? '0',
+      usageInDrive: data.storageQuota.usageInDrive ?? '0'
+    } : null,
+    user: data.user ? {
+      emailAddress: data.user.emailAddress ?? undefined,
+      displayName: data.user.displayName ?? undefined
+    } : null
+  }
 }
 
 // Skeletons for future Google Drive operations (not yet implemented)

@@ -12,6 +12,47 @@ import { loginSchema } from "../validation/auth.validation";
 import { CredentialsProvider } from "../providers/credentials.provider";
 import { v4 as uuid } from "uuid";
 import GoogleProvider from "next-auth/providers/google";
+import type { Prisma } from "@prisma/client";
+
+async function enableIntegrationFlag(userId: string, key: string): Promise<void> {
+  try {
+    const dbUser = await db.user.findUnique({ where: { id: userId }, select: { settings: true } })
+    const settingsValue: unknown = dbUser?.settings ?? {}
+    const settingsObj = (settingsValue && typeof settingsValue === 'object' && !Array.isArray(settingsValue))
+      ? (settingsValue as Record<string, unknown>)
+      : {}
+    const settingsObjJson = settingsObj as unknown as Prisma.InputJsonObject
+
+    const integrationsValue: unknown = (settingsObj as any).integrations
+    const integrationsObj = (integrationsValue && typeof integrationsValue === 'object' && !Array.isArray(integrationsValue))
+      ? (integrationsValue as Record<string, unknown>)
+      : {}
+    const integrationsObjJson = integrationsObj as unknown as Prisma.InputJsonObject
+
+    const providerValue: unknown = (integrationsObj as any)[key]
+    const providerObj = (providerValue && typeof providerValue === 'object' && !Array.isArray(providerValue))
+      ? (providerValue as Record<string, unknown>)
+      : {}
+    const providerObjJson = providerObj as unknown as Prisma.InputJsonObject
+
+    const updatedSettings: Prisma.InputJsonObject = {
+      ...settingsObjJson,
+      integrations: {
+        ...integrationsObjJson,
+        [key]: {
+          ...providerObjJson,
+          enabled: true,
+        },
+      } as unknown as Prisma.InputJsonObject,
+    }
+
+    await db.user.update({ where: { id: userId }, data: { settings: updatedSettings } })
+  } catch (err) {
+    // Ignore settings update failure
+  }
+}
+
+ 
 
 const adapter = PrismaAdapter(db);
 
@@ -30,8 +71,8 @@ export const authOptions = {
           access_type: 'offline',
           prompt: 'consent',
           include_granted_scopes: 'true',
-          // Minimal scope to list metadata. Use drive.readonly if you plan to download content.
-          scope: 'openid email profile https://www.googleapis.com/auth/drive.metadata.readonly'
+          // Updated scope to allow reading file content for previews
+          scope: 'openid email profile https://www.googleapis.com/auth/drive.readonly'
         }
       }
     }),
@@ -66,6 +107,12 @@ export const authOptions = {
             userId: (user as any)?.id,
             expires: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
           });
+        }
+
+        // If user connected Google Drive, enable integration flag in settings
+        if (account?.provider === 'google-drive' && (user as any)?.id) {
+          const userId = (user as any).id as string
+          await enableIntegrationFlag(userId, 'google-drive')
         }
       } catch (err) {
         // Do not block sign-in on audit session write failure
@@ -122,6 +169,16 @@ export const authOptions = {
         });
       } catch (err) {
         console.error('SignOut session expire failed:', err);
+      }
+    },
+    async linkAccount({ user, account }: any) {
+      try {
+        if (account?.provider === 'google-drive' && user?.id) {
+          const uid = user.id as string
+          await enableIntegrationFlag(uid, 'google-drive')
+        }
+      } catch {
+        // ignore
       }
     },
   },

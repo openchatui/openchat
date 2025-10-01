@@ -5,7 +5,7 @@ import Image from 'next/image'
 import { auth, signIn } from '@/lib/auth'
 import db from '@/lib/db'
 import { revalidatePath } from 'next/cache'
-import { syncUserGoogleDrive } from '@/lib/server/drive/providers/google-drive.service'
+import { DriveSyncAuto } from '@/components/settings/DriveSyncAuto'
 
 export async function Integrations() {
   const session = await auth()
@@ -14,6 +14,7 @@ export async function Integrations() {
     ? await db.account.findFirst({ where: { userId, provider: 'google-drive' } })
     : null
   const isConnected = !!account
+
   return (
     <div className="space-y-6">
       <div className="flex items-start justify-between">
@@ -30,24 +31,13 @@ export async function Integrations() {
               <Image src={'/logos/Google_Drive.svg'} width={18} height={18} alt='Google Drive'/>
               Google Drive
             </CardTitle>
-            <CardDescription>
+            <CardDescription className='w-52'>
               Connect Google Drive to browse and import files.
             </CardDescription>
             <CardAction>
               {isConnected ? (
-                <div className="flex gap-2">
-                  <form
-                    action={async () => {
-                      'use server'
-                      const sess = await auth()
-                      const uid = sess?.user?.id
-                      if (!uid) return
-                      await syncUserGoogleDrive(uid)
-                      revalidatePath('/settings/integrations')
-                    }}
-                  >
-                    <Button variant="outline">Sync now</Button>
-                  </form>
+                <div className="flex gap-2 items-center">
+                  <DriveSyncAuto isConnected={isConnected} />
                   <form
                     action={async () => {
                       'use server'

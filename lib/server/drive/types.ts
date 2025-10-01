@@ -10,6 +10,10 @@ export interface FileEntry {
   size: number | null
   modifiedMs: number
   starred?: boolean
+  ownedByMe?: boolean
+  shared?: boolean
+  webViewLink?: string
+  meta?: Record<string, any>
 }
 
 export function getDriveProvider(): DriveProvider {

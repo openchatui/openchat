@@ -1,6 +1,6 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import { getRootFolderId, listFoldersByParent, listFilesByParent, getFolderBreadcrumb } from "@/lib/server/drive";
+import { getRootFolderId, listFoldersByParent, listFilesByParent, getFolderBreadcrumb, isGoogleDriveFolder } from "@/lib/server/drive";
 import { FilesSearchBar } from "@/components/drive/FilesSearchBar";
 import { FilesResultsTable } from "@/components/drive/FilesResultsTable";
 
@@ -20,17 +20,18 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
     ? parentId
     : await getRootFolderId(session.user.id)
 
-  const [folders, files, breadcrumb] = await Promise.all([
+  const [folders, files, breadcrumb, isDrive] = await Promise.all([
     listFoldersByParent(session.user.id, effectiveRootId),
     listFilesByParent(session.user.id, effectiveRootId),
     getFolderBreadcrumb(session.user.id, effectiveRootId),
+    isGoogleDriveFolder(session.user.id, effectiveRootId),
   ])
   const entries = [...folders, ...files]
 
   return (
     <div className="space-y-6">
       <FilesSearchBar />
-      <FilesResultsTable entries={entries} parentId={effectiveRootId} breadcrumb={breadcrumb} />
+      <FilesResultsTable entries={entries} parentId={effectiveRootId} breadcrumb={breadcrumb} isGoogleDriveFolder={isDrive} />
     </div>
   );
 }

@@ -40,14 +40,26 @@ export class DriveDbService {
       return raw.slice(0, 24) + '-' + raw.slice(24, 32)
     })()
     const nowSec = Math.floor(Date.now() / 1000)
-    await db.$executeRaw`INSERT INTO "folder" (id, user_id, parent_id, name, items, meta, is_expanded, created_at, updated_at, data)
-      VALUES (${id}, ${userId}, ${null}, ${'My Drive'}, ${JSON.stringify({})}, ${JSON.stringify({ provider: 'local' })}, ${0}, ${nowSec}, ${nowSec}, ${JSON.stringify({})})`
+    await db.folder.create({
+      data: {
+        id,
+        userId,
+        parentId: null,
+        name: 'My Drive',
+        items: {},
+        meta: { provider: 'local' },
+        isExpanded: false,
+        createdAt: nowSec,
+        updatedAt: nowSec,
+        data: {},
+      },
+    })
     // Also create Trash automatically
     await DriveDbService.getTrashFolderId(userId)
     return id
   }
 
-  private static async getGoogleRootFolderId(userId: string): Promise<string | null> {
+  static async getGoogleRootFolderId(userId: string): Promise<string | null> {
     try {
       const rs = await db.$queryRaw<{ id: string }[]>`
         SELECT id FROM "folder"
@@ -121,8 +133,20 @@ export class DriveDbService {
       return raw.slice(0, 24) + '-' + raw.slice(24, 32)
     })()
     const nowSec = Math.floor(Date.now() / 1000)
-    await db.$executeRaw`INSERT INTO "folder" (id, user_id, parent_id, name, items, meta, is_expanded, created_at, updated_at, data)
-      VALUES (${id}, ${userId}, ${null}, ${'Trash'}, ${JSON.stringify({})}, ${JSON.stringify({ system: 'trash', provider: 'local' })}, ${0}, ${nowSec}, ${nowSec}, ${JSON.stringify({})})`
+    await db.folder.create({
+      data: {
+        id,
+        userId,
+        parentId: null,
+        name: 'Trash',
+        items: {},
+        meta: { system: 'trash', provider: 'local' },
+        isExpanded: false,
+        createdAt: nowSec,
+        updatedAt: nowSec,
+        data: {},
+      },
+    })
     return id
   }
 
@@ -132,26 +156,22 @@ export class DriveDbService {
     const id = raw.slice(0, 24) + '-' + raw.slice(24, 32)
     const nowSec = Math.floor(Date.now() / 1000)
     const effectiveParentId = parentId && parentId.length > 0 ? parentId : await DriveDbService.getRootFolderId(userId)
-    const client: any = db as any
-    if (client?.folder?.create) {
-      await client.folder.create({
-        data: {
-          id,
-          userId,
-          parentId: effectiveParentId,
-          name,
-          items: {},
-          meta: {},
-          isExpanded: false,
-          createdAt: nowSec,
-          updatedAt: nowSec,
-          data: {},
-        },
-      })
-    } else {
-      await db.$executeRaw`INSERT INTO "folder" (id, user_id, parent_id, name, items, meta, is_expanded, created_at, updated_at, data)
-        VALUES (${id}, ${userId}, ${effectiveParentId}, ${name}, ${JSON.stringify({})}, ${JSON.stringify({})}, ${0}, ${nowSec}, ${nowSec}, ${JSON.stringify({})})`
-    }
+    
+    await db.folder.create({
+      data: {
+        id,
+        userId,
+        parentId: effectiveParentId,
+        name,
+        items: {},
+        meta: {},
+        isExpanded: false,
+        createdAt: nowSec,
+        updatedAt: nowSec,
+        data: {},
+      },
+    })
+    
     return { id }
   }
 
@@ -361,6 +381,22 @@ export class DriveDbService {
     return rows && rows[0]?.name ? String(rows[0].name) : null
   }
 
+  static async isGoogleDriveFolder(userId: string, folderId: string): Promise<boolean> {
+    try {
+      const rows = await db.$queryRaw<any[]>`
+        SELECT COALESCE(CAST(json_extract(meta, '$.provider') AS TEXT), '') AS provider
+        FROM "folder" WHERE user_id = ${userId} AND id = ${folderId} LIMIT 1`
+      const provider = rows && rows[0]?.provider ? String(rows[0].provider) : ''
+      return provider === 'google-drive'
+    } catch {
+      const rows = await db.$queryRaw<any[]>`
+        SELECT COALESCE((meta ->> 'provider')::text, '') AS provider
+        FROM "folder" WHERE user_id = ${userId} AND id = ${folderId} LIMIT 1`
+      const provider = rows && rows[0]?.provider ? String(rows[0].provider) : ''
+      return provider === 'google-drive'
+    }
+  }
+
   static async listFilesByParent(userId: string, parentId?: string | null): Promise<FileEntry[]> {
     const effectiveParentId = parentId && parentId.length > 0
       ? parentId
@@ -385,9 +421,12 @@ export class DriveDbService {
       if (parentProvider === 'google-drive') {
         try {
           return await db.$queryRaw<any[]>`
-            SELECT id, filename, path,
+            SELECT id, filename, path, meta,
               CAST(CASE WHEN updated_at > 100000000000 THEN updated_at/1000 ELSE updated_at END AS INT) AS updatedAt,
-              COALESCE(CAST(json_extract(meta, '$.starred') AS INT), 0) AS starred
+              COALESCE(CAST(json_extract(meta, '$.starred') AS INT), 0) AS starred,
+              COALESCE(CAST(json_extract(meta, '$.ownedByMe') AS INT), 1) AS ownedByMe,
+              COALESCE(CAST(json_extract(meta, '$.shared') AS INT), 0) AS shared,
+              json_extract(meta, '$.webViewLink') AS webViewLink
             FROM "file"
             WHERE user_id = ${userId}
               AND parent_id = ${effectiveParentId}
@@ -395,9 +434,12 @@ export class DriveDbService {
           `
         } catch {
           return await db.$queryRaw<any[]>`
-            SELECT id, filename, path,
+            SELECT id, filename, path, meta,
               CAST(CASE WHEN updated_at > 100000000000 THEN updated_at/1000 ELSE updated_at END AS INT) AS updatedAt,
-              COALESCE((meta ->> 'starred')::boolean::int, 0) AS starred
+              COALESCE((meta ->> 'starred')::boolean::int, 0) AS starred,
+              COALESCE((meta ->> 'ownedByMe')::boolean::int, 1) AS ownedByMe,
+              COALESCE((meta ->> 'shared')::boolean::int, 0) AS shared,
+              meta ->> 'webViewLink' AS webViewLink
             FROM "file"
             WHERE user_id = ${userId}
               AND parent_id = ${effectiveParentId}
@@ -407,7 +449,7 @@ export class DriveDbService {
       } else {
         try {
           return await db.$queryRaw<any[]>`
-            SELECT id, filename, path,
+            SELECT id, filename, path, meta,
               CAST(CASE WHEN updated_at > 100000000000 THEN updated_at/1000 ELSE updated_at END AS INT) AS updatedAt,
               COALESCE(CAST(json_extract(meta, '$.starred') AS INT), 0) AS starred
             FROM "file"
@@ -417,7 +459,7 @@ export class DriveDbService {
           `
         } catch {
           return await db.$queryRaw<any[]>`
-            SELECT id, filename, path,
+            SELECT id, filename, path, meta,
               CAST(CASE WHEN updated_at > 100000000000 THEN updated_at/1000 ELSE updated_at END AS INT) AS updatedAt,
               COALESCE((meta ->> 'starred')::boolean::int, 0) AS starred
             FROM "file"
@@ -448,6 +490,10 @@ export class DriveDbService {
         size: null,
         modifiedMs: Number(f.updatedAt ?? nowSec) * 1000,
         starred: Boolean(Number(f.starred ?? 0)),
+        ownedByMe: f.ownedByMe !== undefined ? Boolean(Number(f.ownedByMe)) : undefined,
+        shared: f.shared !== undefined ? Boolean(Number(f.shared)) : undefined,
+        webViewLink: f.webViewLink || undefined,
+        meta: f.meta ? (typeof f.meta === 'string' ? JSON.parse(f.meta) : f.meta) : undefined,
       }
     })
 
@@ -561,6 +607,7 @@ export class DriveDbService {
  
 
 export const getRootFolderId = DriveDbService.getRootFolderId.bind(DriveDbService)
+export const getGoogleRootFolderId = DriveDbService.getGoogleRootFolderId.bind(DriveDbService)
 export const getTrashFolderId = DriveDbService.getTrashFolderId.bind(DriveDbService)
 export const createFolderRecord = DriveDbService.createFolderRecord.bind(DriveDbService)
 export const listRootEntries = DriveDbService.listRootEntries.bind(DriveDbService)
@@ -569,5 +616,6 @@ export const getFolderNameById = DriveDbService.getFolderNameById.bind(DriveDbSe
 export const listFilesByParent = DriveDbService.listFilesByParent.bind(DriveDbService)
 export const getFolderBreadcrumb = DriveDbService.getFolderBreadcrumb.bind(DriveDbService)
 export const listStarredEntries = DriveDbService.listStarredEntries.bind(DriveDbService)
+export const isGoogleDriveFolder = DriveDbService.isGoogleDriveFolder.bind(DriveDbService)
 
 

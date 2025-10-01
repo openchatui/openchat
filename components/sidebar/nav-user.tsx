@@ -124,20 +124,20 @@ export function NavUser({
             </DropdownMenuLabel>            
             <DropdownMenuSeparator />
               <DropdownMenuItem asChild>
-                <Link href="/settings">
+                <Link prefetch href="/settings">
                   <Settings />
                   Settings
                 </Link>
               </DropdownMenuItem>
             <DropdownMenuItem asChild>
-              <Link href="/archive">
+              <Link prefetch href="/archive">
                 <Archive />
                 Archive
               </Link>
             </DropdownMenuItem>
               {user.role === 'ADMIN' && (
                 <DropdownMenuItem asChild>
-                  <Link prefetch={true} href="/admin">
+                  <Link prefetch href="/admin/users">
                     <CgProfile />
                     Admin Panel
                   </Link>
