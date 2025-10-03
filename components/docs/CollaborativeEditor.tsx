@@ -8,7 +8,8 @@ import Underline from "@tiptap/extension-underline"
 import Link from "@tiptap/extension-link"
 import Collaboration from "@tiptap/extension-collaboration"
 import { PaginationPlus } from "tiptap-pagination-plus"
-import { TextStyle } from "@tiptap/extension-text-style"
+import { TextStyle, FontSize } from "@tiptap/extension-text-style"
+import { FontFamily } from "@tiptap/extension-text-style/font-family"
 import Color from "@tiptap/extension-color"
 import Highlight from "@tiptap/extension-highlight"
 import * as Y from "yjs"
@@ -17,6 +18,7 @@ import { HocuspocusProvider } from "@hocuspocus/provider"
 import { cn } from "@/lib/utils"
 import { Separator } from "@/components/ui/separator"
 import { EditorToolbar } from "./EditorToolbar"
+import styles from "./editor-content.module.css"
 
 interface CollaborativeEditorProps {
   documentId: string
@@ -65,8 +67,10 @@ export function CollaborativeEditor({ documentId, user, token, className, chrome
       StarterKit,
       Underline,
       TextStyle,
+      FontSize,
+      FontFamily,
       Color,
-      Highlight,
+      Highlight.configure({ multicolor: true }),
       PaginationPlus.configure({
         pageHeight: 1056,
         pageGap: 24,
@@ -116,14 +120,7 @@ export function CollaborativeEditor({ documentId, user, token, className, chrome
 
   // Removed custom auto page-break logic in favor of PaginationPlus
 
-  const handleRootMouseDown: React.MouseEventHandler<HTMLDivElement> = (e) => {
-    const target = e.target as HTMLElement
-    // Ignore clicks in toolbar or on other interactive controls
-    if (target.closest('[data-editor-toolbar]')) return
-    if (target.closest('button, a, input, textarea, select, [role="button"], [role="menuitem"], [role="link"], [contenteditable="true"]')) return
-    e.preventDefault()
-    editor?.commands.focus('end')
-  }
+  // Clicking outside the document does nothing (no focus changes)
 
   const toolbar = (
     <div className="px-3 py-2 border-b bg-background sticky top-0 z-30" data-editor-toolbar>
@@ -133,12 +130,12 @@ export function CollaborativeEditor({ documentId, user, token, className, chrome
 
   if (chrome === 'page') {
     return (
-      <div className={cn("w-full bg-muted/40 h-full overflow-hidden flex flex-col", className)} onMouseDown={handleRootMouseDown}>
+      <div className={cn("w-full bg-muted/40 h-full overflow-hidden flex flex-col", className)}>
         {toolbar}
         <div className="flex-1 overflow-auto">
           <div className="flex justify-center py-6">
             <div className="bg-background shadow-md w-[816px]" onMouseDown={handleMouseDown}>
-              <EditorContent editor={editor} />
+              <EditorContent editor={editor} className={styles.editorContent} />
             </div>
           </div>
         </div>
@@ -147,11 +144,11 @@ export function CollaborativeEditor({ documentId, user, token, className, chrome
   }
 
   return (
-    <div className={cn("w-full", className)} onMouseDown={handleRootMouseDown}>
+    <div className={cn("w-full", className)}>
       <div className="rounded-md border bg-background">
         {toolbar}
         <div className="px-4 py-3" onMouseDown={handleMouseDown}>
-          <EditorContent editor={editor} />
+          <EditorContent editor={editor} className={styles.editorContent} />
         </div>
       </div>
     </div>

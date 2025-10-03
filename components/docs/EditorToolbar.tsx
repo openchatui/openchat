@@ -6,6 +6,10 @@ import { Button } from "@/components/ui/button"
 import { Toggle } from "@/components/ui/toggle"
 import { Separator } from "@/components/ui/separator"
 import TextColorDropdown from "@dropdowns/TextColorDropdown"
+import HeadingDropdown from "@dropdowns/HeadingDropdown"
+import FontFamilyDropdown from "@dropdowns/FontFamilyDropdown"
+import FontSizeControl from "@dropdowns/FontSizeControl"
+import HighlightDropdown from "@dropdowns/HighlightDropdown"
 import {
   Bold,
   Italic,
@@ -32,6 +36,10 @@ interface EditorToolbarProps {
 export function EditorToolbar({ editor, className }: EditorToolbarProps) {
   const [, setRerenderTick] = useState(0)
   const keepFocus = (e: React.MouseEvent) => e.preventDefault()
+
+  const VSeparator = () => (
+    <div aria-hidden className="mx-2 h-[20px] w-[2.5px] self-center bg-neutral-400 dark:bg-neutral-700" />
+  )
 
   useEffect(() => {
     if (!editor) return
@@ -63,6 +71,41 @@ export function EditorToolbar({ editor, className }: EditorToolbarProps) {
 
   return (
     <div className={cn("flex flex-wrap items-center gap-1", className)}>
+      <div className="items-center gap-0.5">
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => editor.chain().focus().undo().run()}
+          onMouseDown={keepFocus}
+        >
+          <Undo2 />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => editor.chain().focus().redo().run()}
+          onMouseDown={keepFocus}
+        >
+          <Redo2 />
+        </Button>
+      </div>
+
+      <VSeparator />
+
+      <HeadingDropdown editor={editor} />
+
+      <VSeparator />
+
+      <FontFamilyDropdown editor={editor} />
+
+      <VSeparator />
+
+      <FontSizeControl editor={editor} />
+
+      <VSeparator />
+      
       <Toggle
         aria-label="Bold"
         pressed={editor.isActive("bold")}
@@ -96,26 +139,11 @@ export function EditorToolbar({ editor, className }: EditorToolbarProps) {
         <Strikethrough />
       </Toggle>
 
-      <Separator orientation="vertical" className="mx-2 h-5" />
+      <TextColorDropdown editor={editor} />
 
-      <Toggle
-        aria-label="Heading 1"
-        pressed={editor.isActive("heading", { level: 1 })}
-        onPressedChange={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
-        onMouseDown={keepFocus}
-      >
-        <Heading1 />
-      </Toggle>
-      <Toggle
-        aria-label="Heading 2"
-        pressed={editor.isActive("heading", { level: 2 })}
-        onPressedChange={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
-        onMouseDown={keepFocus}
-      >
-        <Heading2 />
-      </Toggle>
+      <HighlightDropdown editor={editor} />
 
-      <Separator orientation="vertical" className="mx-2 h-5" />
+      <VSeparator />
 
       <Toggle
         aria-label="Bullet List"
@@ -150,11 +178,8 @@ export function EditorToolbar({ editor, className }: EditorToolbarProps) {
         <Code2 />
       </Toggle>
 
-      <Separator orientation="vertical" className="mx-2 h-5" />
 
-      <TextColorDropdown editor={editor} />
-
-      <Separator orientation="vertical" className="mx-2 h-5" />
+      <VSeparator />
 
       <Button
         type="button"
@@ -167,26 +192,7 @@ export function EditorToolbar({ editor, className }: EditorToolbarProps) {
         <LinkIcon />
       </Button>
 
-      <div className="ml-auto flex items-center gap-1">
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={() => editor.chain().focus().undo().run()}
-          onMouseDown={keepFocus}
-        >
-          <Undo2 />
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={() => editor.chain().focus().redo().run()}
-          onMouseDown={keepFocus}
-        >
-          <Redo2 />
-        </Button>
-      </div>
+      
     </div>
   )
 }

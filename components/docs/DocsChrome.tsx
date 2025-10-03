@@ -28,7 +28,7 @@ export function DocsChrome({ title, onRename, className }: DocsChromeProps) {
       <div className="mr-16 flex max-w-7xl items-stretch gap-3 px-3 py-1">
         {/* Left: Logo */}
         <div className="flex items-center">
-          <div className="h-12 w-8 rounded-sm bg-primary text-primary-foreground flex items-center justify-center">
+          <div className="h-12 w-10 rounded-sm bg-primary text-primary-foreground flex items-center justify-center">
             <FileText className="size-5" />
           </div>
         </div>
