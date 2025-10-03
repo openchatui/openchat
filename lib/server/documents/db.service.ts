@@ -224,7 +224,17 @@ export class DocumentDbService {
       orderBy: { createdAt: 'desc' },
     })
 
-    return permissions
+    // Map Prisma null user to undefined to satisfy DocumentPermission type
+    return permissions.map((p) => ({
+      id: p.id,
+      documentId: p.documentId,
+      userId: p.userId,
+      email: p.email,
+      role: p.role as DocumentRole,
+      createdAt: p.createdAt,
+      updatedAt: p.updatedAt,
+      user: p.user ?? undefined,
+    }))
   }
 
   /**
@@ -246,7 +256,7 @@ export class DocumentDbService {
     const isEmail = userIdOrEmail.includes('@')
     const targetUser = isEmail ? null : await db.user.findUnique({ where: { id: userIdOrEmail } })
 
-    return await db.documentPermission.create({
+    const created = await db.documentPermission.create({
       data: {
         documentId,
         userId: targetUser?.id,
@@ -264,6 +274,17 @@ export class DocumentDbService {
         },
       },
     })
+
+    return {
+      id: created.id,
+      documentId: created.documentId,
+      userId: created.userId,
+      email: created.email,
+      role: created.role as DocumentRole,
+      createdAt: created.createdAt,
+      updatedAt: created.updatedAt,
+      user: created.user ?? undefined,
+    }
   }
 
   /**
