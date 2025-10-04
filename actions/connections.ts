@@ -75,15 +75,18 @@ export async function getConnectionsConfig(): Promise<{ connections: Connections
 }
 
 export async function createConnections(connections: CreateConnectionData[]): Promise<void> {
-  if (!Array.isArray(connections)) return
-  await db.connection.createMany({
-    data: connections.map((c) => ({
-      type: c.type,
-      baseUrl: c.baseUrl.trim(),
-      apiKey: c.apiKey?.trim() || null,
-      provider: null,
-    })),
-  })
+  if (!Array.isArray(connections) || connections.length === 0) return
+  // Insert sequentially to avoid createMany edge-cases and ensure all rows are persisted
+  for (const c of connections) {
+    await db.connection.create({
+      data: {
+        type: c.type,
+        baseUrl: c.baseUrl.trim(),
+        apiKey: c.apiKey?.trim() || null,
+        provider: null,
+      },
+    })
+  }
   // Keep config in sync with DB for known providers
   const createdTypes = new Set(connections.map(c => c.type))
   if (createdTypes.has('openai-api')) await syncOpenAIConfigFromDb()

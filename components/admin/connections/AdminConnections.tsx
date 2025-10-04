@@ -2,21 +2,15 @@
 
 import { Session } from "next-auth"
 import { AdminSidebar } from "../AdminSidebar"
-import { useRouter } from "next/navigation"
 
 // Connections Panel Content (from connections.tsx)
-import { Loader2 } from "lucide-react"
 import { useConnections } from "@/hooks/useConnections"
 import type { Connection, ConnectionsConfig, CreateConnectionData } from "@/lib/features/connections/connections.types"
 import { OpenAIConnectionForm } from "./openai-connection-form"
 import { OllamaConnectionForm } from "./ollama-connection-form"
 import { EditConnectionDialog } from "./edit-connection-dialog"
 import { MESSAGES } from "@/constants/connections"
-import { createConnections, 
-  updateConnectionAction, 
-  deleteConnectionAction, 
-  updateConnectionsConfig, 
-  syncModelsAction } from "@/actions/connections"
+// Server actions are handled inside the hook; do not import here
 
 // Main Admin Connections Component
 interface AdminConnectionsProps {
@@ -27,10 +21,8 @@ interface AdminConnectionsProps {
 }
 
 export function AdminConnections({ session, initialChats = [], initialConnections = [], initialConnectionsConfig = null }: AdminConnectionsProps) {
-  const router = useRouter()
   const {
     connections,
-    isLoading,
     isSaving,
     testingConnections,
     successfulConnections,
@@ -55,7 +47,11 @@ export function AdminConnections({ session, initialChats = [], initialConnection
     toggleOllamaEnabled,
     testConnection,
     setEditState,
-    setConnectionsState
+    setConnectionsState,
+    loadConnections,
+    saveConnections,
+    updateConnection,
+    deleteConnection
   } = useConnections(initialConnections, initialConnectionsConfig)
 
   const handleUpdateEditForm = (field: 'baseUrl' | 'apiKey', value: string) => {
@@ -75,80 +71,39 @@ export function AdminConnections({ session, initialChats = [], initialConnection
   const openaiConnections = connections.filter((conn): conn is Connection & { type: 'openai-api' } => conn.type === 'openai-api')
   const ollamaConnections = connections.filter((conn): conn is Connection & { type: 'ollama' } => conn.type === 'ollama')
   const openaiEnableStatuses = openaiConnections.map((_, idx) => {
-    const cfg = connectionsConfig?.openai?.api_configs?.[String(idx)] as any
-    return !!cfg?.enable
+    const cfgFromProviders = (connectionsConfig as any)?.providers?.openai?.settings?.api_configs?.[String(idx)]
+    const cfgFromLegacy = (connectionsConfig as any)?.openai?.api_configs?.[String(idx)]
+    const cfg = cfgFromProviders ?? cfgFromLegacy
+    return !!(cfg && cfg.enable)
   })
-  const ollamaEnabled = !!connectionsConfig?.ollama?.enable
+  const ollamaEnabled = Boolean(
+    (connectionsConfig as any)?.providers?.ollama?.enabled ?? (connectionsConfig as any)?.ollama?.enable
+  )
 
   // Server Action-backed handlers
   const handleSaveOpenAIConnections = async (connectionsToCreate: CreateConnectionData[]) => {
-    try {
-      setConnectionsState(prev => ({ ...prev, isSaving: true }))
-      await createConnections(connectionsToCreate)
-      // Sync models for created connections
-      for (const conn of connectionsToCreate) {
-        await syncModelsAction({ baseUrl: conn.baseUrl, type: 'openai-api', apiKey: conn.apiKey })
-      }
-      // Reset local form rows
-      handleClearAll()
-    } finally {
-      setConnectionsState(prev => ({ ...prev, isSaving: false }))
-      router.refresh()
-    }
+    await saveConnections(connectionsToCreate)
   }
 
   
 
   const handleUpdateConnectionAction = async () => {
-    if (!editingConnection) return
-    try {
-      setEditState(prev => ({ ...prev, isUpdating: true }))
-      await updateConnectionAction(editingConnection.id, {
-        type: editingConnection.type,
-        baseUrl: editForm.baseUrl,
-        apiKey: editingConnection.type === 'openai-api' ? editForm.apiKey : undefined
-      })
-      await syncModelsAction({
-        baseUrl: editForm.baseUrl,
-        type: editingConnection.type as 'openai-api' | 'ollama',
-        apiKey: editingConnection.type === 'openai-api' ? editForm.apiKey : undefined
-      })
-      setEditState(prev => ({ ...prev, editingConnection: null }))
-    } finally {
-      setEditState(prev => ({ ...prev, isUpdating: false }))
-      router.refresh()
-    }
+    await updateConnection()
   }
 
   const handleDeleteConnectionAction = async () => {
-    if (!editingConnection) return
-    try {
-      setEditState(prev => ({ ...prev, isUpdating: true }))
-      await deleteConnectionAction(editingConnection.id)
-      setEditState(prev => ({ ...prev, editingConnection: null }))
-    } finally {
-      setEditState(prev => ({ ...prev, isUpdating: false }))
-      router.refresh()
-    }
+    await deleteConnection()
   }
 
   return (
     <AdminSidebar session={session} activeTab="connections" initialChats={initialChats}>
       <div className="space-y-6">
-        <div>
+        <div className="flex items-center justify-between">
           <h2 className="text-2xl font-semibold">{MESSAGES.CONNECTIONS_TITLE}</h2>
-          <p className="text-muted-foreground">
-            {MESSAGES.CONNECTIONS_DESCRIPTION}
-          </p>
         </div>
+        <p className="text-muted-foreground">{MESSAGES.CONNECTIONS_DESCRIPTION}</p>
 
-         {isLoading ? (
-           <div className="mx-2.5 flex flex-col items-center justify-center py-12">
-             <Loader2 className="h-8 w-8 animate-spin mb-2" />
-            <p className="text-muted-foreground">{MESSAGES.LOADING_CONNECTIONS}</p>
-           </div>
-         ) : (
-           <div>
+         <div>
             {/* OpenAI Connection Form (includes existing connections) */}
             <OpenAIConnectionForm
               existingConnections={openaiConnections}
@@ -180,8 +135,7 @@ export function AdminConnections({ session, initialChats = [], initialConnection
               ollamaEnabled={ollamaEnabled}
               onToggleOllamaEnabled={toggleOllamaEnabled}
             />
-                  </div>
-                )}
+          </div>
 
         {/* Edit Connection Dialog */}
         <EditConnectionDialog
