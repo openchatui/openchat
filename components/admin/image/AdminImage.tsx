@@ -14,6 +14,7 @@ import { updateConnectionsConfig } from "@/actions/connections"
 
 import { OpenAIImageConnectionForm } from "@/components/admin/image/OpenAIImageConnectionForm"
 import { updateImageConfigAction } from "@/actions/image"
+import { toast } from "sonner"
 
 interface AdminImageProps {
   session: Session | null
@@ -37,6 +38,9 @@ export function AdminImage({ session, initialChats = [], initialProvider = 'open
       setIsSaving(true)
       await updateImageConfigAction({ provider: nextProvider })
       setProvider(nextProvider)
+      toast.success("Image provider updated")
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to update image provider")
     } finally {
       setIsSaving(false)
     }
@@ -50,6 +54,9 @@ export function AdminImage({ session, initialChats = [], initialProvider = 'open
         await updateConnectionsConfig({ connections: { openai: { enable: nextEnabled } } })
       }
       setEnabled(nextEnabled)
+      toast.success(nextEnabled ? "Image generation enabled" : "Image generation disabled")
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to update image setting")
     } finally {
       setIsSaving(false)
     }

@@ -345,9 +345,6 @@ export function NavChats({ chats, timeZone = 'UTC' }: NavChatsProps) {
                     </div>
                   ))
                 )}
-                <div ref={loadMoreRef} className="flex items-center justify-center py-2">
-                  {loading && <AnimatedLoader className="h-4 w-4 text-muted-foreground" />}
-                </div>
               </SidebarMenuSub>
             </CollapsibleContent>
           </SidebarMenuItem>

@@ -5,6 +5,8 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { updateOpenAIImageConfigAction } from "@/actions/image"
+import { toast } from "sonner"
 
 const OPENAI_IMAGE_MODELS = [
   "gpt-image-1",
@@ -95,6 +97,15 @@ export function OpenAIImageConnectionForm() {
         body: JSON.stringify(payload),
       })
       if (!res.ok) throw new Error("Failed to save OpenAI connection")
+
+      // Persist explicit image config for generator service consumers
+      await updateOpenAIImageConfigAction({ baseUrl, apiKey, model, size: imageSize })
+
+      toast.success("OpenAI image configuration saved")
+    } catch (e: any) {
+      const message = e?.message || "Failed to save image configuration"
+      toast.error(message)
+      return
     } finally {
       setIsSaving(false)
     }
