@@ -18,8 +18,51 @@ function toConnection(o: any): Connection {
 
 export async function getConnections(): Promise<Connection[]> {
   const rows = await db.connection.findMany({ orderBy: { createdAt: 'desc' } })
+  // Backfill provider field if missing or incorrect
+  const updates: Array<Promise<any>> = []
+  for (const row of rows) {
+    const inferred = inferProviderFromBaseUrl((row as any).baseUrl, (row as any).type)
+    if ((row as any).provider !== inferred) {
+      updates.push((db as any).connection.update({ where: { id: (row as any).id }, data: { provider: inferred } }))
+    }
+  }
+  if (updates.length > 0) {
+    await Promise.allSettled(updates)
+  }
   return rows.map(toConnection)
 }
+// Infer canonical provider from baseUrl (and optionally type)
+function inferProviderFromBaseUrl(baseUrl: string | null | undefined, type?: string | null): string | null {
+  if (!baseUrl || String(baseUrl).trim() === '') return null
+  const raw = String(baseUrl).trim().toLowerCase()
+  let host = ''
+  let port = ''
+  try {
+    const u = new URL(raw)
+    host = u.hostname.toLowerCase()
+    port = u.port
+  } catch {
+    // Fallback simple parsing for non-URL strings
+    const m = raw.match(/^https?:\/\/([^\/]+)(?:\/.+)?$/)
+    const hostPort = m ? m[1] : raw
+    const hp = hostPort.split(':')
+    host = hp[0]
+    port = hp[1] || ''
+  }
+
+  const isLocal = host === 'localhost' || host === '127.0.0.1' || host.startsWith('10.') || host.startsWith('192.168.') || host.endsWith('.local')
+  if (isLocal && (port === '11434' || /:11434(?:\/?$)/.test(raw))) return 'ollama'
+
+  if (raw.includes('openrouter')) return 'openrouter'
+  if (raw.includes('openai.com') || raw.includes('openai')) return 'openai'
+
+  // Fallbacks by type
+  if (type === 'ollama') return 'ollama'
+  if (type === 'openai-api') return 'openai'
+
+  return null
+}
+
 
 export async function getConnectionsConfig(): Promise<{ connections: ConnectionsConfig }> {
   // Shape config similar to the api route
@@ -78,12 +121,13 @@ export async function createConnections(connections: CreateConnectionData[]): Pr
   if (!Array.isArray(connections) || connections.length === 0) return
   // Insert sequentially to avoid createMany edge-cases and ensure all rows are persisted
   for (const c of connections) {
+    const provider = inferProviderFromBaseUrl(c.baseUrl, c.type)
     await db.connection.create({
       data: {
         type: c.type,
         baseUrl: c.baseUrl.trim(),
         apiKey: c.apiKey?.trim() || null,
-        provider: null,
+        provider: provider,
       },
     })
   }
@@ -95,10 +139,19 @@ export async function createConnections(connections: CreateConnectionData[]): Pr
 }
 
 export async function updateConnectionAction(id: string, data: UpdateConnectionData): Promise<void> {
+  const current = await db.connection.findUnique({ where: { id } })
+  if (!current) return
+
+  const nextType = typeof data.type !== 'undefined' ? data.type : (current.type as any)
+  const nextBaseUrl = typeof data.baseUrl !== 'undefined' ? String(data.baseUrl).trim() : String(current.baseUrl)
+  const provider = inferProviderFromBaseUrl(nextBaseUrl, nextType)
+
   const update: any = {}
   if (typeof data.type !== 'undefined') update.type = data.type
-  if (typeof data.baseUrl !== 'undefined') update.baseUrl = String(data.baseUrl).trim()
+  if (typeof data.baseUrl !== 'undefined') update.baseUrl = nextBaseUrl
   if (typeof data.apiKey !== 'undefined') update.apiKey = data.apiKey ? String(data.apiKey).trim() : null
+  update.provider = provider
+
   await db.connection.update({ where: { id }, data: update })
   // Keep config aligned with current DB
   await Promise.all([syncOpenAIConfigFromDb(), syncOllamaConfigFromDb()])
