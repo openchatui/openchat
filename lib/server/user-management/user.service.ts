@@ -3,18 +3,16 @@ import db from '../../db';
 import { unstable_cache } from 'next/cache';
 import type { User } from '@/lib/server/user-management/user.types';
 
-/**
- * User Management Service
- */
+
+// User Management Service
+
 export class UserService {
   private static readonly roleMap = {
     USER: 'user',
     ADMIN: 'admin',
   } as const;
-
-  /**
-   * Get all users for admin interface
-   */
+ 
+  // Get all users for admin interface
   static async getAdminUsers(): Promise<User[]> {
     try {
       const dbUsers = await db.user.findMany({
@@ -71,9 +69,7 @@ export class UserService {
     }
   }
 
-  /**
-   * Get users with optimized queries (lighter version)
-   */
+  // Get users with optimized queries (lighter version)
   static async getAdminUsersLight(): Promise<User[]> {
     try {
       const [dbUsers, sessionMaxByUser] = await Promise.all([
@@ -129,9 +125,7 @@ export class UserService {
     }
   }
 
-  /**
-   * Get paginated users
-   */
+  // Get paginated users
   static getAdminUsersLightPage = unstable_cache(
     async function getAdminUsersLightPage(input: {
       q?: string;
@@ -224,12 +218,10 @@ export class UserService {
       }
     },
     ['admin-users-page'],
-    { tags: ['admin-users'] }
+    { tags: ['admin-users'], revalidate: 1 }
   );
 
-  /**
-   * Update user settings
-   */
+  // Update user settings
   static async updateUserSettings(userId: string, settings: Record<string, any>): Promise<void> {
     try {
       await db.user.update({
@@ -242,9 +234,7 @@ export class UserService {
     }
   }
 
-  /**
-   * Get user settings
-   */
+  // Get user settings
   static async getUserSettings(userId: string): Promise<Record<string, any>> {
     try {
       const user = await db.user.findUnique({

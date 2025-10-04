@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev:frontend": "next dev",
+    "dev": "next dev",
     "collab": "tsx scripts/hocuspocus-server.ts",
     "build": "next build",
     "start": "next start",

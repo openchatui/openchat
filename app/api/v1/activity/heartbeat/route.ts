@@ -1,16 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server'
 import db from '@/lib/db'
 import { randomUUID } from 'crypto'
-import { auth } from '@/lib/auth'
+import { auth, AuthService } from '@/lib/auth'
 
 export const runtime = 'nodejs'
 
 export async function POST(req: NextRequest) {
   try {
+    // If no users exist yet (first-time setup), no-op to keep logs clean
+    const firstUser = await AuthService.isFirstUser()
+    if (firstUser) {
+      return new Response(null, { status: 204 })
+    }
+
     const session = await auth()
     const userId = session?.user?.id
     if (!userId) {
-      return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 })
+      // Silently ignore heartbeats when unauthenticated
+      return new Response(null, { status: 204 })
     }
 
     const body = await req.json().catch(() => ({})) as any
@@ -42,6 +49,11 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ ok: true })
   } catch (error) {
+    // If foreign key or similar constraint fails (e.g., stale client), ignore quietly
+    const message = String((error as any)?.message || error || '')
+    if (message.includes('FOREIGN KEY constraint failed') || message.includes('P2010')) {
+      return new Response(null, { status: 204 })
+    }
     console.error('Heartbeat error:', error)
     return NextResponse.json({ ok: false }, { status: 500 })
   }

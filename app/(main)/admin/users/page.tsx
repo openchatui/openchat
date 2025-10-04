@@ -2,10 +2,10 @@
 
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import { Suspense } from "react";
 import { AdminUsers } from "@/components/admin/users/AdminUsers";
 import { getAdminGroups } from "@/lib/server";
 import { getAdminUsersLightPage } from "@/lib/server";
+import { ChatStore } from "@/lib/features/chat";
 
 export default async function AdminUsersPage({ searchParams }: { searchParams?: Promise<{ q?: string | string[]; page?: string | string[] }> }) {
     const session = await auth();
@@ -18,18 +18,13 @@ export default async function AdminUsersPage({ searchParams }: { searchParams?: 
     const pageStr = Array.isArray(pageRaw) ? (pageRaw[0] || '1') : (pageRaw || '1')
     const page = Number(pageStr) || 1
 
-    async function UsersSection() {
-        const [{ users }, groups] = await Promise.all([
-            getAdminUsersLightPage({ q, page, pageSize: 20 }),
-            getAdminGroups(),
-        ])
-        return <AdminUsers session={session} initialChats={[]} initialUsers={users} initialGroups={groups} />
-    }
+    const [{ users }, groups, chats] = await Promise.all([
+        getAdminUsersLightPage({ q, page, pageSize: 20 }),
+        getAdminGroups(),
+        ChatStore.getUserChats(session.user.id)
+    ])
 
     return (
-        <Suspense fallback={<div className="p-6 text-sm text-muted-foreground">Loading users…</div>}>
-            {/* Stream the heavy users section so TTFB stays fast */}
-            <UsersSection />
-        </Suspense>
+        <AdminUsers session={session} initialChats={chats} initialUsers={users} initialGroups={groups} />
     )
 }

@@ -30,12 +30,17 @@ export default function Heartbeat({ intervalMs = 15000 }: HeartbeatProps) {
 
     const send = async () => {
       try {
+        // Avoid sending heartbeats on setup/auth pages
+        const pathNow = location.pathname
+        if (pathNow.startsWith('/setup') || pathNow.startsWith('/login') || pathNow.startsWith('/signup')) {
+          return
+        }
         await fetch('/api/v1/activity/heartbeat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             tabId: tabIdRef.current,
-            path: location.pathname,
+            path: pathNow,
             userAgent: navigator.userAgent,
           }),
           keepalive: true,

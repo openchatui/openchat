@@ -872,7 +872,8 @@ export const getUserSettings = cache(async function getUserSettings() {
   try {
     const session = await auth();
     if (!session?.user?.id) {
-      throw new Error('Unauthorized');
+      // No session; return safe defaults to avoid noisy logs during setup/login
+      return {} as Record<string, any>;
     }
 
     const user = await db.user.findUnique({
@@ -881,13 +882,15 @@ export const getUserSettings = cache(async function getUserSettings() {
     });
 
     if (!user) {
-      throw new Error('User not found');
+      // Session exists but user not found (stale session). Return defaults.
+      return {} as Record<string, any>;
     }
 
     return user.settings || {};
   } catch (error) {
     console.error('Error retrieving user settings:', error);
-    throw error;
+    // Return safe default instead of throwing to keep setup/login flows clean
+    return {} as Record<string, any>;
   }
 });
 

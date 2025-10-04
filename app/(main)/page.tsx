@@ -1,7 +1,7 @@
 "use server";
 
 import { ChatLanding } from "@/components/chat/chat-landing";
-import { auth } from "@/lib/auth";
+import { auth, AuthService } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { getActiveModelsLight, getUserSettings } from "@/actions/chat";
 import { cookies } from "next/headers";
@@ -10,6 +10,9 @@ import { getEffectivePermissionsForUser } from "@/lib/server";
 import { AppConfigProvider } from "@/components/providers/AppConfigProvider";
 
 export default async function Page() {
+  const firstUser = await AuthService.isFirstUser();
+  if (firstUser) redirect("/setup");
+
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
