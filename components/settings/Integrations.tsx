@@ -45,6 +45,33 @@ export async function Integrations() {
                       const uid = sess?.user?.id
                       if (!uid) return
                       await db.account.deleteMany({ where: { userId: uid, provider: 'google-drive' } })
+                  // Also flip the settings integrations flag to disabled
+                  try {
+                    const dbUser = await db.user.findUnique({ where: { id: uid }, select: { settings: true } })
+                    const settingsValue: unknown = dbUser?.settings ?? {}
+                    const settingsObj = (settingsValue && typeof settingsValue === 'object' && !Array.isArray(settingsValue))
+                      ? (settingsValue as Record<string, unknown>)
+                      : {}
+                    const integrationsValue: unknown = (settingsObj as any).integrations
+                    const integrationsObj = (integrationsValue && typeof integrationsValue === 'object' && !Array.isArray(integrationsValue))
+                      ? (integrationsValue as Record<string, unknown>)
+                      : {}
+                    const providerValue: unknown = (integrationsObj as any)['google-drive']
+                    const providerObj = (providerValue && typeof providerValue === 'object' && !Array.isArray(providerValue))
+                      ? (providerValue as Record<string, unknown>)
+                      : {}
+                    const updatedSettings = {
+                      ...settingsObj,
+                      integrations: {
+                        ...integrationsObj,
+                        ['google-drive']: {
+                          ...providerObj,
+                          enabled: false,
+                        },
+                      },
+                    }
+                    await db.user.update({ where: { id: uid }, data: { settings: updatedSettings as any } })
+                  } catch {}
                       revalidatePath('/settings/integrations')
                     }}
                   >

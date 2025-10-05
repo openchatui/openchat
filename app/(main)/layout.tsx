@@ -5,6 +5,7 @@ import { auth, AuthService } from "@/lib/auth"
 import { AppSidebar } from "@/components/sidebar/app-sidebar"
 import { SidebarProvider } from "@/components/ui/sidebar"
 import { getInitialChats, getActiveModelsLight, getUserSettings } from "@/actions/chat"
+import { IntegrationsProvider } from "@/components/providers/IntegrationsProvider"
 
 export default async function MainLayout({
   children,
@@ -45,7 +46,9 @@ export default async function MainLayout({
         pinnedModels={pinnedModels} 
         timeZone={timeZone} 
       />
-      {children}
+      <IntegrationsProvider initial={{ integrations: (userSettings as any)?.integrations }}>
+        {children}
+      </IntegrationsProvider>
     </SidebarProvider>
   );
 }

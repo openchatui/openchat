@@ -20,6 +20,7 @@ import { cn } from "@/lib/utils"
 import { FaStar, FaRegStar } from "react-icons/fa"
 import Image from "next/image"
 import { DriveStorageInfo } from "./DriveStorageInfo"
+import { useIntegrations } from "@/components/providers/IntegrationsProvider"
 
 interface FilesLeftSidebarProps {
   parentId?: string
@@ -28,11 +29,13 @@ interface FilesLeftSidebarProps {
 }
 
 export function FilesLeftSidebar({ parentId = "", localRootId, googleRootId }: FilesLeftSidebarProps) {
+  const { isEnabled } = useIntegrations()
   const [showNewFolder, setShowNewFolder] = useState(false)
   const [showUploadFile, setShowUploadFile] = useState(false)
   const [showUploadFolder, setShowUploadFolder] = useState(false)
   const pathname = usePathname()
   const isTrash = pathname?.startsWith('/drive/trash')
+  const showGoogle = Boolean(googleRootId) && isEnabled('google-drive')
   return (
     <aside className="w-64 shrink-0 border-r px-3 py-4 flex flex-col h-full">
       <div>
@@ -71,7 +74,7 @@ export function FilesLeftSidebar({ parentId = "", localRootId, googleRootId }: F
           icon={<HardDrive className="h-4 w-4" />} 
           label="Local" 
         />
-        {googleRootId && (
+        {showGoogle && (
           <SidebarLink 
             href={`/drive/folder/${googleRootId}`} 
             icon={<Image src="/logos/Google_Drive.svg" alt="Google Drive" width={16} height={16} className="h-4 w-4" />} 
@@ -84,7 +87,7 @@ export function FilesLeftSidebar({ parentId = "", localRootId, googleRootId }: F
         <SidebarLink href="/drive/starred" icon={<FaRegStar className="h-4 w-4" />} label="Starred" />
         <SidebarLink href="/drive/trash" icon={<Trash2 className="h-4 w-4" />} label="Trash" />
       </nav>
-      {googleRootId && <DriveStorageInfo />}
+      {showGoogle && <DriveStorageInfo />}
       {!isTrash && (
         <>
           <CreateFolderDialog open={showNewFolder} onOpenChange={setShowNewFolder} parent={parentId} />
