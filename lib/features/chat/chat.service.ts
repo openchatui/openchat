@@ -607,20 +607,25 @@ export class ToolsService {
     let webTools: Record<string, unknown> = {};
     if (enableWebSearch) {
       const ws = await getWebSearchConfigAction();
-      const bl = ws.browserless || {};
-      const token = String(bl.apiKey || '');
-      const tools = createBrowserlessTools({
-        token,
-        stealth: bl.stealth !== false,
-        stealthRoute: bl.stealthRoute === true,
-        blockAds: bl.blockAds === true,
-        headless: bl.headless !== false,
-        locale: bl.locale || 'en-US',
-        timezone: bl.timezone || 'America/Los_Angeles',
-        userAgent: bl.userAgent || undefined,
-        route: typeof bl.route === 'string' && bl.route.trim().length > 0 ? String(bl.route) : undefined,
-      });
-      webTools = tools as any;
+      if (ws.PROVIDER === 'googlepse') {
+        const { createGooglePseTools } = await import('@/lib/features/tools/web-browsing/googlepse.tools');
+        webTools = await createGooglePseTools() as any;
+      } else {
+        const bl = ws.browserless || {};
+        const token = String(bl.apiKey || '');
+        const tools = createBrowserlessTools({
+          token,
+          stealth: bl.stealth !== false,
+          stealthRoute: bl.stealthRoute === true,
+          blockAds: bl.blockAds === true,
+          headless: bl.headless !== false,
+          locale: bl.locale || 'en-US',
+          timezone: bl.timezone || 'America/Los_Angeles',
+          userAgent: bl.userAgent || undefined,
+          route: typeof bl.route === 'string' && bl.route.trim().length > 0 ? String(bl.route) : undefined,
+        });
+        webTools = tools as any;
+      }
     }
 
     return {

@@ -1,6 +1,7 @@
 "use server"
 
 import db from "@/lib/db"
+import { revalidatePath } from "next/cache"
 
 export interface WebSearchConfig {
   ENABLED: boolean
@@ -85,6 +86,8 @@ export async function updateWebSearchConfigAction(payload: any): Promise<void> {
   const next = { ...current, websearch: nextWebsearch }
   if (row) await (db as any).config.update({ where: { id: 1 }, data: { data: next } })
   else await (db as any).config.create({ data: { id: 1, data: next } })
+  // Ensure the admin websearch page and any caches pick up the latest config
+  revalidatePath('/admin/websearch')
 }
 
 

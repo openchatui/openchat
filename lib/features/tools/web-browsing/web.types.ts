@@ -92,6 +92,13 @@ export const LiveURLInputSchema = z.object({
   resizable: z.boolean().optional(),
 });
 
+// Google PSE search input
+export const WebSearchInputSchema = z.object({
+  query: z.string().min(1, 'Query is required'),
+  num: z.number().int().min(1).max(50).optional(),
+  domainFilters: z.array(z.string()).optional(),
+});
+
 export type NavigateInput = z.infer<typeof NavigateInputSchema>;
 export type ClickInput = z.infer<typeof ClickInputSchema>;
 export type TypeInput = z.infer<typeof TypeInputSchema>;
@@ -102,3 +109,4 @@ export type GetTextInput = z.infer<typeof GetTextInputSchema>;
 export type CaptchaWaitInput = z.infer<typeof CaptchaWaitInputSchema>;
 export type SessionEndInput = z.infer<typeof SessionEndInputSchema>;
 export type LiveURLInput = z.infer<typeof LiveURLInputSchema>;
+export type WebSearchInput = z.infer<typeof WebSearchInputSchema>;

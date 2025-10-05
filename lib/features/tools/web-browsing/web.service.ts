@@ -13,7 +13,7 @@ export class WebBrowsingService {
     enabled: boolean;
     provider: 'browserless' | 'googlepse';
     browserless?: BrowserConfig;
-    googlepse?: { apiKey?: string; searchEngineId?: string };
+    googlepse?: { apiKey?: string; engineId?: string; searchEngineId?: string; resultCount?: number; domainFilters?: string[] };
   }> {
     try {
       const cfg = await (db as any).config.findUnique({ 
@@ -42,9 +42,14 @@ export class WebBrowsingService {
         }
       };
 
+      const googlepseRaw = websearch.googlepse || {};
       const googlepseConfig = {
-        apiKey: websearch.googlepse?.apiKey,
-        searchEngineId: websearch.googlepse?.searchEngineId,
+        apiKey: googlepseRaw?.apiKey,
+        // Support both keys (engineId preferred; fall back to searchEngineId)
+        engineId: typeof googlepseRaw?.engineId === 'string' ? googlepseRaw.engineId : undefined,
+        searchEngineId: typeof googlepseRaw?.searchEngineId === 'string' ? googlepseRaw.searchEngineId : undefined,
+        resultCount: Number.isFinite(googlepseRaw?.resultCount) ? Math.max(1, Math.min(50, Number(googlepseRaw?.resultCount))) : undefined,
+        domainFilters: Array.isArray(googlepseRaw?.domainFilters) ? (googlepseRaw.domainFilters as any[]).filter(v => typeof v === 'string' && v.trim().length > 0) : undefined,
       };
 
       return {
@@ -76,7 +81,8 @@ export class WebBrowsingService {
       }
 
       if (config.provider === 'googlepse') {
-        return Boolean(config.googlepse?.apiKey && config.googlepse?.searchEngineId);
+        const cx = config.googlepse?.engineId || config.googlepse?.searchEngineId;
+        return Boolean(config.googlepse?.apiKey && cx);
       }
 
       return false;
