@@ -35,7 +35,7 @@ export function DocsChrome({ title, onRename, className }: DocsChromeProps) {
 
         {/* Middle: Title + icons (top) and Menubar (bottom) */}
         <div className="flex min-w-0 flex-1 flex-col justify-center">
-          <div className="flex items-center gap-2 min-w-0">
+          <div className="ml-2 not-first-of-type:flex items-center gap-2 min-w-0">
             {isEditing ? (
               <Input
                 autoFocus

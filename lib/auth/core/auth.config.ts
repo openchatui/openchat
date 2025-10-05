@@ -67,12 +67,17 @@ export const authOptions = {
       clientSecret: process.env.DRIVE_CLIENT_SECRET,
       authorization: {
         params: {
-          // Request offline access + explicit consent to obtain refresh_token
           access_type: 'offline',
           prompt: 'consent',
           include_granted_scopes: 'true',
-          // Updated scope to allow reading file content for previews
-          scope: 'openid email profile https://www.googleapis.com/auth/drive.readonly'
+          // Scopes for reading and writing Drive files and editing Docs
+          scope: [
+            'openid',
+            'email',
+            'profile',
+            'https://www.googleapis.com/auth/drive.file',
+            'https://www.googleapis.com/auth/documents',
+          ].join(' '),
         }
       }
     }),

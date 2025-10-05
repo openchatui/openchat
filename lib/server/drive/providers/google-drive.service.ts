@@ -1,6 +1,6 @@
 import 'server-only'
 import db from '@/lib/db'
-import { google, drive_v3 } from 'googleapis'
+import { google, drive_v3, docs_v1 } from 'googleapis'
 import { auth } from '@/lib/auth'
 import { getTrashFolderId, getRootFolderId } from '@/lib/server/drive/db.service'
  
@@ -73,6 +73,22 @@ async function getAuthedDriveClientForUser(userId: string) {
 
   const drive = google.drive({ version: 'v3', auth: oauth2 })
   return drive
+}
+
+async function getAuthedDocsClientForUser(userId: string) {
+  const account = await getUserAccount(userId)
+  if (!account) throw new Error('No Google Drive account connected')
+
+  const oauth2 = getOAuthClient()
+  const expiryMs = account.expires_at ? Number(account.expires_at) * 1000 : undefined
+  oauth2.setCredentials({
+    access_token: account.access_token ?? undefined,
+    refresh_token: account.refresh_token ?? undefined,
+    expiry_date: account.refresh_token ? expiryMs : undefined,
+  })
+
+  const docs = google.docs({ version: 'v1', auth: oauth2 })
+  return docs
 }
 
 
@@ -358,6 +374,351 @@ export async function getGoogleDriveAbout(userId: string): Promise<{
       displayName: data.user.displayName ?? undefined
     } : null
   }
+}
+
+export async function updateGoogleDocPlainText(
+  userId: string,
+  docId: string,
+  text: string,
+): Promise<void> {
+  const docs = await getAuthedDocsClientForUser(userId)
+  // Fetch current document to compute range length
+  const current = await docs.documents.get({ documentId: docId })
+  const body: any = current.data.body
+  let endIndex = 1
+  if (body && Array.isArray(body.content) && body.content.length > 0) {
+    const last = body.content[body.content.length - 1]
+    const rawEnd: number | undefined = typeof last?.endIndex === 'number' ? last.endIndex : undefined
+    // Google Docs body ends with a terminal newline; you cannot delete it. Subtract 1 safely.
+    endIndex = Math.max(1, (rawEnd ?? 1) - 1)
+  }
+
+  const requests: docs_v1.Schema$Request[] = []
+  if (endIndex > 1) {
+    requests.push({
+      deleteContentRange: {
+        range: { startIndex: 1, endIndex },
+      },
+    })
+  }
+  requests.push({
+    insertText: {
+      location: { index: 1 },
+      text,
+    },
+  })
+
+  await docs.documents.batchUpdate({
+    documentId: docId,
+    requestBody: { requests },
+  })
+}
+
+// Convert a subset of HTML (inline styles and basic blocks) into Google Docs rich text
+export async function updateGoogleDocFromHTML(
+  userId: string,
+  docId: string,
+  html: string,
+): Promise<void> {
+  const docs = await getAuthedDocsClientForUser(userId)
+
+  type RGB = { r: number; g: number; b: number }
+  type Style = {
+    bold?: boolean
+    italic?: boolean
+    underline?: boolean
+    strikethrough?: boolean
+    fontSizePt?: number
+    color?: RGB
+    backgroundColor?: RGB
+  }
+
+  const decodeEntities = (input: string): string => {
+    return input
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&amp;/g, '&')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+  }
+
+  const clamp01 = (n: number) => Math.max(0, Math.min(1, n))
+
+  const parseColor = (value?: string | null): RGB | undefined => {
+    if (!value) return undefined
+    const v = value.trim().toLowerCase()
+    if (v === 'black') return { r: 0, g: 0, b: 0 }
+    if (v === 'white') return { r: 1, g: 1, b: 1 }
+    const hsl = /^hsl\(\s*([0-9.]+)\s*(?:deg|)\s*,\s*([0-9.]+)%\s*,\s*([0-9.]+)%\s*\)$/i.exec(v)
+    const hsla = /^hsla\(\s*([0-9.]+)\s*(?:deg|)\s*,\s*([0-9.]+)%\s*,\s*([0-9.]+)%\s*,\s*([0-9.]+)\s*\)$/i.exec(v)
+    const hslm = hsl || hsla
+    if (hslm) {
+      // If saturation is 0%, color is grayscale; convert lightness to rgb
+      const s = Math.max(0, Math.min(100, parseFloat(hslm[2]))) / 100
+      const l = Math.max(0, Math.min(100, parseFloat(hslm[3]))) / 100
+      if (s === 0) {
+        return { r: l, g: l, b: l }
+      }
+      // Non-grayscale HSL not handled here; fall through to other parsers
+    }
+    const hex = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(v)
+    if (hex) {
+      const h = hex[1]
+      if (h.length === 3) {
+        const r = parseInt(h[0] + h[0], 16)
+        const g = parseInt(h[1] + h[1], 16)
+        const b = parseInt(h[2] + h[2], 16)
+        return { r: r / 255, g: g / 255, b: b / 255 }
+      } else {
+        const r = parseInt(h.slice(0, 2), 16)
+        const g = parseInt(h.slice(2, 4), 16)
+        const b = parseInt(h.slice(4, 6), 16)
+        return { r: r / 255, g: g / 255, b: b / 255 }
+      }
+    }
+    const mRgb = /^rgb\(\s*([0-9]{1,3})\s*,\s*([0-9]{1,3})\s*,\s*([0-9]{1,3})\s*\)$/i.exec(v)
+    if (mRgb) {
+      const r = clamp01(parseInt(mRgb[1], 10) / 255)
+      const g = clamp01(parseInt(mRgb[2], 10) / 255)
+      const b = clamp01(parseInt(mRgb[3], 10) / 255)
+      return { r, g, b }
+    }
+    const mRgba = /^rgba\(\s*([0-9]{1,3})\s*,\s*([0-9]{1,3})\s*,\s*([0-9]{1,3})\s*,\s*([0-9.]+)\s*\)$/i.exec(v)
+    if (mRgba) {
+      const r = clamp01(parseInt(mRgba[1], 10) / 255)
+      const g = clamp01(parseInt(mRgba[2], 10) / 255)
+      const b = clamp01(parseInt(mRgba[3], 10) / 255)
+      return { r, g, b }
+    }
+    return undefined
+  }
+
+  const parseFontSizePt = (value?: string | null): number | undefined => {
+    if (!value) return undefined
+    const v = value.trim().toLowerCase()
+    const mPx = /^([0-9]+)px$/.exec(v)
+    if (mPx) {
+      const px = parseInt(mPx[1], 10)
+      return Math.max(1, Math.round(px * 0.75))
+    }
+    const mPt = /^([0-9]+)pt$/.exec(v)
+    if (mPt) {
+      return Math.max(1, parseInt(mPt[1], 10))
+    }
+    return undefined
+  }
+
+  // Track active styles using a stack
+  type StackEntry = { tag: string; style: Style }
+  const stack: StackEntry[] = []
+
+  const openTag = (tag: string, attrs: string) => {
+    const s: Style = {}
+    const tagName = tag.toLowerCase()
+    if (tagName === 'strong' || tagName === 'b') s.bold = true
+    if (tagName === 'em' || tagName === 'i') s.italic = true
+    if (tagName === 'u') s.underline = true
+    if (tagName === 's' || tagName === 'strike' || tagName === 'del') s.strikethrough = true
+
+    // legacy <font color="...">
+    const colorAttr = /\bcolor\s*=\s*"([^"]+)"/i.exec(attrs) || /\bcolor\s*=\s*'([^']+)'/i.exec(attrs)
+    if (colorAttr) {
+      const c = parseColor(colorAttr[1])
+      if (c) s.color = c
+    }
+
+    const styleAttr = /\bstyle\s*=\s*"([^"]*)"/i.exec(attrs) || /\bstyle\s*=\s*'([^']*)'/i.exec(attrs)
+    if (styleAttr) {
+      const css = styleAttr[1]
+      css.split(';').forEach(decl => {
+        const [rawKey, rawVal] = decl.split(':')
+        if (!rawKey || !rawVal) return
+        const key = rawKey.trim().toLowerCase()
+        const val = rawVal.trim()
+        if (key === 'color') {
+          const c = parseColor(val)
+          if (c) s.color = c
+        } else if (key === 'background-color') {
+          const c = parseColor(val)
+          if (c) s.backgroundColor = c
+        } else if (key === 'font-size') {
+          const pt = parseFontSizePt(val)
+          if (pt) s.fontSizePt = pt
+        }
+      })
+    }
+    stack.push({ tag: tagName, style: s })
+  }
+
+  const closeTag = (tag: string) => {
+    const t = tag.toLowerCase()
+    for (let i = stack.length - 1; i >= 0; i--) {
+      if (stack[i].tag === t) {
+        stack.splice(i, 1)
+        break
+      }
+    }
+  }
+
+  const isBlockThatAddsNewline = (tag: string): boolean => {
+    return /^(p|div|h[1-6]|li)$/i.test(tag)
+  }
+
+  const runs: { start: number; end: number; style: Style }[] = []
+  let out = ''
+  let index = 0
+
+  const currentMergedStyle = (): Style => {
+    const merged: Style = {}
+    for (const entry of stack) {
+      const s = entry.style
+      if (s.bold) merged.bold = true
+      if (s.italic) merged.italic = true
+      if (s.underline) merged.underline = true
+      if (s.strikethrough) merged.strikethrough = true
+      if (s.fontSizePt) merged.fontSizePt = s.fontSizePt
+      if (s.color) merged.color = s.color
+      if (s.backgroundColor) merged.backgroundColor = s.backgroundColor
+    }
+    return merged
+  }
+
+  const addText = (text: string) => {
+    if (text.length === 0) return
+    const style = currentMergedStyle()
+    const start = index
+    out += text
+    index += text.length
+    // Only create a run if some style is present
+    if (
+      style.bold || style.italic || style.underline || style.strikethrough ||
+      style.fontSizePt || style.color || style.backgroundColor
+    ) {
+      runs.push({ start, end: index, style })
+    }
+  }
+
+  const tokens = html.split(/(<[^>]+>)/g)
+  for (const tok of tokens) {
+    if (!tok) continue
+    if (tok.startsWith('<')) {
+      const selfClose = /^<\s*(br)\s*\/?>$/i.exec(tok)
+      if (selfClose) {
+        addText('\n')
+        continue
+      }
+      const open = /^<\s*([a-z0-9]+)([^>]*)>$/i.exec(tok)
+      if (open) {
+        const [, tag, attrs] = open
+        openTag(tag, attrs || '')
+        continue
+      }
+      const close = /^<\s*\/\s*([a-z0-9]+)\s*>$/i.exec(tok)
+      if (close) {
+        const [, tag] = close
+        if (isBlockThatAddsNewline(tag)) addText('\n')
+        closeTag(tag)
+        continue
+      }
+      // Unknown tag: ignore
+    } else {
+      addText(decodeEntities(tok))
+    }
+  }
+
+  // Fetch current document to compute range length
+  const current = await docs.documents.get({ documentId: docId })
+  const body: any = current.data.body
+  let endIndex = 1
+  if (body && Array.isArray(body.content) && body.content.length > 0) {
+    const last = body.content[body.content.length - 1]
+    const rawEnd: number | undefined = typeof last?.endIndex === 'number' ? last.endIndex : undefined
+    endIndex = Math.max(1, (rawEnd ?? 1) - 1)
+  }
+
+  const requests: docs_v1.Schema$Request[] = []
+  if (endIndex > 1) {
+    requests.push({ deleteContentRange: { range: { startIndex: 1, endIndex } } })
+  }
+  requests.push({ insertText: { location: { index: 1 }, text: out } })
+
+  // Reset baseline styles across the entire inserted text so removals (e.g., bold off) take effect
+  requests.push({
+    updateTextStyle: {
+      range: { startIndex: 1, endIndex: 1 + out.length },
+      textStyle: ({ bold: false, italic: false, underline: false, strikethrough: false } as docs_v1.Schema$TextStyle),
+      fields: 'bold,italic,underline,strikethrough'
+    }
+  })
+
+  // Clear colors baseline to avoid bleed; specific runs will re-apply
+  requests.push({
+    updateTextStyle: {
+      range: { startIndex: 1, endIndex: 1 + out.length },
+      textStyle: ({ foregroundColor: null, backgroundColor: null } as unknown as docs_v1.Schema$TextStyle),
+      fields: 'foregroundColor,backgroundColor'
+    }
+  })
+
+  const toDocsColor = (c: RGB | undefined) => c ? { color: { rgbColor: { red: c.r, green: c.g, blue: c.b } } } : undefined
+  const isWhite = (c?: RGB) => !!c && c.r >= 0.99 && c.g >= 0.99 && c.b >= 0.99
+  const isGrayscale = (c?: RGB) => !!c && Math.abs(c.r - c.g) < 0.01 && Math.abs(c.r - c.b) < 0.01
+  const invert = (c: RGB): RGB => ({ r: 1 - c.r, g: 1 - c.g, b: 1 - c.b })
+
+  for (const run of runs) {
+    const textStyle: docs_v1.Schema$TextStyle = {}
+    const fields: string[] = []
+    if (run.style.bold !== undefined) { textStyle.bold = true; fields.push('bold') }
+    if (run.style.italic !== undefined) { textStyle.italic = true; fields.push('italic') }
+    if (run.style.underline !== undefined) { textStyle.underline = true; fields.push('underline') }
+    if (run.style.strikethrough !== undefined) { textStyle.strikethrough = true; fields.push('strikethrough') }
+    if (run.style.fontSizePt) { textStyle.fontSize = { magnitude: run.style.fontSizePt, unit: 'PT' }; fields.push('fontSize') }
+    // Invert grayscale colors before sending to Google Docs, skip explicit white
+    const sendColor = isWhite(run.style.color)
+      ? undefined
+      : (isGrayscale(run.style.color) && run.style.color ? invert(run.style.color) : run.style.color)
+    const fg = toDocsColor(sendColor)
+    if (fg) { (textStyle as any).foregroundColor = fg; fields.push('foregroundColor') }
+    const bg = toDocsColor(run.style.backgroundColor)
+    if (bg) {
+      // If foreground equals background (or very close), avoid setting foreground to keep text readable
+      const fgRgb = sendColor
+      const bgRgb = run.style.backgroundColor
+      const close = (a: number, b: number) => Math.abs(a - b) < 0.02
+      const same = !!(fgRgb && bgRgb && close(fgRgb.r, bgRgb.r) && close(fgRgb.g, bgRgb.g) && close(fgRgb.b, bgRgb.b))
+      if (same) {
+        // Remove foregroundColor if we would match background
+        const idx = fields.indexOf('foregroundColor')
+        if (idx >= 0) fields.splice(idx, 1)
+        delete (textStyle as any).foregroundColor
+      }
+      (textStyle as any).backgroundColor = bg
+      fields.push('backgroundColor')
+    }
+    if (fields.length === 0) continue
+    requests.push({
+      updateTextStyle: {
+        textStyle,
+        range: { startIndex: 1 + run.start, endIndex: 1 + run.end },
+        fields: fields.join(',')
+      }
+    })
+  }
+
+  await docs.documents.batchUpdate({ documentId: docId, requestBody: { requests } })
+}
+
+export async function getGoogleFileModifiedTime(
+  userId: string,
+  fileId: string,
+): Promise<number | null> {
+  const drive = await getAuthedDriveClientForUser(userId)
+  const { data } = await drive.files.get({ fileId, fields: 'modifiedTime' })
+  const iso = data.modifiedTime
+  if (!iso) return null
+  const ms = Date.parse(iso)
+  return Number.isNaN(ms) ? null : ms
 }
 
 // Skeletons for future Google Drive operations (not yet implemented)

@@ -15,7 +15,7 @@ export default async function DriveLayout({ children }: { children: React.ReactN
   return (
     <div className="flex w-full">
       <FilesLeftSidebar localRootId={localRootId} googleRootId={googleRootId} />
-      <main className="flex-1 px-2.5">
+      <main className="flex-1">
         {children}
       </main>
     </div>

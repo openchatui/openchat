@@ -51,4 +51,9 @@
   overflow: auto;
 }
 
+/* Ensure highlighting does not change the text color */
+.editorContent :where(mark) {
+  color: inherit !important;
+}
+
 

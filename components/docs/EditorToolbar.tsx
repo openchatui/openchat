@@ -5,11 +5,11 @@ import type { Editor } from "@tiptap/react"
 import { Button } from "@/components/ui/button"
 import { Toggle } from "@/components/ui/toggle"
 import { Separator } from "@/components/ui/separator"
-import TextColorDropdown from "@dropdowns/TextColorDropdown"
-import HeadingDropdown from "@dropdowns/HeadingDropdown"
-import FontFamilyDropdown from "@dropdowns/FontFamilyDropdown"
-import FontSizeControl from "@dropdowns/FontSizeControl"
-import HighlightDropdown from "@dropdowns/HighlightDropdown"
+import TextColorDropdown from "@/components/docs/dropdowns/TextColorDropdown"
+import HeadingDropdown from "@/components/docs/dropdowns/HeadingDropdown"
+import FontFamilyDropdown from "@/components/docs/dropdowns/FontFamilyDropdown"
+import FontSizeControl from "@/components/docs/dropdowns/FontSizeControl"
+import HighlightDropdown from "@/components/docs/dropdowns/HighlightDropdown"
 import {
   Bold,
   Italic,
@@ -31,9 +31,11 @@ import { cn } from "@/lib/utils"
 interface EditorToolbarProps {
   editor: Editor | null
   className?: string
+  documentId?: string
+  enableGoogleSave?: boolean
 }
 
-export function EditorToolbar({ editor, className }: EditorToolbarProps) {
+export function EditorToolbar({ editor, className, documentId, enableGoogleSave }: EditorToolbarProps) {
   const [, setRerenderTick] = useState(0)
   const keepFocus = (e: React.MouseEvent) => e.preventDefault()
 
@@ -191,7 +193,6 @@ export function EditorToolbar({ editor, className }: EditorToolbarProps) {
       >
         <LinkIcon />
       </Button>
-
       
     </div>
   )

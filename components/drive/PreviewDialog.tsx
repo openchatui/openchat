@@ -104,6 +104,13 @@ export function PreviewDialog({ open, onOpenChange, name, url, mimeType, fileId 
               <div className="truncate text-sm sm:text-base font-medium" title={name}>{name}</div>
             </div>
             <div className="flex items-center gap-2">
+              {kind === "google-workspace" && mimeType === 'application/vnd.google-apps.document' && fileId ? (
+                <a href={`/drive/open/${encodeURIComponent(fileId)}`}>
+                  <Button variant="default" size="sm" className="gap-2">
+                    Open in Editor
+                  </Button>
+                </a>
+              ) : null}
               <a href={url} download>
                 <Button variant="default" size="sm" className="gap-2">
                   <DownloadIcon className="h-4 w-4" />
