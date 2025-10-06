@@ -111,6 +111,8 @@
     "pyodide": "^0.28.3",
     "playwright": "^1.55.0",
     "playwright-core": "^1.55.0",
+    "@prisma/client": "^6.16.1",
+    "prisma": "^6.15.0",
     "react": "19.1.0",
     "react-day-picker": "^9.8.0",
     "react-dom": "19.1.0",
