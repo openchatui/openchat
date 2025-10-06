@@ -1,0 +1,6 @@
+{
+    "buildCommand": "pnpm run prisma:gen && pnpm run build",
+    "installCommand": "pnpm install",
+    "framework": "nextjs"
+  }
+  
