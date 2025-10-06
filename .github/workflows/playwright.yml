@@ -16,7 +16,7 @@ jobs:
     - name: Install dependencies
       run: npm install -g pnpm && pnpm install
     - name: Setup DB
-      run: prisma migrate dev
+      run: pnpm migrate:dev
     - name: Install Playwright Browsers
       run: npx playwright install-deps
     - name: Run Playwright tests
