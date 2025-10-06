@@ -8,6 +8,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "test": "npx playwright test",
     "db:studio": "dotenv -e .env -- prisma studio --schema prisma/schema.${DB:-sqlite}.prisma",
     "db:migrate": "pnpm run migrate:dev && pnpm run prisma:gen",
     "db:reset": "pnpm run migrate:reset && pnpm run migrate:dev && pnpm run prisma:gen",
