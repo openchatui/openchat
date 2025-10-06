@@ -9,7 +9,7 @@ jobs:
     timeout-minutes: 60
     runs-on: ubuntu-latest
     env:
-      SQLITE_URL: file:./dev.db
+      SQLITE_URL: file:./prisma/dev.db
       DB: sqlite
     steps:
     - uses: actions/checkout@v4
@@ -20,14 +20,14 @@ jobs:
       run: npm install -g pnpm && pnpm install
     - name: Setup DB
       env:
-        SQLITE_URL: file:./dev.db
+        SQLITE_URL: file:./prisma/dev.db
         DB: sqlite
       run: pnpm migrate:dev
     - name: Generate Prisma Client
       env:
-        SQLITE_URL: file:./dev.db
+        SQLITE_URL: file:./prisma/dev.db
         DB: sqlite
-      run: pnpm exec prisma generate
+      run: pnpm run prisma:gen
     - name: Install Playwright Browsers
       run: pnpm exec playwright install --with-deps
     - name: Run Playwright tests
