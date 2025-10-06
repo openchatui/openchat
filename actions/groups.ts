@@ -4,6 +4,7 @@ import { revalidatePath, revalidateTag } from 'next/cache'
 import { auth } from "@/lib/auth"
 import db from '@/lib/db'
 import { DEFAULT_GROUP_PERMISSIONS, type GroupPermissions } from '@/lib/server/access-control/permissions.types'
+import type { Prisma } from '@prisma/client'
 
 export type ActionResult =
   | { status: 'idle' }
@@ -48,13 +49,13 @@ export async function createGroupAction(_prevState: ActionResult, formData: Form
       } catch {}
     }
 
-    await (db as any).group.create({
+    await db.group.create({
       data: {
         id,
         userId: session.user.id,
         name,
         description,
-        permissions,
+        permissions: permissions as unknown as Prisma.InputJsonValue,
         userIds,
         createdAt: nowSec,
         updatedAt: nowSec,
@@ -108,12 +109,12 @@ export async function updateGroupAction(_prevState: ActionResult, formData: Form
       }
     }
 
-    await (db as any).group.update({
+    await db.group.update({
       where: { id },
       data: {
         name,
         description,
-        permissions,
+        permissions: permissions as unknown as Prisma.InputJsonValue,
         ...(userIds ? { userIds } : {}),
         updatedAt: nowSec,
       },
@@ -128,7 +129,7 @@ export async function updateGroupAction(_prevState: ActionResult, formData: Form
           const modelIds = Object.keys(parsed)
           if (modelIds.length > 0) {
             // Load models to ensure they exist and to read current accessControl
-            const models = await (db as any).model.findMany({ where: { id: { in: modelIds } } })
+            const models = await db.model.findMany({ where: { id: { in: modelIds } } })
             await Promise.all(models.map(async (m: any) => {
               const sel = parsed[m.id] || {}
               const current: any = m.accessControl || { read: { group_ids: [], user_ids: [] }, write: { group_ids: [], user_ids: [] } }
@@ -162,7 +163,7 @@ export async function updateGroupAction(_prevState: ActionResult, formData: Form
               // Only update if changed
               const changed = JSON.stringify(current) !== JSON.stringify(next)
               if (changed) {
-                await (db as any).model.update({ where: { id: m.id }, data: { accessControl: next } })
+                await db.model.update({ where: { id: m.id }, data: { accessControl: next } })
               }
             }))
           }
@@ -204,7 +205,7 @@ export async function updateUserGroupsAction(formData: FormData): Promise<Action
       }
     }
 
-    const groups = await (db as any).group.findMany()
+    const groups = await db.group.findMany()
     await Promise.all((groups || []).map(async (g: any) => {
       const raw = Array.isArray(g.userIds)
         ? g.userIds
@@ -221,7 +222,7 @@ export async function updateUserGroupsAction(formData: FormData): Promise<Action
       if (!shouldHave && hasNow) next = current.filter((id) => id !== userId)
       const changed = next.length !== current.length || next.some((v, i) => v !== current[i])
       if (changed) {
-        await (db as any).group.update({ where: { id: g.id }, data: { userIds: next } })
+        await db.group.update({ where: { id: g.id }, data: { userIds: next } })
       }
     }))
 

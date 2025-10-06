@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
     const modelIds = Object.keys(selection)
     if (modelIds.length === 0) return NextResponse.json({ ok: true })
 
-    const models = await (db as any).model.findMany({ where: { id: { in: modelIds } } })
+    const models = await db.model.findMany({ where: { id: { in: modelIds } } })
     await Promise.all(models.map(async (m: any) => {
       const sel = selection[m.id] || {}
       const current: any = m.accessControl || { read: { group_ids: [], user_ids: [] }, write: { group_ids: [], user_ids: [] } }
@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
 
       const changed = JSON.stringify(current) !== JSON.stringify(next)
       if (changed) {
-        await (db as any).model.update({ where: { id: m.id }, data: { accessControl: next } })
+        await db.model.update({ where: { id: m.id }, data: { accessControl: next } })
       }
     }))
 

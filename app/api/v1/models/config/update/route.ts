@@ -33,10 +33,10 @@ export async function PUT(request: NextRequest) {
       updates.order = incoming.order
     }
 
-    let config = await (db as any).config.findUnique({ where: { id: 1 } })
+    let config = await db.config.findUnique({ where: { id: 1 } })
     if (!config) {
       const nextData = { models: { order: [], ...updates } }
-      config = await (db as any).config.create({ data: { id: 1, data: nextData } })
+      config = await db.config.create({ data: { id: 1, data: nextData } })
       return NextResponse.json(nextData)
     }
 
@@ -45,7 +45,7 @@ export async function PUT(request: NextRequest) {
     const mergedModels = deepMerge(currentModels, updates)
     const nextData = { ...currentData, models: { order: [], ...mergedModels } }
 
-    const result = await (db as any).config.update({ where: { id: 1 }, data: { data: nextData } })
+    const result = await db.config.update({ where: { id: 1 }, data: { data: nextData } })
     return NextResponse.json({ models: nextData.models })
   } catch (error) {
     console.error('PUT /api/v1/models/config/update error:', error)

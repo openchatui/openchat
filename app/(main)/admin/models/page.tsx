@@ -16,11 +16,11 @@ export default async function AdminModelsPage() {
     ]);
 
     // Load models config
-    let config = await (db as any).config.findUnique({ where: { id: 1 } })
+    let config = await db.config.findUnique({ where: { id: 1 } })
     const defaults = { models: { hidden: [], invisible: [], active: [], order: [] } }
     let modelsConfig = defaults.models
     if (!config) {
-        config = await (db as any).config.create({ data: { id: 1, data: defaults } })
+        config = await db.config.create({ data: { id: 1, data: defaults } })
     }
     const data = (config.data || {}) as any
     const maybeModels = data?.models
@@ -34,11 +34,11 @@ export default async function AdminModelsPage() {
         // Persist shaped config if any keys missing
         const needsPersist = !Array.isArray(maybeModels.hidden) || !Array.isArray(maybeModels.invisible) || !Array.isArray(maybeModels.active) || !Array.isArray(maybeModels.order)
         if (needsPersist) {
-            await (db as any).config.update({ where: { id: 1 }, data: { data: { ...data, models: modelsConfig } } })
+            await db.config.update({ where: { id: 1 }, data: { data: { ...data, models: modelsConfig } } })
         }
     } else {
         // Merge defaults into existing data instead of replacing entire JSON
-        await (db as any).config.update({ where: { id: 1 }, data: { data: { ...data, ...defaults } } })
+        await db.config.update({ where: { id: 1 }, data: { data: { ...data, ...defaults } } })
     }
 
     const chats = await ChatStore.getUserChats(session.user.id)

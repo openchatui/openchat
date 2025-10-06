@@ -36,7 +36,7 @@ export async function PUT(request: NextRequest) {
       if (key in incoming) filtered[key] = (incoming as any)[key]
     }
 
-    const existing = await (db as any).config.findUnique({ where: { id: 1 } })
+    const existing = await db.config.findUnique({ where: { id: 1 } })
     const currentData = (existing?.data || {}) as Record<string, unknown>
     const currentWebSearch = isPlainObject((currentData as any).websearch) ? (currentData as any).websearch : {}
 
@@ -45,8 +45,8 @@ export async function PUT(request: NextRequest) {
     const nextData = { ...currentData, websearch: mergedWebSearch }
 
     const result = existing
-      ? await (db as any).config.update({ where: { id: 1 }, data: { data: nextData } })
-      : await (db as any).config.create({ data: { id: 1, data: nextData } })
+      ? await db.config.update({ where: { id: 1 }, data: { data: nextData } })
+      : await db.config.create({ data: { id: 1, data: nextData } })
 
     const data = result.data as any
     const websearch = isPlainObject(data.websearch) ? (data.websearch as any) : {}

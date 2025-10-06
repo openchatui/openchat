@@ -24,7 +24,7 @@ export interface WebSearchConfig {
 }
 
 export async function getWebSearchConfigAction(): Promise<WebSearchConfig> {
-  const row = await (db as any).config.findUnique({ where: { id: 1 } })
+  const row = await db.config.findUnique({ where: { id: 1 } })
   const data = (row?.data || {}) as any
   const ws = (data && typeof data === 'object' && (data as any).websearch) ? (data as any).websearch : {}
   const enabled = Boolean(ws.ENABLED)
@@ -68,7 +68,7 @@ export async function getWebSearchConfigAction(): Promise<WebSearchConfig> {
 }
 
 export async function updateWebSearchConfigAction(payload: any): Promise<void> {
-  const row = await (db as any).config.findUnique({ where: { id: 1 } })
+  const row = await db.config.findUnique({ where: { id: 1 } })
   const current = (row?.data || {}) as any
   // Deep merge to avoid clobbering nested provider configs (e.g., browserless, googlepse)
   const isObj = (v: any) => v && typeof v === 'object' && !Array.isArray(v)
@@ -84,8 +84,8 @@ export async function updateWebSearchConfigAction(payload: any): Promise<void> {
   }
   const nextWebsearch = deepMerge(current?.websearch || {}, (payload || {}).websearch || {})
   const next = { ...current, websearch: nextWebsearch }
-  if (row) await (db as any).config.update({ where: { id: 1 }, data: { data: next } })
-  else await (db as any).config.create({ data: { id: 1, data: next } })
+  if (row) await db.config.update({ where: { id: 1 }, data: { data: next } })
+  else await db.config.create({ data: { id: 1, data: next } })
   // Ensure the admin websearch page and any caches pick up the latest config
   revalidatePath('/admin/websearch')
 }

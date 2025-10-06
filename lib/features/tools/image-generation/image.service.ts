@@ -49,7 +49,7 @@ export class ImageGenerationService {
    */
   static async getImageConfig(): Promise<OpenAIImageConfig | null> {
     try {
-      const cfgRow = await (db as any).config.findUnique({ 
+      const cfgRow = await db.config.findUnique({ 
         where: { id: 1 }, 
         select: { data: true } 
       });

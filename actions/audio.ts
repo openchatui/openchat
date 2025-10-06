@@ -15,7 +15,7 @@ interface UpdateAudioPayload {
 }
 
 export async function updateAudioConfigAction(payload: UpdateAudioPayload): Promise<void> {
-  const row = await (db as any).config.findUnique({ where: { id: 1 } })
+  const row = await db.config.findUnique({ where: { id: 1 } })
   const current = (row?.data || {}) as any
   const currAudio = (current && typeof current === 'object' && (current as any).audio) ? (current as any).audio : {}
   const input = payload?.audio || {}
@@ -40,9 +40,9 @@ export async function updateAudioConfigAction(payload: UpdateAudioPayload): Prom
 
   const nextData = { ...current, audio: nextAudio }
   if (row) {
-    await (db as any).config.update({ where: { id: 1 }, data: { data: nextData } })
+    await db.config.update({ where: { id: 1 }, data: { data: nextData } })
   } else {
-    await (db as any).config.create({ data: { id: 1, data: nextData } })
+    await db.config.create({ data: { id: 1, data: nextData } })
   }
 }
 

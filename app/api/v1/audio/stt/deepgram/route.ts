@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
     // Resolve API key from config first, fallback to env
     let apiKey: string | null = null
     try {
-      const cfg = await (db as any).config.findUnique({ where: { id: 1 } })
+      const cfg = await db.config.findUnique({ where: { id: 1 } })
       const data = (cfg?.data || {}) as any
       const keys: string[] = Array.isArray(data?.connections?.deepgram?.api_keys)
         ? data.connections.deepgram.api_keys

@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
     if (!text) return NextResponse.json({ error: 'Missing text' }, { status: 400 })
 
     // Load config
-    const cfg = await (db as any).config.findUnique({ where: { id: 1 } })
+    const cfg = await db.config.findUnique({ where: { id: 1 } })
     const data = (cfg?.data || {}) as any
     const audio = (data?.audio || {}) as any
     const connections = (data?.connections || {}) as any

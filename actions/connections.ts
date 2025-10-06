@@ -23,7 +23,7 @@ export async function getConnections(): Promise<Connection[]> {
   for (const row of rows) {
     const inferred = inferProviderFromBaseUrl((row as any).baseUrl, (row as any).type)
     if ((row as any).provider !== inferred) {
-      updates.push((db as any).connection.update({ where: { id: (row as any).id }, data: { provider: inferred } }))
+      updates.push(db.connection.update({ where: { id: (row as any).id }, data: { provider: inferred } }))
     }
   }
   if (updates.length > 0) {
@@ -66,7 +66,7 @@ function inferProviderFromBaseUrl(baseUrl: string | null | undefined, type?: str
 
 export async function getConnectionsConfig(): Promise<{ connections: ConnectionsConfig }> {
   // Shape config similar to the api route
-  const row = await (db as any).config.findUnique({ where: { id: 1 } })
+  const row = await db.config.findUnique({ where: { id: 1 } })
   const current = (row?.data || {}) as any
   function isPlainObject(value: unknown): value is Record<string, unknown> {
     return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -109,9 +109,9 @@ export async function getConnectionsConfig(): Promise<{ connections: Connections
   if (needsPersist) {
     const nextData = { ...current, ...shaped }
     if (row) {
-      await (db as any).config.update({ where: { id: 1 }, data: { data: nextData } })
+      await db.config.update({ where: { id: 1 }, data: { data: nextData } })
     } else {
-      await (db as any).config.create({ data: { id: 1, data: nextData } })
+      await db.config.create({ data: { id: 1, data: nextData } })
     }
   }
   return shaped
@@ -166,7 +166,7 @@ export async function deleteConnectionAction(id: string): Promise<void> {
 }
 
 export async function updateConnectionsConfig(payload: any): Promise<void> {
-  const row = await (db as any).config.findUnique({ where: { id: 1 } })
+  const row = await db.config.findUnique({ where: { id: 1 } })
   const current = (row?.data || {}) as any
 
   // Deep merge helper to avoid clobbering sibling keys on nested updates
@@ -191,9 +191,9 @@ export async function updateConnectionsConfig(payload: any): Promise<void> {
 
   const next = deepMerge(current, payload || {})
   if (row) {
-    await (db as any).config.update({ where: { id: 1 }, data: { data: next } })
+    await db.config.update({ where: { id: 1 }, data: { data: next } })
   } else {
-    await (db as any).config.create({ data: { id: 1, data: next } })
+    await db.config.create({ data: { id: 1, data: next } })
   }
   revalidatePath('/admin/connections')
 }
@@ -237,7 +237,7 @@ export async function syncModelsAction(input: { baseUrl: string; type: 'openai-a
 
 // Audio-related connection helpers
 export async function setOpenAISttCredentials(baseUrl: string, apiKey: string): Promise<void> {
-  const row = await (db as any).config.findUnique({ where: { id: 1 } })
+  const row = await db.config.findUnique({ where: { id: 1 } })
   const current = (row?.data || {}) as any
   const connections = (current?.connections && typeof current.connections === 'object') ? current.connections as any : {}
   const openai = (connections.openai && typeof connections.openai === 'object') ? connections.openai as any : {}
@@ -270,12 +270,12 @@ export async function setOpenAISttCredentials(baseUrl: string, apiKey: string): 
       }
     }
   }
-  if (row) await (db as any).config.update({ where: { id: 1 }, data: { data: next } })
-  else await (db as any).config.create({ data: { id: 1, data: next } })
+  if (row) await db.config.update({ where: { id: 1 }, data: { data: next } })
+  else await db.config.create({ data: { id: 1, data: next } })
 }
 
 export async function setElevenLabsApiKey(apiKey: string): Promise<void> {
-  const row = await (db as any).config.findUnique({ where: { id: 1 } })
+  const row = await db.config.findUnique({ where: { id: 1 } })
   const current = (row?.data || {}) as any
   const connections = (current?.connections && typeof current.connections === 'object') ? current.connections as any : {}
   const el = (connections.elevenlabs && typeof connections.elevenlabs === 'object') ? connections.elevenlabs as any : {}
@@ -294,12 +294,12 @@ export async function setElevenLabsApiKey(apiKey: string): Promise<void> {
       }
     }
   }
-  if (row) await (db as any).config.update({ where: { id: 1 }, data: { data: next } })
-  else await (db as any).config.create({ data: { id: 1, data: next } })
+  if (row) await db.config.update({ where: { id: 1 }, data: { data: next } })
+  else await db.config.create({ data: { id: 1, data: next } })
 }
 
 export async function setDeepgramApiKey(apiKey: string): Promise<void> {
-  const row = await (db as any).config.findUnique({ where: { id: 1 } })
+  const row = await db.config.findUnique({ where: { id: 1 } })
   const current = (row?.data || {}) as any
   const connections = (current?.connections && typeof current.connections === 'object') ? current.connections as any : {}
   const dg = (connections.deepgram && typeof connections.deepgram === 'object') ? connections.deepgram as any : {}
@@ -318,14 +318,14 @@ export async function setDeepgramApiKey(apiKey: string): Promise<void> {
       }
     }
   }
-  if (row) await (db as any).config.update({ where: { id: 1 }, data: { data: next } })
-  else await (db as any).config.create({ data: { id: 1, data: next } })
+  if (row) await db.config.update({ where: { id: 1 }, data: { data: next } })
+  else await db.config.create({ data: { id: 1, data: next } })
 }
 
 // Sync helpers to ensure config mirrors DB state for connection providers
 async function syncOpenAIConfigFromDb(): Promise<void> {
   const [row, rows] = await Promise.all([
-    (db as any).config.findUnique({ where: { id: 1 } }),
+    db.config.findUnique({ where: { id: 1 } }),
     db.connection.findMany({ where: { type: 'openai-api' }, orderBy: { createdAt: 'desc' } }),
   ])
   const current = (row?.data || {}) as any
@@ -354,13 +354,13 @@ async function syncOpenAIConfigFromDb(): Promise<void> {
     },
   }
 
-  if (row) await (db as any).config.update({ where: { id: 1 }, data: { data: next } })
-  else await (db as any).config.create({ data: { id: 1, data: next } })
+  if (row) await db.config.update({ where: { id: 1 }, data: { data: next } })
+  else await db.config.create({ data: { id: 1, data: next } })
 }
 
 async function syncOllamaConfigFromDb(): Promise<void> {
   const [row, rows] = await Promise.all([
-    (db as any).config.findUnique({ where: { id: 1 } }),
+    db.config.findUnique({ where: { id: 1 } }),
     db.connection.findMany({ where: { type: 'ollama' }, orderBy: { createdAt: 'desc' } }),
   ])
   const current = (row?.data || {}) as any
@@ -380,8 +380,8 @@ async function syncOllamaConfigFromDb(): Promise<void> {
     },
   }
 
-  if (row) await (db as any).config.update({ where: { id: 1 }, data: { data: next } })
-  else await (db as any).config.create({ data: { id: 1, data: next } })
+  if (row) await db.config.update({ where: { id: 1 }, data: { data: next } })
+  else await db.config.create({ data: { id: 1, data: next } })
 }
 
 export async function syncConnectionsConfigFromDb(): Promise<void> {

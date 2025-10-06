@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import db from '@/lib/db'
+import type { Prisma } from '@prisma/client'
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -14,11 +15,11 @@ function ensureModelsConfigShape(data: any): { models: { order: string[] } } {
 // GET /api/v1/models/config - returns models config, initializing if needed
 export async function GET() {
   try {
-    let config = await (db as any).config.findUnique({ where: { id: 1 } })
+    let config = await db.config.findUnique({ where: { id: 1 } })
     if (!config) {
       // Create base config with default models config (order only)
       const defaults = { models: { order: [] } }
-      config = await (db as any).config.create({ data: { id: 1, data: defaults } })
+      config = await db.config.create({ data: { id: 1, data: defaults as unknown as Prisma.InputJsonValue } })
       return NextResponse.json(defaults)
     }
 
@@ -30,8 +31,9 @@ export async function GET() {
       || !Array.isArray((current as any).models?.order)
 
     if (needsPersist) {
-      const nextData = { ...current, ...shaped }
-      await (db as any).config.update({ where: { id: 1 }, data: { data: nextData } })
+      const currentObj: Record<string, unknown> = isPlainObject(current) ? (current as Record<string, unknown>) : {}
+      const nextData = { ...currentObj, ...shaped }
+      await db.config.update({ where: { id: 1 }, data: { data: nextData as unknown as Prisma.InputJsonValue } })
     }
 
     return NextResponse.json(shaped)

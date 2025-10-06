@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import db from '@/lib/db'
+import type { Prisma } from '@prisma/client'
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -26,10 +27,10 @@ function ensureAudioConfigShape(data: any): { audio: Record<string, unknown> } {
 // GET /api/v1/audio/config - returns audio config, initializing if needed
 export async function GET() {
   try {
-    let config = await (db as any).config.findUnique({ where: { id: 1 } })
+    let config = await db.config.findUnique({ where: { id: 1 } })
     if (!config) {
       const defaults = { audio: { ttsEnabled: false, sttEnabled: false } }
-      config = await (db as any).config.create({ data: { id: 1, data: defaults } })
+      config = await db.config.create({ data: { id: 1, data: defaults as unknown as Prisma.InputJsonValue } })
       return NextResponse.json(defaults)
     }
 
@@ -42,7 +43,7 @@ export async function GET() {
 
     if (needsPersist) {
       const nextData = { ...current, ...shaped }
-      await (db as any).config.update({ where: { id: 1 }, data: { data: nextData } })
+      await db.config.update({ where: { id: 1 }, data: { data: nextData as unknown as Prisma.InputJsonValue } })
     }
 
     return NextResponse.json(shaped)

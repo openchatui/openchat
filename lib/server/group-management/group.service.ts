@@ -1,6 +1,8 @@
 import 'server-only';
 import db from '../../db';
 import type { Group } from '@/lib/server/group-management/group.types';
+import type { GroupPermissions } from '@/lib/server/access-control/permissions.types'
+import type { Prisma } from '@prisma/client';
 
 /**
  * Group Management Service
@@ -11,15 +13,15 @@ export class GroupService {
    */
   static async getAdminGroups(): Promise<Group[]> {
     try {
-      const dbGroups = await (db as any).group.findMany({
+      const dbGroups = await db.group.findMany({
         orderBy: { createdAt: 'desc' },
       });
 
       const groups: Group[] = (dbGroups || []).map((g: any) => {
         const userIds: string[] = Array.isArray(g.userIds)
           ? g.userIds
-          : Array.isArray(g.user_ids)
-            ? g.user_ids
+          : Array.isArray((g as any)['user_ids'])
+            ? (g as any)['user_ids']
             : typeof g.userIds === 'object' && g.userIds !== null && 'set' in g.userIds
               ? (g.userIds.set as string[])
               : [];
@@ -28,12 +30,12 @@ export class GroupService {
           id: g.id,
           name: g.name ?? undefined,
           description: g.description ?? undefined,
-          userId: g.userId ?? g.user_id ?? undefined,
+          userId: g.userId ?? (g as any).user_id ?? undefined,
           userIds,
           userCount: Array.isArray(userIds) ? userIds.length : 0,
           createdAt: g.createdAt ? new Date((Number(g.createdAt) || 0) * 1000).toISOString() : undefined,
           updatedAt: g.updatedAt ? new Date((Number(g.updatedAt) || 0) * 1000).toISOString() : undefined,
-          permissions: g.permissions ?? undefined,
+          permissions: (g.permissions ?? undefined) as unknown as GroupPermissions,
         };
       });
 
@@ -55,13 +57,15 @@ export class GroupService {
     permissions?: any;
   }): Promise<Group> {
     try {
-      const group = await (db as any).group.create({
+      const id = crypto.randomUUID();
+      const group = await db.group.create({
         data: {
+          id,
           name: data.name,
           description: data.description,
           userId: data.userId,
-          userIds: data.userIds || [],
-          permissions: data.permissions || {},
+          userIds: (data.userIds || []) as unknown as Prisma.InputJsonValue,
+          permissions: (data.permissions || {}) as unknown as Prisma.InputJsonValue,
           createdAt: Math.floor(Date.now() / 1000),
           updatedAt: Math.floor(Date.now() / 1000),
         },
@@ -69,14 +73,14 @@ export class GroupService {
 
       return {
         id: group.id,
-        name: group.name,
-        description: group.description,
-        userId: group.userId,
-        userIds: group.userIds || [],
-        userCount: (group.userIds || []).length,
-        createdAt: new Date(group.createdAt * 1000).toISOString(),
-        updatedAt: new Date(group.updatedAt * 1000).toISOString(),
-        permissions: group.permissions,
+        name: group.name ?? undefined,
+        description: group.description ?? undefined,
+        userId: group.userId ?? undefined,
+        userIds: Array.isArray(group.userIds) ? (group.userIds as any[]).filter((v) => typeof v === 'string') as string[] : [],
+        userCount: Array.isArray(group.userIds) ? (group.userIds as any[]).filter((v) => typeof v === 'string').length : 0,
+        createdAt: group.createdAt ? new Date(((group.createdAt as number) || 0) * 1000).toISOString() : undefined,
+        updatedAt: group.updatedAt ? new Date(((group.updatedAt as number) || 0) * 1000).toISOString() : undefined,
+        permissions: (group.permissions ?? undefined) as unknown as GroupPermissions,
       };
     } catch (error) {
       console.error('Error creating group:', error);
@@ -101,22 +105,25 @@ export class GroupService {
         ...data,
         updatedAt: Math.floor(Date.now() / 1000),
       };
+      if (data.permissions !== undefined) {
+        updateData.permissions = data.permissions as unknown as Prisma.InputJsonValue;
+      }
 
-      const group = await (db as any).group.update({
+      const group = await db.group.update({
         where: { id: groupId },
         data: updateData,
       });
 
       return {
         id: group.id,
-        name: group.name,
-        description: group.description,
-        userId: group.userId,
-        userIds: group.userIds || [],
-        userCount: (group.userIds || []).length,
-        createdAt: new Date(group.createdAt * 1000).toISOString(),
-        updatedAt: new Date(group.updatedAt * 1000).toISOString(),
-        permissions: group.permissions,
+        name: group.name ?? undefined,
+        description: group.description ?? undefined,
+        userId: group.userId ?? undefined,
+        userIds: Array.isArray(group.userIds) ? (group.userIds as any[]).filter((v) => typeof v === 'string') as string[] : [],
+        userCount: Array.isArray(group.userIds) ? (group.userIds as any[]).filter((v) => typeof v === 'string').length : 0,
+        createdAt: group.createdAt ? new Date(((group.createdAt as number) || 0) * 1000).toISOString() : undefined,
+        updatedAt: group.updatedAt ? new Date(((group.updatedAt as number) || 0) * 1000).toISOString() : undefined,
+        permissions: (group.permissions ?? undefined) as unknown as GroupPermissions,
       };
     } catch (error) {
       console.error('Error updating group:', error);
@@ -129,7 +136,7 @@ export class GroupService {
    */
   static async deleteGroup(groupId: string): Promise<boolean> {
     try {
-      await (db as any).group.delete({
+      await db.group.delete({
         where: { id: groupId },
       });
       return true;
@@ -144,22 +151,24 @@ export class GroupService {
    */
   static async addUserToGroup(groupId: string, userId: string): Promise<boolean> {
     try {
-      const group = await (db as any).group.findUnique({
+      const group = await db.group.findUnique({
         where: { id: groupId },
         select: { userIds: true },
       });
 
       if (!group) return false;
 
-      const currentUserIds = Array.isArray(group?.userIds) ? group.userIds : [];
+      const currentUserIds: string[] = Array.isArray(group?.userIds)
+        ? (group.userIds as any[]).filter((v) => typeof v === 'string') as string[]
+        : [];
       if (currentUserIds.includes(userId)) return true; // Already in group
 
       const newUserIds = [...currentUserIds, userId];
 
-      await (db as any).group.update({
+      await db.group.update({
         where: { id: groupId },
         data: {
-          userIds: newUserIds,
+          userIds: newUserIds as unknown as Prisma.InputJsonValue,
           updatedAt: Math.floor(Date.now() / 1000),
         },
       });
@@ -176,20 +185,22 @@ export class GroupService {
    */
   static async removeUserFromGroup(groupId: string, userId: string): Promise<boolean> {
     try {
-      const group = await (db as any).group.findUnique({
+      const group = await db.group.findUnique({
         where: { id: groupId },
         select: { userIds: true },
       });
 
       if (!group) return false;
 
-      const currentUserIds = Array.isArray(group?.userIds) ? group.userIds : [];
-      const newUserIds = currentUserIds.filter((id: string) => id !== userId);
+      const currentUserIds: string[] = Array.isArray(group?.userIds)
+        ? (group.userIds as any[]).filter((v) => typeof v === 'string') as string[]
+        : [];
+      const newUserIds = currentUserIds.filter((id) => id !== userId);
 
-      await (db as any).group.update({
+      await db.group.update({
         where: { id: groupId },
         data: {
-          userIds: newUserIds,
+          userIds: newUserIds as unknown as Prisma.InputJsonValue,
           updatedAt: Math.floor(Date.now() / 1000),
         },
       });

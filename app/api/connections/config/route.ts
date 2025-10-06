@@ -67,10 +67,10 @@ function ensureConnectionsConfigShape(data: any) {
 // GET /api/connections/config - returns connections config, initializing if needed
 export async function GET() {
   try {
-    let config = await (db as any).config.findUnique({ where: { id: 1 } })
+    let config = await db.config.findUnique({ where: { id: 1 } })
     if (!config) {
       const shaped = ensureConnectionsConfigShape({})
-      config = await (db as any).config.create({ data: { id: 1, data: shaped } })
+      config = await db.config.create({ data: { id: 1, data: shaped } })
       return NextResponse.json(shaped)
     }
 
@@ -83,8 +83,9 @@ export async function GET() {
       || !isPlainObject((current as any).connections?.deepgram)
 
     if (needsPersist) {
-      const nextData = { ...current, ...shaped }
-      await (db as any).config.update({ where: { id: 1 }, data: { data: nextData } })
+      const currentObj: Record<string, unknown> = isPlainObject(current) ? (current as Record<string, unknown>) : {}
+      const nextData = { ...currentObj, ...shaped }
+      await db.config.update({ where: { id: 1 }, data: { data: nextData } })
     }
 
     return NextResponse.json(shaped)

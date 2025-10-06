@@ -20,7 +20,7 @@ export class ConfigService {
    */
   static async getConfig(path?: string): Promise<any> {
     try {
-      const config = await (db as any).config.findUnique({ 
+      const config = await db.config.findUnique({ 
         where: { id: 1 }, 
         select: { data: true } 
       });
@@ -70,7 +70,7 @@ export class ConfigService {
       
       current[keys[keys.length - 1]] = value;
 
-      await (db as any).config.upsert({
+      await db.config.upsert({
         where: { id: 1 },
         create: { id: 1, data },
         update: { data }
@@ -160,7 +160,7 @@ export class ConfigService {
    */
   static async resetConfig(): Promise<void> {
     try {
-      await (db as any).config.upsert({
+      await db.config.upsert({
         where: { id: 1 },
         create: { id: 1, data: {} },
         update: { data: {} }

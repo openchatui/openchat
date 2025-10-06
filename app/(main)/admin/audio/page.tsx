@@ -18,7 +18,7 @@ export default async function AdminAudioPage() {
   ])
 
   // Load connection keys for audio providers from server config
-  const cfgRow = await (db as any).config.findUnique({ where: { id: 1 } })
+  const cfgRow = await db.config.findUnique({ where: { id: 1 } })
   const cfg = (cfgRow?.data || {}) as any
   const connections = (cfg && typeof cfg === 'object') ? (cfg as any).connections : {}
   const openai = (connections && typeof connections.openai === 'object') ? connections.openai as any : {}

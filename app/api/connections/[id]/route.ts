@@ -162,7 +162,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       const nextBase = String(body.baseUrl || '').trim()
       const nextKey = body.apiKey ? String(body.apiKey).trim() : null
 
-      const existing = await (db as any).config.findUnique({ where: { id: 1 } })
+      const existing = await db.config.findUnique({ where: { id: 1 } })
       const currentData = (existing?.data || {}) as Record<string, unknown>
       const currentConnections = isPlainObject((currentData as any).connections) ? ((currentData as any).connections as any) : {}
       const currentOpenai = isPlainObject(currentConnections.openai) ? (currentConnections.openai as any) : {}
@@ -212,9 +212,9 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
       const nextData = { ...currentData, connections: nextConnections }
       if (existing) {
-        await (db as any).config.update({ where: { id: 1 }, data: { data: nextData } })
+        await db.config.update({ where: { id: 1 }, data: { data: nextData } })
       } else {
-        await (db as any).config.create({ data: { id: 1, data: nextData } })
+        await db.config.create({ data: { id: 1, data: nextData } })
       }
     } catch (cfgErr) {
       console.error('Warning: failed to sync connections config on update:', cfgErr)
@@ -259,7 +259,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       const prevBase = String(existingConnection.baseUrl || '').trim()
       const prevKey = existingConnection.apiKey ? String(existingConnection.apiKey).trim() : null
 
-      const existing = await (db as any).config.findUnique({ where: { id: 1 } })
+      const existing = await db.config.findUnique({ where: { id: 1 } })
       const currentData = (existing?.data || {}) as Record<string, unknown>
       const currentConnections = isPlainObject((currentData as any).connections) ? ((currentData as any).connections as any) : {}
       const currentOpenai = isPlainObject(currentConnections.openai) ? (currentConnections.openai as any) : {}
@@ -295,9 +295,9 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
       const nextData = { ...currentData, connections: nextConnections }
       if (existing) {
-        await (db as any).config.update({ where: { id: 1 }, data: { data: nextData } })
+        await db.config.update({ where: { id: 1 }, data: { data: nextData } })
       } else {
-        await (db as any).config.create({ data: { id: 1, data: nextData } })
+        await db.config.create({ data: { id: 1, data: nextData } })
       }
     } catch (cfgErr) {
       console.error('Warning: failed to sync connections config on delete:', cfgErr)

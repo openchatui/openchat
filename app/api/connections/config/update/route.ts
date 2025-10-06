@@ -77,7 +77,7 @@ export async function PUT(request: NextRequest) {
     if (isPlainObject(incoming.deepgram)) updates.deepgram = filterDeepgram(incoming.deepgram)
     if (isPlainObject(incoming.elevenlabs)) updates.elevenlabs = filterElevenLabs(incoming.elevenlabs)
 
-    const existing = await (db as any).config.findUnique({ where: { id: 1 } })
+    const existing = await db.config.findUnique({ where: { id: 1 } })
     const currentData = (existing?.data || {}) as Record<string, unknown>
     const currentConnections = isPlainObject((currentData as any).connections)
       ? ((currentData as any).connections as any)
@@ -87,8 +87,8 @@ export async function PUT(request: NextRequest) {
     const nextData = { ...currentData, connections: mergedConnections }
 
     const result = existing
-      ? await (db as any).config.update({ where: { id: 1 }, data: { data: nextData } })
-      : await (db as any).config.create({ data: { id: 1, data: nextData } })
+      ? await db.config.update({ where: { id: 1 }, data: { data: nextData } })
+      : await db.config.create({ data: { id: 1, data: nextData } })
 
     return NextResponse.json({ connections: (result.data as any).connections })
   } catch (error) {

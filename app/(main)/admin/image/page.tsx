@@ -11,7 +11,7 @@ export default async function AdminImagePage() {
   const chats = await ChatStore.getUserChats(session.user.id)
 
   // Load image provider and enable flag on the server
-  const cfgRow = await (db as any).config.findUnique({ where: { id: 1 } })
+  const cfgRow = await db.config.findUnique({ where: { id: 1 } })
   const data = (cfgRow?.data || {}) as any
   const image = (data && typeof data === 'object' && (data as any).image) ? (data as any).image : {}
   const provider = (typeof image.provider === 'string' && ['openai','comfyui','automatic1111'].includes(String(image.provider)))

@@ -92,7 +92,7 @@ export class UserService {
           orderBy: { createdAt: 'desc' },
         }),
         // Compute last active per user in a single aggregation
-        (db as any).session.groupBy({
+        db.session.groupBy({
           by: ['userId'],
           _max: { expires: true },
         }).catch(() => []),
@@ -171,14 +171,14 @@ export class UserService {
 
         const [sessionMaxByUser, oauthAccounts] = await Promise.all([
           userIds.length > 0
-            ? (db as any).session.groupBy({ 
+            ? db.session.groupBy({ 
                 by: ['userId'], 
                 where: { userId: { in: userIds } }, 
                 _max: { expires: true } 
               })
             : [],
           userIds.length > 0
-            ? (db as any).account.findMany({
+            ? db.account.findMany({
                 where: { userId: { in: userIds }, NOT: { provider: 'credentials' } },
                 select: { userId: true, providerAccountId: true },
               })

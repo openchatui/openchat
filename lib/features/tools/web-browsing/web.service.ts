@@ -16,7 +16,7 @@ export class WebBrowsingService {
     googlepse?: { apiKey?: string; engineId?: string; searchEngineId?: string; resultCount?: number; domainFilters?: string[] };
   }> {
     try {
-      const cfg = await (db as any).config.findUnique({ 
+      const cfg = await db.config.findUnique({ 
         where: { id: 1 }, 
         select: { data: true } 
       });
@@ -130,7 +130,7 @@ export class WebSearchProviderService {
       
       if (!config.enabled) return undefined;
 
-      const cfg = await (db as any).config.findUnique({ 
+      const cfg = await db.config.findUnique({ 
         where: { id: 1 }, 
         select: { data: true } 
       });

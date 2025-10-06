@@ -140,7 +140,7 @@ export class ToolConfigService {
    */
   static async getToolConfig(toolId: string): Promise<ToolConfig | null> {
     try {
-      const config = await (db as any).config.findUnique({ 
+      const config = await db.config.findUnique({ 
         where: { id: 1 }, 
         select: { data: true } 
       });
@@ -164,7 +164,7 @@ export class ToolConfigService {
    */
   static async getProviderConfig(provider: ToolProvider): Promise<ProviderConfig | null> {
     try {
-      const config = await (db as any).config.findUnique({ 
+      const config = await db.config.findUnique({ 
         where: { id: 1 }, 
         select: { data: true } 
       });
@@ -190,7 +190,7 @@ export class ToolConfigService {
    */
   static async updateToolConfig(toolId: string, config: Partial<ToolConfig>): Promise<void> {
     try {
-      const currentConfig = await (db as any).config.findUnique({ 
+      const currentConfig = await db.config.findUnique({ 
         where: { id: 1 }, 
         select: { data: true } 
       });
@@ -203,7 +203,7 @@ export class ToolConfigService {
         ...config
       };
 
-      await (db as any).config.upsert({
+      await db.config.upsert({
         where: { id: 1 },
         create: { id: 1, data: { ...data, tools } },
         update: { data: { ...data, tools } }

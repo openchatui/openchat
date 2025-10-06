@@ -136,7 +136,7 @@ export async function POST(request: NextRequest) {
 
       const hasAnyAdds = openaiBaseAdds.length > 0 || openaiKeyAdds.length > 0 || ollamaBaseAdds.length > 0
       if (hasAnyAdds) {
-        const existing = await (db as any).config.findUnique({ where: { id: 1 } })
+        const existing = await db.config.findUnique({ where: { id: 1 } })
         const currentData = (existing?.data || {}) as Record<string, unknown>
         const currentConnections = isPlainObject((currentData as any).connections) ? (currentData as any).connections as any : {}
         const currentOpenai = isPlainObject(currentConnections.openai) ? currentConnections.openai as any : {}
@@ -166,9 +166,9 @@ export async function POST(request: NextRequest) {
         const nextData = { ...currentData, connections: nextConnections }
 
         if (existing) {
-          await (db as any).config.update({ where: { id: 1 }, data: { data: nextData } })
+          await db.config.update({ where: { id: 1 }, data: { data: nextData } })
         } else {
-          await (db as any).config.create({ data: { id: 1, data: nextData } })
+          await db.config.create({ data: { id: 1, data: nextData } })
         }
       }
     } catch (cfgErr) {

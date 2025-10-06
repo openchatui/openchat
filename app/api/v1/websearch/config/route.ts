@@ -8,9 +8,9 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 // GET /api/v1/websearch/config - returns websearch config
 export async function GET() {
   try {
-    let config = await (db as any).config.findUnique({ where: { id: 1 } })
+    let config = await db.config.findUnique({ where: { id: 1 } })
     if (!config) {
-      config = await (db as any).config.create({ data: { id: 1, data: {} } })
+      config = await db.config.create({ data: { id: 1, data: {} } })
     }
 
     const data = (config.data || {}) as any

@@ -28,7 +28,7 @@ const DEFAULT_DRIVE_CONFIG: DriveConfigUI = {
 }
 
 export async function getDriveConfig(): Promise<DriveConfigUI> {
-  const row = await (db as any).config.findUnique({ where: { id: 1 } })
+  const row = await db.config.findUnique({ where: { id: 1 } })
   const data = (row?.data || {}) as any
 
   const drive = (data?.drive || {}) as any
@@ -70,7 +70,7 @@ export async function updateDriveConfigAction(formData: FormData): Promise<Updat
       return { status: 'error', message: 'No fields provided' }
     }
 
-    const row = await (db as any).config.findUnique({ where: { id: 1 } })
+    const row = await db.config.findUnique({ where: { id: 1 } })
     const current = (row?.data || {}) as any
     const drive = (current?.drive || {}) as any
 
@@ -103,11 +103,11 @@ export async function updateDriveConfigAction(formData: FormData): Promise<Updat
       drive: nextDrive,
     }
 
-    if (row) await (db as any).config.update({ where: { id: 1 }, data: { data: next } })
-    else await (db as any).config.create({ data: { id: 1, data: next } })
+    if (row) await db.config.update({ where: { id: 1 }, data: { data: next } })
+    else await db.config.create({ data: { id: 1, data: next } })
 
     // Verify persisted
-    const verify = await (db as any).config.findUnique({ where: { id: 1 }, select: { data: true } })
+    const verify = await db.config.findUnique({ where: { id: 1 }, select: { data: true } })
     const persisted = ((verify?.data || {}) as any)?.drive
     if (!persisted || typeof persisted !== 'object') throw new Error('Verification failed: drive not persisted')
 

@@ -530,7 +530,7 @@ export class SystemPromptService {
     let WS_PROVIDER: 'browserless' | 'googlepse' = 'browserless';
     let BROWSERLESS_CONNECTED = false;
     try {
-      const cfg = await (db as any).config.findUnique({ where: { id: 1 }, select: { data: true } });
+      const cfg = await db.config.findUnique({ where: { id: 1 }, select: { data: true } });
       const data = (cfg?.data || {}) as any;
       const ws = (data?.websearch || {}) as any;
       const img = (data?.image || {}) as any;

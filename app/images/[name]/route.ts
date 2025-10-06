@@ -42,7 +42,7 @@ export async function GET(_req: Request, context: { params: Promise<{ name?: str
   if (!file) {
     // Fallback: resolve via DB file.path when stored under data/files/<parent>/<name>
     try {
-      const rows = await (db as any).$queryRaw<{ path: string }[]>`SELECT path FROM "file" WHERE filename = ${name} LIMIT 1`
+      const rows = await db.$queryRaw<{ path: string }[]>`SELECT path FROM "file" WHERE filename = ${name} LIMIT 1`
       const p = rows && rows[0]?.path ? String(rows[0].path) : null
       if (p) {
         const tryPaths: string[] = []

@@ -102,7 +102,7 @@ export async function PUT(request: NextRequest) {
       if (Object.keys(ttsOut).length > 0) (filtered as any).tts = ttsOut
     }
 
-    let existing = await (db as any).config.findUnique({ where: { id: 1 } })
+    let existing = await db.config.findUnique({ where: { id: 1 } })
     const currentData = (existing?.data || {}) as Record<string, unknown>
     const currentAudio = isPlainObject((currentData as any).audio) ? (currentData as any).audio : {}
 
@@ -113,8 +113,8 @@ export async function PUT(request: NextRequest) {
     }
 
     const result = existing
-      ? await (db as any).config.update({ where: { id: 1 }, data: { data: nextData } })
-      : await (db as any).config.create({ data: { id: 1, data: nextData } })
+      ? await db.config.update({ where: { id: 1 }, data: { data: nextData } })
+      : await db.config.create({ data: { id: 1, data: nextData } })
 
     const data = (result.data || {}) as any
     const audio = isPlainObject(data.audio) ? (data.audio as any) : {}

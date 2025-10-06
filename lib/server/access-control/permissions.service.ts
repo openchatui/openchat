@@ -120,14 +120,14 @@ export class PermissionsService {
    */
   static async getUserGroupIds(userId: string): Promise<string[]> {
     try {
-      const groups = await (db as any).group.findMany();
+      const groups = await db.group.findMany();
       const ids: string[] = [];
       
       for (const g of groups || []) {
         const raw = Array.isArray(g.userIds)
           ? g.userIds
-          : Array.isArray(g.user_ids)
-            ? g.user_ids
+          : Array.isArray((g as any)['user_ids'])
+            ? (g as any)['user_ids']
             : typeof g.userIds === 'object' && g.userIds !== null && 'set' in g.userIds
               ? (g.userIds.set as string[])
               : [];
@@ -165,12 +165,12 @@ export class PermissionsService {
         };
       }
 
-      const groups = await (db as any).group.findMany();
+      const groups = await db.group.findMany();
       const userGroups = (groups || []).filter((g: any) => {
         const raw = Array.isArray(g.userIds)
           ? g.userIds
-          : Array.isArray(g.user_ids)
-            ? g.user_ids
+          : Array.isArray((g as any)['user_ids'])
+            ? (g as any)['user_ids']
             : typeof g.userIds === 'object' && g.userIds !== null && 'set' in g.userIds
               ? (g.userIds.set as string[])
               : [];

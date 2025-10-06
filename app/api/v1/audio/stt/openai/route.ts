@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing file' }, { status: 400 })
     }
 
-    const config = await (db as any).config.findUnique({ where: { id: 1 } })
+    const config = await db.config.findUnique({ where: { id: 1 } })
     const allData = (config?.data || {}) as Record<string, unknown>
     const connections = isPlainObject((allData as any).connections) ? (allData as any).connections : {}
     const picked = pickOpenAIConnection(connections)

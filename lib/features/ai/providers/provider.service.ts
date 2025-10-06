@@ -21,7 +21,7 @@ export class ProviderService {
   static async getConnectionForProvider(provider: SupportedProvider): Promise<ProviderConnection | null> {
     try {
       // Select by Connection.provider per latest requirements
-      const connection = await (db as any).connection.findFirst({
+      const connection = await db.connection.findFirst({
         where: { provider },
         select: { baseUrl: true, apiKey: true },
       });
@@ -98,7 +98,7 @@ export class ProviderService {
       : 'gpt-4o-mini';
 
     // STRICT: resolve model by id ONLY (avoid name/provider which can be stripped/misleading)
-    const modelRow = await (db as any).model.findFirst({
+    const modelRow = await db.model.findFirst({
       where: { id: requestedModel },
       select: { id: true, meta: true },
     }) as any as ({ id: string; meta: unknown } | null);

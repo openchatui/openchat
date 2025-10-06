@@ -17,7 +17,7 @@ const DEFAULTS: CodeInterpreterConfig = {
 }
 
 export async function getCodeInterpreterConfig(): Promise<CodeInterpreterConfig> {
-  const row = await (db as any).config.findUnique({ where: { id: 1 } })
+  const row = await db.config.findUnique({ where: { id: 1 } })
   const data = (row?.data || {}) as any
   const code = (data?.code || {}) as any
   const parsed = CodeInterpreterSchema.safeParse({
@@ -35,7 +35,7 @@ export async function updateCodeInterpreterConfig(formData: FormData): Promise<{
     }
     const parsed = CodeInterpreterSchema.parse(input)
 
-    const row = await (db as any).config.findUnique({ where: { id: 1 } })
+    const row = await db.config.findUnique({ where: { id: 1 } })
     const current = (row?.data || {}) as any
     const next = {
       ...current,
@@ -46,9 +46,9 @@ export async function updateCodeInterpreterConfig(formData: FormData): Promise<{
       },
     }
     if (row) {
-      await (db as any).config.update({ where: { id: 1 }, data: { data: next } })
+      await db.config.update({ where: { id: 1 }, data: { data: next } })
     } else {
-      await (db as any).config.create({ data: { id: 1, data: next } })
+      await db.config.create({ data: { id: 1, data: next } })
     }
     revalidatePath('/admin/code-interpreter')
     return { ok: true }

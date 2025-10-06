@@ -5,7 +5,7 @@ import db from "@/lib/db"
 type ImageProvider = 'openai' | 'comfyui' | 'automatic1111'
 
 export async function updateImageConfigAction(input: { provider?: ImageProvider }): Promise<void> {
-  const row = await (db as any).config.findUnique({ where: { id: 1 } })
+  const row = await db.config.findUnique({ where: { id: 1 } })
   const current = (row?.data || {}) as any
   const image = (current?.image && typeof current.image === 'object') ? current.image as any : {}
   const next = {
@@ -15,12 +15,12 @@ export async function updateImageConfigAction(input: { provider?: ImageProvider 
       ...(typeof input.provider === 'string' ? { provider: input.provider } : {}),
     }
   }
-  if (row) await (db as any).config.update({ where: { id: 1 }, data: { data: next } })
-  else await (db as any).config.create({ data: { id: 1, data: next } })
+  if (row) await db.config.update({ where: { id: 1 }, data: { data: next } })
+  else await db.config.create({ data: { id: 1, data: next } })
 }
 
 export async function updateOpenAIImageConfigAction(input: { baseUrl?: string; apiKey?: string; model?: string; size?: string; quality?: string; style?: string }): Promise<void> {
-  const row = await (db as any).config.findUnique({ where: { id: 1 } })
+  const row = await db.config.findUnique({ where: { id: 1 } })
   const current = (row?.data || {}) as any
   const image = (current?.image && typeof current.image === 'object') ? current.image as any : {}
   const openai = (image?.openai && typeof image.openai === 'object') ? image.openai as any : {}
@@ -43,8 +43,8 @@ export async function updateOpenAIImageConfigAction(input: { baseUrl?: string; a
     }
   }
 
-  if (row) await (db as any).config.update({ where: { id: 1 }, data: { data: next } })
-  else await (db as any).config.create({ data: { id: 1, data: next } })
+  if (row) await db.config.update({ where: { id: 1 }, data: { data: next } })
+  else await db.config.create({ data: { id: 1, data: next } })
 }
 
 

@@ -137,7 +137,7 @@ export async function searchUserModels(userId: string, options: SearchOptions): 
   if (!q) return []
   const role = await getUserRole(userId)
   const isAdmin = role === 'ADMIN' || role === 'admin'
-  const rows = await (db as any).model.findMany({
+  const rows = await db.model.findMany({
     where: {
       ...(isAdmin ? {} : { userId }),
     },

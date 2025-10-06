@@ -22,9 +22,9 @@ function deepMerge(target: any, source: any): any {
 // GET /api/v1/tasks/config - returns tasks config
 export async function GET() {
   try {
-    let config = await (db as any).config.findUnique({ where: { id: 1 } })
+    let config = await db.config.findUnique({ where: { id: 1 } })
     if (!config) {
-      config = await (db as any).config.create({ data: { id: 1, data: {} } })
+      config = await db.config.create({ data: { id: 1, data: {} } })
     }
 
     const data = (config.data || {}) as any

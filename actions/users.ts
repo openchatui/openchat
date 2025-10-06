@@ -75,7 +75,7 @@ export async function updateUserAction(formData: FormData): Promise<void> {
       }
 
       if (selectedGroupIds !== null) {
-        const groups = await (db as any).group.findMany()
+        const groups = await db.group.findMany()
         await Promise.all((groups || []).map(async (g: any) => {
           const raw = Array.isArray(g.userIds)
             ? g.userIds
@@ -92,7 +92,7 @@ export async function updateUserAction(formData: FormData): Promise<void> {
           if (!shouldHave && hasNow) next = current.filter((id) => id !== parsed.id)
           const changed = next.length !== current.length || next.some((v, i) => v !== current[i])
           if (changed) {
-            await (db as any).group.update({ where: { id: g.id }, data: { userIds: next } })
+            await db.group.update({ where: { id: g.id }, data: { userIds: next } })
           }
         }))
       }

@@ -103,9 +103,9 @@ export async function POST(req: NextRequest) {
     }
 
     // Load task model and optional custom prompt
-    let config = await (db as any).config.findUnique({ where: { id: 1 } })
+    let config = await db.config.findUnique({ where: { id: 1 } })
     if (!config) {
-      config = await (db as any).config.create({ data: { id: 1, data: {} } })
+      config = await db.config.create({ data: { id: 1, data: {} } })
     }
     const data = (config?.data || {}) as any
     const tasks = isPlainObject(data?.tasks) ? (data.tasks as any) : {}
