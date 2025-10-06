@@ -8,9 +8,6 @@ jobs:
   test:
     timeout-minutes: 60
     runs-on: ubuntu-latest
-    env:
-      DATABASE_URL: file:./prisma/dev.db
-      NODE_ENV: test
     steps:
     - uses: actions/checkout@v4
     - uses: actions/setup-node@v4
@@ -18,12 +15,8 @@ jobs:
         node-version: lts/*
     - name: Install dependencies
       run: npm install -g pnpm && pnpm install
-    - name: Generate Prisma Client
-      run: pnpm exec prisma generate
-    - name: Prepare database schema
-      run: pnpm exec prisma db push --skip-generate
     - name: Install Playwright Browsers
-      run: pnpm exec playwright install --with-deps
+      run: npx playwright install-deps
     - name: Run Playwright tests
       run: pnpm exec playwright test
     - uses: actions/upload-artifact@v4
