@@ -96,7 +96,6 @@ export function AdminConnections({ session, initialChats = [], initialConnection
   }
 
   return (
-    <AdminSidebar session={session} activeTab="connections" initialChats={initialChats}>
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <h2 className="text-2xl font-semibold">{MESSAGES.CONNECTIONS_TITLE}</h2>
@@ -150,6 +149,6 @@ export function AdminConnections({ session, initialChats = [], initialConnection
           onDeleteConnection={handleDeleteConnectionAction}
         />
       </div>
-    </AdminSidebar>
+    
   )
 }

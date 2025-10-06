@@ -57,7 +57,6 @@ export function AdminWebSearch({ session, initialChats = [], initialEnabled = fa
   })
 
   return (
-    <AdminSidebar session={session} activeTab="websearch" initialChats={initialChats}>
       <div className="space-y-6">
         <div>
           <h2 className="text-2xl font-semibold">Web Search</h2>
@@ -152,7 +151,7 @@ export function AdminWebSearch({ session, initialChats = [], initialEnabled = fa
 
         {/* Prompt moved into BrowserlessConnectionForm when provider is browserless */}
       </div>
-    </AdminSidebar>
+    
   )
 }
 

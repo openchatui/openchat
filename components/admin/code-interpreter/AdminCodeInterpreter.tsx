@@ -44,7 +44,6 @@ export function AdminCodeInterpreter({ session, initialConfig }: AdminCodeInterp
   }
 
   return (
-    <AdminSidebar session={session} activeTab="code-interpreter">
       <div className="space-y-6">
         <div>
           <h2 className="text-2xl font-semibold">Code Interpreter</h2>
@@ -91,7 +90,7 @@ export function AdminCodeInterpreter({ session, initialConfig }: AdminCodeInterp
           </CardContent>
         </Card>
       </div>
-    </AdminSidebar>
+    
   )
 }
 

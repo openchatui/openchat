@@ -197,7 +197,6 @@ export function AdminModels({ session, initialModels = [], initialGroupedModels 
   }, [])
 
     return (
-        <AdminSidebar session={session} activeTab="models" initialChats={initialChats}>
             <div className="flex flex-col h-full">
       {/* Fixed header */}
       <div className="flex-shrink-0 space-y-6 pb-6">
@@ -245,6 +244,6 @@ export function AdminModels({ session, initialModels = [], initialGroupedModels 
         )}
       </div>
     </div>
-        </AdminSidebar>
+        
     )
 }

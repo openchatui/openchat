@@ -34,7 +34,6 @@ export function AdminUI({ session, modelIds, initialChats = [] }: AdminUIProps) 
         persistTagsPrompt,
     } = useAdminUI({ modelIds })
     return (
-        <AdminSidebar session={session} activeTab="ui" initialChats={initialChats}>
             <div className="space-y-6">
                 <div>
                     <h2 className="text-2xl font-semibold">UI</h2>
@@ -127,7 +126,7 @@ export function AdminUI({ session, modelIds, initialChats = [] }: AdminUIProps) 
                     </CardContent>
                 </Card>
             </div>
-        </AdminSidebar>
+        
     )
 }
 

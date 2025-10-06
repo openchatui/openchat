@@ -272,6 +272,12 @@ importers:
       pdfjs-dist:
         specifier: 3.11.174
         version: 3.11.174
+      playwright:
+        specifier: ^1.55.0
+        version: 1.55.1
+      playwright-core:
+        specifier: ^1.55.0
+        version: 1.55.1
       pyodide:
         specifier: ^0.28.3
         version: 0.28.3

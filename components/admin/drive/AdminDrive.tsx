@@ -24,7 +24,6 @@ export function AdminDrive({ session, initialConfig, initialProvider }: AdminDri
   const cfg = initialConfig ?? fallbackConfig
   const { enabled, workspace, user, isSaving, setEnabled, setWorkspaceEnabled, setWorkspaceProvider, setUserEnabled } = useDrive(cfg)
   return (
-    <AdminSidebar session={session} activeTab="drive">
       <div className="space-y-6">
         <div>
           <h2 className="text-2xl font-semibold">Drive</h2>
@@ -83,7 +82,7 @@ export function AdminDrive({ session, initialConfig, initialProvider }: AdminDri
           </CardContent>
         </Card>
       </div>
-    </AdminSidebar>
+    
   )
 }
 

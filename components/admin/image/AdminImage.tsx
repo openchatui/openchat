@@ -63,7 +63,6 @@ export function AdminImage({ session, initialChats = [], initialProvider = 'open
   }
 
   return (
-    <AdminSidebar session={session} activeTab="image" initialChats={initialChats}>
       <div className="space-y-6">
         <div>
           <h2 className="text-2xl font-semibold">Image</h2>
@@ -135,7 +134,7 @@ export function AdminImage({ session, initialChats = [], initialProvider = 'open
           </Card>
         )}
       </div>
-    </AdminSidebar>
+    
   )
 }
 

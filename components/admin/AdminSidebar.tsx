@@ -1,26 +1,50 @@
+"use client"
 import { SidebarInset } from "@/components/ui/sidebar"
-import { Session } from "next-auth"
-import { ADMIN_NAV_ITEMS, AdminTab, AdminNavItem } from "@/constants/admin"
-import { ReactNode } from "react"
+import { ADMIN_NAV_ITEMS, AdminTab } from "@/constants/admin"
+import { ReactNode, useMemo } from "react"
+import Link from "next/link"
 import { cn } from "@/lib/utils"
-import type { ChatData } from "@/lib/features/chat"
-import { NavLinks } from "@/components/admin/NavLinks"
+import { usePathname } from "next/navigation"
 
 interface AdminLayoutProps {
-    session: Session | null
-    activeTab: AdminTab
-    children: ReactNode
-    initialChats?: ChatData[]
+  activeTab?: AdminTab
+  children: ReactNode
 }
 
-export function AdminSidebar({ session, activeTab, children, initialChats = [] }: AdminLayoutProps) {
+export function AdminSidebar({ activeTab, children }: AdminLayoutProps) {
+  const pathname = usePathname()
+  const computedActiveTab: AdminTab | undefined = useMemo(() => {
+    const match = ADMIN_NAV_ITEMS.find(item => pathname?.startsWith(item.href))
+    return match?.id as AdminTab | undefined
+  }, [pathname])
+  const currentTab = (activeTab ?? computedActiveTab) as AdminTab | undefined
 
     return (
         <SidebarInset>
             <div className="flex h-screen bg-background">
                 {/* Admin Navigation Sidebar */}
                 <div className="w-64 bg-background border-r border-border p-4">
-                    <NavLinks items={ADMIN_NAV_ITEMS} activeTab={activeTab} />
+                    <div className="space-y-1">
+                        {ADMIN_NAV_ITEMS.map((item) => {
+                            const Icon = item.icon as any
+                            return (
+                                <Link
+                                    key={item.id}
+                                    href={item.href}
+                                    prefetch
+                                    className={cn(
+                                        "w-full flex items-center gap-3 px-3 py-2 text-sm rounded-md transition-colors",
+                                        currentTab === item.id
+                                            ? "bg-primary/10 text-primary font-medium"
+                                            : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                                    )}
+                                >
+                                    <Icon className="h-4 w-4 flex-shrink-0" />
+                                    <span>{item.label}</span>
+                                </Link>
+                            )
+                        })}
+                    </div>
                 </div>
 
                 {/* Main Content Area */}

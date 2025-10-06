@@ -42,7 +42,6 @@ export function AdminAudio({ session, initialChats = [], initialOpenAI, initialE
   // TTS provider now persisted via useAudio
 
   return (
-    <AdminSidebar session={session} activeTab="audio" initialChats={initialChats}>
       <div className="space-y-6">
         <div>
           <h2 className="text-2xl font-semibold">{MESSAGES.TITLE}</h2>
@@ -182,7 +181,7 @@ export function AdminAudio({ session, initialChats = [], initialOpenAI, initialE
           </div>
         )}
       </div>
-    </AdminSidebar>
+    
   )
 }
 

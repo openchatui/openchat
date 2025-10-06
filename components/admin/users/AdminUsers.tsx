@@ -147,7 +147,6 @@ export function AdminUsers({ session, initialChats = [], initialUsers = [], init
   };
 
   return (
-    <AdminSidebar session={session} activeTab="users" initialChats={initialChats}>
       <div className="space-y-6">
         <div>
           <h2 className="text-2xl font-semibold">{MESSAGES.USERS_TITLE}</h2>
@@ -183,6 +182,6 @@ export function AdminUsers({ session, initialChats = [], initialUsers = [], init
           </TabsContent>
         </Tabs>
       </div>
-    </AdminSidebar>
+    
   )
 }
