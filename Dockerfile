@@ -6,19 +6,21 @@ FROM node:${NODE_VERSION}-bookworm-slim AS base
 WORKDIR /app
 ENV NODE_ENV=production
 RUN corepack enable
+RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 
 FROM base AS deps
 # Install dependencies (use lockfile if present)
 COPY package.json pnpm-lock.yaml* ./
 RUN pnpm install --frozen-lockfile
+COPY prisma ./prisma
+# Generate Prisma Client early so it is cached with node_modules
+ENV DB=sqlite
+ENV SQLITE_URL=file:./prisma/dev.db
+RUN pnpm exec prisma generate --schema prisma/schema.sqlite.prisma
 
 FROM base AS builder
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-# Ensure Prisma client is generated against the correct schema
-ENV DB=sqlite
-ENV SQLITE_URL=file:./prisma/dev.db
-RUN pnpm run prisma:gen
 # Build Next.js
 RUN pnpm run build
 

@@ -1,29 +1,22 @@
 services:
   openchat:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: openchat-web:latest
+    image: openchatui/openchatui:latest
     ports:
       - "3000:3000"
-    # environment:
-      # NEXTAUTH_SECRET: "your-secret-here"              # Default: auto-generated
-      # NEXTAUTH_URL: "https://your-domain.com"          # Default: http://localhost:3000
-      # AUTH_TRUST_HOST: "true"                          # Default: true
-      # DB: "sqlite"                                     # Default: sqlite (options: sqlite, postgres)
-      # SQLITE_URL: "file:/prisma/dev.db"                # Default: file:/prisma/dev.db
-      # DATABASE_URL: "postgresql://user:pass@host/db"   # For PostgreSQL (when DB=postgres)  
-      # NODE_ENV: "production"                           # Default: production
-      # PORT: "3000"                                     # Default: 3000
-      # HOSTNAME: "0.0.0.0"                              # Default: 0.0.0.0
-      # OPENAI_API_KEY: "sk-..."
-      # ANTHROPIC_API_KEY: "sk-ant-..."
-      # DRIVE_CLIENT_ID: "your-google-client-id"
-      # DRIVE_CLIENT_SECRET: "your-google-client-secret"
+    #environment:
+    #  NEXTAUTH_SECRET: "your-secret-here"              # Default: auto-generated
+    #  NEXTAUTH_URL: "https://your-domain.com"          # Default: http://localhost:3000
+    #  AUTH_TRUST_HOST: "true"                          # Default: true
+    #  DB: "sqlite"                                     # Default: sqlite (options: sqlite, postgres)
+    #  SQLITE_URL: "file:/prisma/dev.db"                # Default: file:/prisma/dev.db
+    #  DATABASE_URL: "postgresql://user:pass@host/db"   # For PostgreSQL (when DB=postgres)  
+    #  NODE_ENV: "production"                           # Default: production
+    #  PORT: "3000"                                     # Default: 3000
+    #  HOSTNAME: "0.0.0.0"                              # Default: 0.0.0.0
+    #  OPENAI_API_KEY: "sk-..."
+    #  ANTHROPIC_API_KEY: "sk-ant-..."
+    #  DRIVE_CLIENT_ID: "your-google-client-id"
+    #  DRIVE_CLIENT_SECRET: "your-google-client-secret"
     volumes:
-      - sqlite-data:/prisma
+      - ./data/prisma:/prisma
     restart: unless-stopped
-
-volumes:
-  sqlite-data:
-    driver: local
