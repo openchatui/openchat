@@ -1,0 +1,11 @@
+node_modules
+.next
+.git
+Dockerfile
+.dockerignore
+playwright-report
+coverage
+*.log
+.env*
+**/.DS_Store
+**/Thumbs.db

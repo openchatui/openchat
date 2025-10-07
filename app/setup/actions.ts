@@ -3,6 +3,7 @@
 import { auth } from "@/lib/auth"
 import { AuthActionsService } from "@/lib/auth"
 import { createConnections } from "@/actions/connections"
+import { redirect } from "next/navigation"
 
 export type ActionState =
   | { status: 'idle'; fields?: Record<string, string> }
@@ -23,8 +24,13 @@ export async function createAdminAction(_prevState: ActionState, formData: FormD
         },
       }
     }
-    return { status: 'success', message: 'Admin account created. Please log in to continue.' }
+    // Redirect to login after successful admin creation
+    redirect('/login?message=' + encodeURIComponent('Admin account created successfully! Please sign in.'))
   } catch (e: any) {
+    // Re-throw redirect errors
+    if (e && typeof e === 'object' && 'digest' in e && String(e.digest).startsWith('NEXT_REDIRECT')) {
+      throw e
+    }
     return {
       status: 'error',
       message: e?.message || 'Failed to create admin user',

@@ -1,7 +1,6 @@
 "use client"
 
 import { useActionState, useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import type { ActionState } from "@/app/setup/actions"
@@ -11,7 +10,6 @@ const initialState: ActionState = { status: 'idle' }
 
 export function AdminSetupForm() {
   const [state, formAction] = useActionState(createAdminAction, initialState)
-  const router = useRouter()
   const [username, setUsername] = useState<string>("")
   const [email, setEmail] = useState<string>("")
   const [password, setPassword] = useState<string>("")
@@ -24,12 +22,6 @@ export function AdminSetupForm() {
       // Do not populate password fields from server state
     }
   }, [state])
-
-  useEffect(() => {
-    if (state.status === 'success') {
-      router.push('/login?message=' + encodeURIComponent('Account created successfully! Please sign in.'))
-    }
-  }, [state, router])
 
   return (
     <form action={formAction} className="flex flex-col gap-3">

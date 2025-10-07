@@ -141,7 +141,9 @@ export class AuthService {
       return await db.user.count();
     } catch (error) {
       console.error('Error getting user count:', error);
-      return 0;
+      // Don't return 0 on error - this can cause redirect loops
+      // If we can't connect to the database, throw the error
+      throw new Error('Failed to connect to database');
     }
   }
 
@@ -149,7 +151,14 @@ export class AuthService {
    * Check if this is the first user (for admin setup)
    */
   static async isFirstUser(): Promise<boolean> {
-    const count = await this.getUserCount();
-    return count === 0;
+    try {
+      const count = await this.getUserCount();
+      return count === 0;
+    } catch (error) {
+      console.error('Error checking if first user:', error);
+      // On error, assume users exist to avoid redirect loops
+      // This prevents redirecting to setup when database is unavailable
+      return false;
+    }
   }
 }

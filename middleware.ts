@@ -10,7 +10,7 @@ export default async function middleware(request: NextRequest) {
 
   // Admin-only sections
   if (pathname.startsWith('/admin')) {
-    const token = await getToken({ req: request, secret: process.env.AUTH_SECRET })
+    const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET })
     const role = (token as any)?.role as string | undefined
     if (!role || role !== 'ADMIN') {
       return NextResponse.rewrite(new URL('/404', request.url))
