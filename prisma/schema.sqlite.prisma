@@ -1,0 +1,328 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("SQLITE_URL")
+}
+
+model User {
+  id             String          @id @default(uuid())
+  name           String?
+  email          String          @unique
+  hashedPassword String?        @map("hashed_password")
+  emailVerified  DateTime?      @map("email_verified")
+  image          String?
+  settings       Json?
+  role           Role            @default(USER) @map("role")
+  createdAt      DateTime        @default(now()) @map("created_at")
+  updatedAt      DateTime        @updatedAt @map("updated_at")
+  accounts       Account[]
+  Authenticator  Authenticator[]
+  models         Model[]         @relation("UserToModels")
+  sessions       Session[]
+  chats          Chat[]
+  apiKeys        ApiKey[]
+  groups         Group[]
+  tabActivity    TabActivity[]
+  tags           Tag[]
+  folders        Folder[]
+  files          File[]
+  ownedDocuments Document[]           @relation("DocumentOwner")
+  documentPermissions DocumentPermission[] @relation("DocumentPermissions")
+  comments       Comment[]            @relation("CommentAuthor")
+  versions       DocumentVersion[]    @relation("VersionAuthor")
+
+  @@map("users")
+}
+
+model Account {
+  id                String   @id @default(uuid())
+  userId            String   @map("user_id")
+  type              String
+  provider          String
+  providerAccountId String   @map("provider_account_id")
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(uuid())
+  sessionToken String   @unique @map("session_token")
+  userId       String   @map("user_id")
+  expires      DateTime
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+model Authenticator {
+  credentialID         String  @unique @map("credential_id")
+  userId               String  @map("user_id")
+  providerAccountId    String  @map("provider_account_id")
+  credentialPublicKey  String  @map("credential_public_key")
+  counter              Int
+  credentialDeviceType String  @map("credential_device_type")
+  credentialBackedUp   Boolean @map("credential_backed_up")
+  transports           String?
+  user                 User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, credentialID])
+  @@map("authenticators")
+}
+
+model Connection {
+  id        String   @id @default(uuid())
+  type      String
+  baseUrl   String
+  apiKey    String?
+  provider  String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("connections")
+}
+
+model Model {
+  id            String  @id
+  userId        String  @map("user_id")
+  providerId    String  @map("provider_id")
+  provider      String?  
+  baseModelId   String? @map("base_model_id")
+  name          String
+  meta          Json
+  params        Json
+  createdAt     Int     @map("created_at")
+  updatedAt     Int     @map("updated_at")
+  accessControl Json?   @map("access_control")
+  isActive      Boolean @default(true) @map("is_active")
+  baseModel     Model?  @relation("BaseModel", fields: [baseModelId], references: [id])
+  derivedModels Model[] @relation("BaseModel")
+  user          User    @relation("UserToModels", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("models")
+}
+
+model Chat {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  title     String
+  shareId   String?  @map("share_id")
+  archived  Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  chat      Json
+  pinned    Boolean  @default(false)
+  meta      Json
+  folderId  String?  @map("folder_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("chats")
+}
+
+enum Role {
+  USER  @map("user")
+  ADMIN @map("admin")
+
+  @@map("role")
+}
+
+model ApiKey {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  keyName   String   @map("key_name")
+  key       String   @unique
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("api_keys")
+}
+
+model Group {
+  id           String  @id
+  userId       String? @map("user_id")
+  name         String?
+  description  String?
+  data         Json?
+  meta         Json?
+  permissions  Json?
+  userIds      Json?   @map("user_ids")
+  createdAt    Int?    @map("created_at")
+  updatedAt    Int?    @map("updated_at")
+  user         User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("group")
+}
+
+model Config {
+  id        Int      @id @default(autoincrement())
+  data      Json
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("configs")
+}
+
+model TabActivity {
+  id         String   @id @default(uuid())
+  userId     String   @map("user_id")
+  sessionId  String?  @map("session_id")
+  tabId      String   @map("tab_id")
+  lastSeenAt DateTime @default(now()) @map("last_seen_at")
+  path       String?
+  userAgent  String?  @map("user_agent")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, tabId])
+  @@index([lastSeenAt])
+  @@map("tab_activity")
+}
+
+model Tag {
+  id     String
+  userId String  @map("user_id")
+  name   String
+  meta   Json?
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([id, userId])
+  @@map("tag")
+}
+
+model Folder {
+  id          String
+  userId      String  @map("user_id")
+  parentId    String? @map("parent_id")
+  name        String
+  items       Json?
+  meta        Json?
+  isExpanded  Boolean @map("is_expanded")
+  createdAt   Int     @map("created_at")
+  updatedAt   Int     @map("updated_at")
+  data        Json?
+  user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([id, userId])
+  @@map("folder")
+}
+
+model File {
+  id            String   @id
+  userId        String   @map("user_id")
+  parentId      String?  @map("parent_id")
+  filename      String
+  meta          Json?
+  createdAt     Int      @map("created_at")
+  hash          String?
+  data          Json?
+  updatedAt     Int?     @map("updated_at")
+  path          String?
+  accessControl Json?    @map("access_control")
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("file")
+}
+
+model Document {
+  id               String              @id @default(uuid())
+  title            String
+  ownerId          String              @map("owner_id")
+  content          Bytes?
+  htmlSnapshot     String?             @map("html_snapshot")
+  icon             String?
+  coverImage       String?             @map("cover_image")
+  isPublished      Boolean             @default(false) @map("is_published")
+  isArchived       Boolean             @default(false) @map("is_archived")
+  createdAt        DateTime            @default(now()) @map("created_at")
+  updatedAt        DateTime            @updatedAt @map("updated_at")
+  owner            User                @relation("DocumentOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  permissions      DocumentPermission[]
+  comments         Comment[]
+  versions         DocumentVersion[]
+  
+  @@map("documents")
+}
+
+model DocumentPermission {
+  id           String              @id @default(uuid())
+  documentId   String              @map("document_id")
+  userId       String?             @map("user_id")
+  email        String?
+  role         DocumentRole        @default(VIEWER)
+  createdAt    DateTime            @default(now()) @map("created_at")
+  updatedAt    DateTime            @updatedAt @map("updated_at")
+  document     Document            @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  user         User?               @relation("DocumentPermissions", fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([documentId, userId])
+  @@unique([documentId, email])
+  @@map("document_permissions")
+}
+
+enum DocumentRole {
+  VIEWER
+  COMMENTER
+  EDITOR
+  OWNER
+  
+  @@map("document_role")
+}
+
+model Comment {
+  id           String       @id @default(uuid())
+  documentId   String       @map("document_id")
+  userId       String       @map("user_id")
+  content      String
+  startPos     Int?         @map("start_pos")
+  endPos       Int?         @map("end_pos")
+  isResolved   Boolean      @default(false) @map("is_resolved")
+  parentId     String?      @map("parent_id")
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
+  document     Document     @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  user         User         @relation("CommentAuthor", fields: [userId], references: [id], onDelete: Cascade)
+  parent       Comment?     @relation("CommentThread", fields: [parentId], references: [id], onDelete: Cascade)
+  replies      Comment[]    @relation("CommentThread")
+  
+  @@map("comments")
+}
+
+model DocumentVersion {
+  id           String    @id @default(uuid())
+  documentId   String    @map("document_id")
+  userId       String    @map("user_id")
+  title        String
+  content      Bytes
+  htmlSnapshot String?   @map("html_snapshot")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  document     Document  @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  user         User      @relation("VersionAuthor", fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("document_versions")
+}
