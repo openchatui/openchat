@@ -159,17 +159,19 @@ jobs:
             echo ""
             echo "### PR: [$PR_TITLE]($PR_URL)"
             for section in added fixed changed; do
-              if [ "$(jq ".[\"$section\"] | length" changelog.json)" -gt 0 ]; then
+              count=$(jq -r --arg s "$section" '.[ $s ] | length' changelog.json)
+              if [ "$count" -gt 0 ]; then
                 echo ""
-                echo "### "$(echo "$section" | awk '{print toupper(substr($0,1,1)) substr($0,2)}')
-                jq -r ".[\"$section\"][] | "'- ' + .summary + " (" + .commit + ")"'" changelog.json
+                header=$(printf "%s" "$section" | awk '{print toupper(substr($0,1,1)) substr($0,2)}')
+                echo "### $header"
+                jq -r --arg s "$section" '.[$s][] | "- " + .summary + " (" + .commit + ")"' changelog.json
               fi
             done
             echo ""
           } > "$md"
-          if [ ! -f CHANGELOG.md ]; then echo -e "# Changelog\n\n" > CHANGELOG.md; fi
+          if [ ! -f CHANGELOG.md ]; then printf "# Changelog\n\n" > CHANGELOG.md; fi
           tmp=$(mktemp)
-          cat <(cat "$md") CHANGELOG.md > "$tmp" && mv "$tmp" CHANGELOG.md
+          cat "$md" CHANGELOG.md > "$tmp" && mv "$tmp" CHANGELOG.md
 
       - name: Commit and push changes to PR branch
         env:
