@@ -1,0 +1,131 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (leave empty to use package.json)'
+        required: false
+        type: string
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get version from package.json
+        id: pkg_version
+        run: |
+          VERSION=$(jq -r '.version' package.json)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          
+      - name: Determine release version
+        id: version
+        run: |
+          # Use manual input version if provided, otherwise use package.json version
+          RELEASE_VERSION="${{ inputs.version || steps.pkg_version.outputs.version }}"
+          echo "release_version=$RELEASE_VERSION" >> $GITHUB_OUTPUT
+          
+          # Validate semver format
+          if ! echo "$RELEASE_VERSION" | grep -E '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?(\+[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$'; then
+            echo "Error: Invalid version format. Must be semver (e.g. 1.2.3, 1.2.3-beta.1)"
+            exit 1
+          fi
+
+      - name: Check for existing tag
+        run: |
+          if git rev-parse "v${{ steps.version.outputs.release_version }}" >/dev/null 2>&1; then
+            echo "Error: Tag v${{ steps.version.outputs.release_version }} already exists"
+            exit 1
+          fi
+
+      - name: Extract CHANGELOG entry
+        id: changelog
+        run: |
+          # Try to find an entry for the exact version
+          VERSION="${{ steps.version.outputs.release_version }}"
+          
+          # First look for exact version match
+          CHANGELOG_CONTENT=$(awk -v ver="$VERSION" '
+            BEGIN { found=0; printing=0; }
+            /^## \['"$VERSION"'\]/ { found=1; printing=1; }
+            /^## \[/ && !/^## \['"$VERSION"'\]/ { if(printing) exit; }
+            printing { print; }
+            END { if(!found) exit 1; }
+          ' CHANGELOG.md)
+          
+          # If no exact match, get the latest entry
+          if [ $? -ne 0 ]; then
+            echo "No specific changelog entry found for v$VERSION, using latest entry"
+            CHANGELOG_CONTENT=$(awk '
+              BEGIN { found=0; printing=0; }
+              /^## \[/ { if(!found) { found=1; printing=1; } else { exit; } }
+              printing { print; }
+            ' CHANGELOG.md)
+          fi
+          
+          # Escape content for GitHub Actions
+          CHANGELOG_ESCAPED="${CHANGELOG_CONTENT//'%'/'%25'}"
+          CHANGELOG_ESCAPED="${CHANGELOG_ESCAPED//$'\n'/'%0A'}"
+          CHANGELOG_ESCAPED="${CHANGELOG_ESCAPED//$'\r'/'%0D'}"
+          
+          echo "content<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGELOG_ESCAPED" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Create Git tag
+        run: |
+          git tag -a "v${{ steps.version.outputs.release_version }}" -m "Release v${{ steps.version.outputs.release_version }}"
+          git push origin "v${{ steps.version.outputs.release_version }}"
+
+      - name: Create GitHub release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ steps.version.outputs.release_version }}
+          release_name: v${{ steps.version.outputs.release_version }}
+          body: ${{ steps.changelog.outputs.content }}
+          draft: false
+          prerelease: false
+
+      - name: Generate release artifacts
+        run: |
+          # Create dist directory
+          mkdir -p dist
+          
+          # Copy necessary files
+          cp package.json pnpm-lock.yaml README.md LICENSE* dist/ 2>/dev/null || true
+          
+          # Create source archive
+          tar -czf "dist/openchat-v${{ steps.version.outputs.release_version }}.tar.gz" \
+            --exclude='.git' \
+            --exclude='node_modules' \
+            --exclude='.next' \
+            --exclude='dist' \
+            .
+
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-artifacts
+          path: dist/
+          retention-days: 5
+
+      - name: Trigger Docker build
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          event-type: trigger-docker-build
+          client-payload: '{"version": "${{ steps.version.outputs.release_version }}", "ref": "v${{ steps.version.outputs.release_version }}"}'
