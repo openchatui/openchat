@@ -8,6 +8,7 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  models: read
 
 jobs:
   update-pr:
@@ -24,10 +25,10 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Ensure gh and jq are available
+      - name: Ensure jq is available
         run: |
           sudo apt-get update -y
-          sudo apt-get install -y gh jq
+          sudo apt-get install -y jq
 
       - name: Set base/head SHAs
         id: shas
@@ -99,6 +100,8 @@ jobs:
 
       - name: Generate categorized changelog via GitHub Models
         id: ai
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           INSTRUCTIONS=$(cat <<'EOF'
@@ -114,17 +117,28 @@ jobs:
           EOF
           )
           CONTEXT=$(cat model_context.json)
-          printf '%s' "{\n  \"input\": [\n    {\"role\": \"system\", \"content\": [{\"type\": \"text\", \"text\": %s}]},\n    {\"role\": \"user\", \"content\": [{\"type\": \"input_text\", \"text\": %s}]}\n  ]\n}\n" \
+          # Build chat/completions payload
+          printf '%s' "{\n  \"model\": \"openai/gpt-4o-mini\",\n  \"messages\": [\n    {\"role\": \"system\", \"content\": %s},\n    {\"role\": \"user\", \"content\": %s}\n  ],\n  \"temperature\": 0.2\n}\n" \
             "$(jq -Rn --arg s "$INSTRUCTIONS" '$s')" \
             "$(jq -Rn --arg s "$CONTEXT" '$s')" > payload.json
-          gh api -X POST \
-            -H "X-GitHub-Api-Version: 2023-07-07" \
-            -H "Accept: application/json" \
+          # Call GitHub Models Inference API via curl (per docs)
+          http_status=$(curl -sS -o response.json -w "%{http_code}" \
+            -X POST "https://models.github.ai/inference/chat/completions" \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
             -H "Content-Type: application/json" \
-            /models/gpt-4o-mini/responses \
-            --input payload.json > response.json
-          # Extract the text field compatibly
-          TEXT=$(jq -r '(.output[0].content[0].text // .choices[0].message.content[0].text // .choices[0].message // .output_text)' response.json)
+            --data-binary @payload.json)
+          if [ "$http_status" -lt 200 ] || [ "$http_status" -ge 300 ]; then
+            echo "GitHub Models API returned HTTP $http_status" >&2
+            cat response.json >&2 || true
+            exit 1
+          fi
+          # Extract content from chat completions response
+          TEXT=$(jq -r '(.choices[0].message.content // .output_text // empty)' response.json)
+          if [ -z "$TEXT" ]; then
+            echo "Could not extract text from response; dumping for diagnostics" >&2
+            cat response.json >&2
+            exit 1
+          fi
           echo "$TEXT" > changelog.json
           # Validate JSON
           jq . changelog.json > /dev/null
