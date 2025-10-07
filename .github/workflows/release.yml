@@ -84,6 +84,11 @@ jobs:
           echo "$CHANGELOG_ESCAPED" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
+      - name: Configure Git
+        run: |
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "github-actions[bot]"
+
       - name: Create Git tag
         run: |
           git tag -a "v${{ steps.version.outputs.release_version }}" -m "Release v${{ steps.version.outputs.release_version }}"
