@@ -117,10 +117,13 @@ jobs:
           EOF
           )
           CONTEXT=$(cat model_context.json)
-          # Build chat/completions payload
-          printf '%s' "{\n  \"model\": \"openai/gpt-4o-mini\",\n  \"messages\": [\n    {\"role\": \"system\", \"content\": %s},\n    {\"role\": \"user\", \"content\": %s}\n  ],\n  \"temperature\": 0.2\n}\n" \
-            "$(jq -Rn --arg s "$INSTRUCTIONS" '$s')" \
-            "$(jq -Rn --arg s "$CONTEXT" '$s')" > payload.json
+          # Build chat/completions payload via jq to avoid escaping issues
+          jq -n \
+            --arg model "openai/gpt-4o-mini" \
+            --arg system "$INSTRUCTIONS" \
+            --arg user "$CONTEXT" \
+            --argjson temperature 0.2 \
+            '{model:$model, messages:[{role:"system", content:$system},{role:"user", content:$user}], temperature:$temperature}' > payload.json
           # Call GitHub Models Inference API via curl (per docs)
           http_status=$(curl -sS -o response.json -w "%{http_code}" \
             -X POST "https://models.github.ai/inference/chat/completions" \
