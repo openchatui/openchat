@@ -1,0 +1,173 @@
+name: Auto bump version and generate changelog
+
+on:
+  pull_request:
+    branches: [ "main" ]
+    types: [ opened, synchronize, reopened, ready_for_review ]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update-pr:
+    if: github.event.pull_request.draft == false && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    env:
+      REPO: ${{ github.repository }}
+      PR_NUMBER: ${{ github.event.pull_request.number }}
+      PR_TITLE: ${{ github.event.pull_request.title }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Ensure gh and jq are available
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y gh jq
+
+      - name: Set base/head SHAs
+        id: shas
+        run: |
+          echo "base=${{ github.event.pull_request.base.sha }}" >> $GITHUB_OUTPUT
+          echo "head=${{ github.sha }}" >> $GITHUB_OUTPUT
+
+      - name: Compute next version and update package.json
+        id: version
+        run: |
+          set -euo pipefail
+          BASE_SHA="${{ steps.shas.outputs.base }}"
+          # Read versions
+          BASE_VERSION=$(git show "$BASE_SHA:package.json" | jq -r '.version')
+          HEAD_VERSION=$(jq -r '.version' package.json)
+          # Parse function
+          parse_semver() { IFS='.' read -r MAJ MIN PAT <<<"$1"; echo "$MAJ $MIN $PAT"; }
+          cmp_versions() {
+            read -r aM aj ak <<<"$(parse_semver "$1")"
+            read -r bM bj bk <<<"$(parse_semver "$2")"
+            if [ "$aM" -lt "$bM" ]; then echo -1; elif [ "$aM" -gt "$bM" ]; then echo 1;
+            elif [ "$aj" -lt "$bj" ]; then echo -1; elif [ "$aj" -gt "$bj" ]; then echo 1;
+            elif [ "$ak" -lt "$bk" ]; then echo -1; elif [ "$ak" -gt "$bk" ]; then echo 1; else echo 0; fi
+          }
+          bump_patch() { read -r M m p <<<"$(parse_semver "$1")"; echo "$M.$m.$((p+1))"; }
+          # Decide new version: bump base patch unless head is greater already
+          cmp=$(cmp_versions "$HEAD_VERSION" "$BASE_VERSION")
+          if [ "$cmp" = "1" ]; then NEW_VERSION="$HEAD_VERSION"; else NEW_VERSION="$(bump_patch "$BASE_VERSION")"; fi
+          # Update package.json if needed
+          if [ "$HEAD_VERSION" != "$NEW_VERSION" ]; then
+            tmp=$(mktemp)
+            jq --arg v "$NEW_VERSION" '.version=$v' package.json > "$tmp" && mv "$tmp" package.json
+            echo "updated_package_json=true" >> $GITHUB_OUTPUT
+          else
+            echo "updated_package_json=false" >> $GITHUB_OUTPUT
+          fi
+          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Collect PR commits metadata
+        id: commits
+        run: |
+          set -euo pipefail
+          gh api repos/$REPO/pulls/$PR_NUMBER/commits > commits.json
+          # Build a compact JSON with sha,title,body,url
+          jq -r '[.[] | {sha: .sha, title: .commit.message|split("\n")[0], body: (.commit.message|split("\n")|.[1:]|join("\n")), url: ("https://github.com/'"$REPO"'/commit/" + .sha)}]' commits.json > commits_compact.json
+          echo "count=$(jq 'length' commits_compact.json)" >> $GITHUB_OUTPUT
+
+      - name: Collect PR files (overview)
+        id: files
+        run: |
+          set -euo pipefail
+          gh api repos/$REPO/pulls/$PR_NUMBER/files > files.json
+          # Limit patch size to avoid token explosion
+          jq '[.[] | {filename, status, additions, deletions, changes, patch: (.patch//"" | split("\n")[0:80]|join("\n"))}]' files.json > files_compact.json
+
+      - name: Prepare model input
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.version.outputs.new_version }}"
+          DATE=$(date -u +%F)
+          PR_URL="https://github.com/${{ github.repository }}/pull/${{ github.event.pull_request.number }}"
+          jq -n --arg version "$VERSION" \
+                --arg date "$DATE" \
+                --arg pr_title "$PR_TITLE" \
+                --arg pr_url "$PR_URL" \
+                --slurpfile commits commits_compact.json \
+                --slurpfile files files_compact.json \
+                '{version:$version,date:$date,pr:{title:$pr_title,url:$pr_url},commits:$commits[0],files:$files[0]}' > model_context.json
+
+      - name: Generate categorized changelog via GitHub Models
+        id: ai
+        run: |
+          set -euo pipefail
+          INSTRUCTIONS=$(cat <<'EOF'
+          You are a release notes assistant. Produce ONLY compact JSON with keys: version, date, added, fixed, changed.
+          Rules:
+          - version: semantic version provided in context
+          - date: YYYY-MM-DD provided in context
+          - added/fixed/changed: arrays of objects { summary, commit }.
+          - Each summary must be 1-2 sentences, clear and non-redundant.
+          - commit must be the best single commit URL representing the change (use the commits list; if unsure, use the PR URL from context).
+          - Categorize conservatively: features/docs -> added, bugfixes -> fixed, refactors/perf/infra -> changed.
+          - DO NOT include any other keys or prose. Output must be valid JSON.
+          EOF
+          )
+          CONTEXT=$(cat model_context.json)
+          printf '%s' "{\n  \"input\": [\n    {\"role\": \"system\", \"content\": [{\"type\": \"text\", \"text\": %s}]},\n    {\"role\": \"user\", \"content\": [{\"type\": \"input_text\", \"text\": %s}]}\n  ]\n}\n" \
+            "$(jq -Rn --arg s "$INSTRUCTIONS" '$s')" \
+            "$(jq -Rn --arg s "$CONTEXT" '$s')" > payload.json
+          gh api -X POST \
+            -H "X-GitHub-Api-Version: 2023-07-07" \
+            -H "Accept: application/json" \
+            -H "Content-Type: application/json" \
+            /models/gpt-4o-mini/responses \
+            --input payload.json > response.json
+          # Extract the text field compatibly
+          TEXT=$(jq -r '(.output[0].content[0].text // .choices[0].message.content[0].text // .choices[0].message // .output_text)' response.json)
+          echo "$TEXT" > changelog.json
+          # Validate JSON
+          jq . changelog.json > /dev/null
+
+      - name: Render CHANGELOG entry and update file
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.version.outputs.new_version }}"
+          DATE=$(jq -r '.date' changelog.json)
+          PR_URL="https://github.com/${{ github.repository }}/pull/${{ github.event.pull_request.number }}"
+          PR_TITLE="${{ env.PR_TITLE }}"
+          md=$(mktemp)
+          {
+            echo "## [$VERSION] - $DATE"
+            echo ""
+            echo "### PR: [$PR_TITLE]($PR_URL)"
+            for section in added fixed changed; do
+              if [ "$(jq ".[\"$section\"] | length" changelog.json)" -gt 0 ]; then
+                echo ""
+                echo "### "$(echo "$section" | awk '{print toupper(substr($0,1,1)) substr($0,2)}')
+                jq -r ".[\"$section\"][] | "'- ' + .summary + " (" + .commit + ")"'" changelog.json
+              fi
+            done
+            echo ""
+          } > "$md"
+          if [ ! -f CHANGELOG.md ]; then echo -e "# Changelog\n\n" > CHANGELOG.md; fi
+          tmp=$(mktemp)
+          cat <(cat "$md") CHANGELOG.md > "$tmp" && mv "$tmp" CHANGELOG.md
+
+      - name: Commit and push changes to PR branch
+        env:
+          GIT_AUTHOR_NAME: github-actions[bot]
+          GIT_AUTHOR_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
+          GIT_COMMITTER_NAME: github-actions[bot]
+          GIT_COMMITTER_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
+        run: |
+          set -euo pipefail
+          git add package.json CHANGELOG.md
+          if ! git diff --cached --quiet; then
+            git commit -m "chore(release): bump version to v${{ steps.version.outputs.new_version }} and update CHANGELOG [skip ci]"
+            git push origin HEAD:${{ github.event.pull_request.head.ref }}
+          else
+            echo "No changes to commit"
+          fi
+
+
