@@ -169,9 +169,22 @@ jobs:
             done
             echo ""
           } > "$md"
-          if [ ! -f CHANGELOG.md ]; then printf "# Changelog\n\n" > CHANGELOG.md; fi
+          # Prepare existing content without the current version section (to avoid duplicates on multiple PR updates)
+          existing=$(mktemp)
+          if [ -f CHANGELOG.md ]; then
+            awk -v ver="$VERSION" '
+              BEGIN { skipping=0 }
+              {
+                if ($0 ~ "^## \\[" ver "\\]") { skipping=1; next }
+                if ($0 ~ /^## \\[\[/ && skipping==1) { skipping=0 }
+                if (skipping==0) { print }
+              }
+            ' CHANGELOG.md > "$existing"
+          else
+            printf "# Changelog\n\n" > "$existing"
+          fi
           tmp=$(mktemp)
-          cat "$md" CHANGELOG.md > "$tmp" && mv "$tmp" CHANGELOG.md
+          cat "$md" "$existing" > "$tmp" && mv "$tmp" CHANGELOG.md
 
       - name: Commit and push changes to PR branch
         env:
@@ -183,7 +196,7 @@ jobs:
           set -euo pipefail
           git add package.json CHANGELOG.md
           if ! git diff --cached --quiet; then
-            git commit -m "chore(release): bump version to v${{ steps.version.outputs.new_version }} and update CHANGELOG [skip ci]"
+            git commit -m "RELEASE v${{ steps.version.outputs.new_version }} & update CHANGELOG"
             git push origin HEAD:${{ github.event.pull_request.head.ref }}
           else
             echo "No changes to commit"
