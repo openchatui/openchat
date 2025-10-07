@@ -1,4 +1,4 @@
-name: Auto bump version and generate changelog
+name: Auto Version & Changelog
 
 on:
   pull_request:
