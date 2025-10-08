@@ -1,3 +1,10 @@
+## [0.1.4] - 2025-10-08
+
+### PR: [ci: enhance Docker workflow for multi-platform builds](https://github.com/apensotti/OpenChat/pull/9)
+
+### Added
+- Enhanced the Docker workflow to support multi-platform builds, allowing for builds on both amd64 and arm64 architectures. (https://github.com/apensotti/OpenChat/commit/d8f14efdba92222486f6699ad698a64f057f99a9)
+
 ## [0.1.3] - 2025-10-08
 
 ### PR: [fix: formatting in release encoding newlines](https://github.com/apensotti/OpenChat/pull/8)
