@@ -176,7 +176,7 @@ jobs:
               BEGIN { skipping=0 }
               {
                 if ($0 ~ "^## \\[" ver "\\]") { skipping=1; next }
-                if ($0 ~ /^## \\[\[/ && skipping==1) { skipping=0 }
+                if (skipping==1 && $0 ~ /^## \\[/) { skipping=0 }
                 if (skipping==0) { print }
               }
             ' CHANGELOG.md > "$existing"
