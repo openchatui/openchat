@@ -175,8 +175,9 @@ jobs:
             awk -v ver="$VERSION" '
               BEGIN { skipping=0 }
               {
-                if ($0 ~ "^## \\[" ver "\\]") { skipping=1; next }
-                if (skipping==1 && $0 ~ /^## \\[/) { skipping=0 }
+                header = "## [" ver "]"
+                if (index($0, header) == 1) { skipping=1; next }
+                if (skipping==1 && index($0, "## [") == 1) { skipping=0 }
                 if (skipping==0) { print }
               }
             ' CHANGELOG.md > "$existing"
