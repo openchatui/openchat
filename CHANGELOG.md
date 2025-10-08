@@ -1,3 +1,10 @@
+## [0.1.3] - 2025-10-08
+
+### PR: [fix: formatting in release encoding newlines](https://github.com/apensotti/OpenChat/pull/8)
+
+### Fixed
+- Fixed formatting issues in release encoding to handle newlines correctly. (https://github.com/apensotti/OpenChat/commit/a21389ebe2fa976e88d6f4c4a3d779cf987e38f0)
+
 ## [0.1.2] - 2025-10-08
 
 ### PR: [ ci/auto changelog and versioning](https://github.com/apensotti/OpenChat/pull/7)
