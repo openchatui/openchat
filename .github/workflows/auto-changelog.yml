@@ -197,7 +197,7 @@ jobs:
           set -euo pipefail
           git add package.json CHANGELOG.md
           if ! git diff --cached --quiet; then
-            git commit -m "RELEASE v${{ steps.version.outputs.new_version }} & update CHANGELOG"
+            git commit -m "RELEASE: Update v${{ steps.version.outputs.new_version }} CHANGELOG"
             git push origin HEAD:${{ github.event.pull_request.head.ref }}
           else
             echo "No changes to commit"
