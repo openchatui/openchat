@@ -75,14 +75,8 @@ jobs:
             ' CHANGELOG.md)
           fi
           
-          # Escape content for GitHub Actions
-          CHANGELOG_ESCAPED="${CHANGELOG_CONTENT//'%'/'%25'}"
-          CHANGELOG_ESCAPED="${CHANGELOG_ESCAPED//$'\n'/'%0A'}"
-          CHANGELOG_ESCAPED="${CHANGELOG_ESCAPED//$'\r'/'%0D'}"
-          
-          echo "content<<EOF" >> $GITHUB_OUTPUT
-          echo "$CHANGELOG_ESCAPED" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          # Write content to file for release body (avoid percent-encoding newlines)
+          echo "$CHANGELOG_CONTENT" > RELEASE_BODY.md
 
       - name: Configure Git
         run: |
@@ -101,7 +95,7 @@ jobs:
         with:
           tag_name: v${{ steps.version.outputs.release_version }}
           release_name: v${{ steps.version.outputs.release_version }}
-          body: ${{ steps.changelog.outputs.content }}
+          body_path: RELEASE_BODY.md
           draft: false
           prerelease: false
 
