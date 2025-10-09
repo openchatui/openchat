@@ -1,3 +1,13 @@
+## [0.1.6] - 2025-10-09
+
+### PR: [fix: nextauth redirect url hardcoded fixed](https://github.com/openchatui/openchat/pull/11)
+
+### Added
+- Updated CI workflow to use a GitHub App for automatic changelog generation. (https://github.com/openchatui/openchat/commit/cf8cabe97e31c1b3547e9232e836d177053caf38)
+
+### Fixed
+- Fixed hardcoded redirect URL in the Google Drive service to use the environment variable correctly. (https://github.com/openchatui/openchat/commit/2915819ed4b6fdbde61af0fdd492a9e624daa475)
+
 ## [0.1.5] - 2025-10-09
 
 ### PR: [build: update nextauth port to use port env](https://github.com/openchatui/openchat/pull/10)
