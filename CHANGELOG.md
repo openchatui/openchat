@@ -1,6 +1,6 @@
 ## [0.1.6] - 2025-10-09
 
-### PR: [Ci workflow fixes](https://github.com/openchatui/openchat/pull/12)
+### PR: [fix: nextauth redirect url hardcoded fixed](https://github.com/openchatui/openchat/pull/11)
 
 ### Added
 - Updated CI workflow to use a GitHub App for automatic changelog generation. (https://github.com/openchatui/openchat/commit/cf8cabe97e31c1b3547e9232e836d177053caf38)
