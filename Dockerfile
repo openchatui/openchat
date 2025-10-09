@@ -34,7 +34,7 @@ ENV HOSTNAME=0.0.0.0
 ENV DB=sqlite
 ENV SQLITE_URL=file:/prisma/dev.db
 ENV AUTH_TRUST_HOST=true
-ENV NEXTAUTH_URL=http://localhost:3000
+ENV NEXTAUTH_URL=http://localhost:${PORT}
 
 # Copy runtime assets
 COPY --from=builder /app/public ./public

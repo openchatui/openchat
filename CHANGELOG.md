@@ -1,3 +1,10 @@
+## [0.1.5] - 2025-10-09
+
+### PR: [build: update nextauth port to use port env](https://github.com/openchatui/openchat/pull/10)
+
+### Changed
+- Updated the NextAuth configuration to use an environment variable for the port instead of a hardcoded value. (https://github.com/openchatui/openchat/commit/53bd8b3560eafa507535ea333dd4f4c69f8390e8)
+
 ## [0.1.4] - 2025-10-08
 
 ### PR: [ci: enhance Docker workflow for multi-platform builds](https://github.com/apensotti/OpenChat/pull/9)
