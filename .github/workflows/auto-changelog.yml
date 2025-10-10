@@ -83,8 +83,13 @@ jobs:
         run: |
           set -euo pipefail
           gh api repos/$REPO/pulls/$PR_NUMBER/commits > commits.json
-          # Build a compact JSON with sha,title,body,url
-          jq -r '[.[] | {sha: .sha, title: .commit.message|split("\n")[0], body: (.commit.message|split("\n")|.[1:]|join("\n")), url: ("https://github.com/'"$REPO"'/commit/" + .sha)}]' commits.json > commits_compact.json
+          # Build a compact JSON with sha,title(url-safe truncated),url and LIMIT to 50 commits
+          jq -r '[.[]
+            | {sha: .sha,
+               title: (.commit.message | split("\n")[0] | .[:140]),
+               url: ("https://github.com/'"$REPO"'/commit/" + .sha)}]
+            | .[:50]'
+            commits.json > commits_compact.json
           echo "count=$(jq 'length' commits_compact.json)" >> $GITHUB_OUTPUT
 
       - name: Collect PR files (overview)
@@ -94,8 +99,8 @@ jobs:
         run: |
           set -euo pipefail
           gh api repos/$REPO/pulls/$PR_NUMBER/files > files.json
-          # Limit patch size to avoid token explosion
-          jq '[.[] | {filename, status, additions, deletions, changes, patch: (.patch//"" | split("\n")[0:80]|join("\n"))}]' files.json > files_compact.json
+          # Always include filenames; include a heavily truncated patch (first 40 lines, max 4000 chars)
+          jq '[.[] | {filename, status, additions, deletions, changes, patch: ((.patch//"") | split("\n")[0:40] | join("\n") | .[:4000])}]' files.json > files_compact.json
 
       - name: Prepare model input
         run: |
