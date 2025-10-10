@@ -1,3 +1,10 @@
+## [0.1.10] - 2025-10-10
+
+### PR: [ci: explicit checkout to pr](https://github.com/openchatui/openchat/pull/21)
+
+### Changed
+- Updated CI workflow to explicitly checkout the pull request branch and push to the correct ref. (https://github.com/openchatui/openchat/commit/3f86a4e9d5b1d453e6908d8b8beeb538362c192d)
+
 ## [0.1.9] - 2025-10-10
 
 ### PR: [ci fixes into main](https://github.com/openchatui/openchat/pull/17)
