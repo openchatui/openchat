@@ -23,6 +23,7 @@ export const ChatPostSchema = z.object({
   }).optional(),
   enableWebSearch: z.boolean().optional(),
   enableImage: z.boolean().optional(),
+  enableVideo: z.boolean().optional(),
 })
 
 export type ChatPostBody = z.infer<typeof ChatPostSchema>

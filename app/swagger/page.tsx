@@ -1,6 +1,6 @@
 "use server"
 
-import ReactSwagger from "@/app/docs/react-swagger"
+import ReactSwagger from "@/app/swagger/react-swagger"
 import { getApiDocs } from "@/lib/api"
 
 export default async function SwaggerPage() {

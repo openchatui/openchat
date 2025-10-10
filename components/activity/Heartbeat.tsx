@@ -32,7 +32,13 @@ export default function Heartbeat({ intervalMs = 15000 }: HeartbeatProps) {
       try {
         // Avoid sending heartbeats on setup/auth pages
         const pathNow = location.pathname
-        if (pathNow.startsWith('/setup') || pathNow.startsWith('/login') || pathNow.startsWith('/signup')) {
+        if (
+          pathNow.startsWith('/setup') ||
+          pathNow.startsWith('/login') ||
+          pathNow.startsWith('/signup') ||
+          pathNow.startsWith('/swagger#') ||
+          pathNow.startsWith('/swagger')
+        ) {
           return
         }
         await fetch('/api/v1/activity/heartbeat', {
@@ -70,10 +76,19 @@ export default function Heartbeat({ intervalMs = 15000 }: HeartbeatProps) {
     const onBeforeUnload = () => {
       stop()
       // one last best-effort ping
+      const pathNow = location.pathname
+      if (
+        pathNow.startsWith('/setup') ||
+        pathNow.startsWith('/login') ||
+        pathNow.startsWith('/signup') ||
+        pathNow.startsWith('/swagger')
+      ) {
+        return
+      }
       void fetch('/api/v1/activity/heartbeat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tabId: tabIdRef.current, path: location.pathname, userAgent: navigator.userAgent }),
+        body: JSON.stringify({ tabId: tabIdRef.current, path: pathNow, userAgent: navigator.userAgent }),
         keepalive: true,
       })
     }
