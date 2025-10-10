@@ -83,7 +83,7 @@ export function VideoJob({ jobId }: VideoJobProps) {
         <div className="relative w-full" style={{ paddingTop: '56.25%' }}>
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
             <Loader className="h-7 w-7" />
-            <div className="text-sm text-muted-foreground">Generating video… ({progress ? ` · ${pct}%` : ''})</div>
+            <div className="text-sm text-muted-foreground">Generating video… ({status}{progress ? ` · ${pct}%` : ''})</div>
           </div>
           {/* Progress bar anchored at bottom */}
           <div className="absolute left-0 right-0 bottom-0 p-3">
