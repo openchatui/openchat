@@ -46,6 +46,26 @@ jobs:
           echo "base=${{ github.event.pull_request.base.sha }}" >> $GITHUB_OUTPUT
           echo "head=${{ github.sha }}" >> $GITHUB_OUTPUT
 
+      - name: Detect user-provided CHANGELOG version
+        id: changelog
+        run: |
+          set -euo pipefail
+          BASE_SHA="${{ steps.shas.outputs.base }}"
+          HEAD_SHA="${{ steps.shas.outputs.head }}"
+          if git ls-tree -r "$HEAD_SHA" --name-only | grep -qx "CHANGELOG.md"; then
+            ver=$(git diff --unified=0 "$BASE_SHA" "$HEAD_SHA" -- CHANGELOG.md | grep -E '^\+## \[[0-9]+\.[0-9]+\.[0-9]+\]' | head -n1 | sed -E 's/^\+## \[([0-9]+\.[0-9]+\.[0-9]+)\].*$/\1/' || true)
+            if [ -n "$ver" ]; then
+              echo "has_new_changelog=true" >> $GITHUB_OUTPUT
+              echo "version=$ver" >> $GITHUB_OUTPUT
+            else
+              echo "has_new_changelog=false" >> $GITHUB_OUTPUT
+              echo "version=" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "has_new_changelog=false" >> $GITHUB_OUTPUT
+            echo "version=" >> $GITHUB_OUTPUT
+          fi
+
       - name: Compute next version and update package.json
         id: version
         run: |
@@ -54,7 +74,9 @@ jobs:
           # Read versions
           BASE_VERSION=$(git show "$BASE_SHA:package.json" | jq -r '.version')
           HEAD_VERSION=$(jq -r '.version' package.json)
-          # Parse function
+          CL_HAS="${{ steps.changelog.outputs.has_new_changelog }}"
+          CL_VERSION="${{ steps.changelog.outputs.version }}"
+          # Parse functions
           parse_semver() { IFS='.' read -r MAJ MIN PAT <<<"$1"; echo "$MAJ $MIN $PAT"; }
           cmp_versions() {
             read -r aM aj ak <<<"$(parse_semver "$1")"
@@ -64,20 +86,33 @@ jobs:
             elif [ "$ak" -lt "$bk" ]; then echo -1; elif [ "$ak" -gt "$bk" ]; then echo 1; else echo 0; fi
           }
           bump_patch() { read -r M m p <<<"$(parse_semver "$1")"; echo "$M.$m.$((p+1))"; }
-          # Decide new version: bump base patch unless head is greater already
-          cmp=$(cmp_versions "$HEAD_VERSION" "$BASE_VERSION")
-          if [ "$cmp" = "1" ]; then NEW_VERSION="$HEAD_VERSION"; else NEW_VERSION="$(bump_patch "$BASE_VERSION")"; fi
+          # Decide target version and whether to generate changelog
+          if [ "$CL_HAS" = "true" ] && [ -n "$CL_VERSION" ]; then
+            TARGET_VERSION="$CL_VERSION"
+            SHOULD_GENERATE=false
+          else
+            cmp=$(cmp_versions "$HEAD_VERSION" "$BASE_VERSION")
+            if [ "$cmp" = "1" ]; then
+              TARGET_VERSION="$HEAD_VERSION"
+              SHOULD_GENERATE=true
+            else
+              TARGET_VERSION="$(bump_patch "$BASE_VERSION")"
+              SHOULD_GENERATE=true
+            fi
+          fi
           # Update package.json if needed
-          if [ "$HEAD_VERSION" != "$NEW_VERSION" ]; then
+          if [ "$HEAD_VERSION" != "$TARGET_VERSION" ]; then
             tmp=$(mktemp)
-            jq --arg v "$NEW_VERSION" '.version=$v' package.json > "$tmp" && mv "$tmp" package.json
+            jq --arg v "$TARGET_VERSION" '.version=$v' package.json > "$tmp" && mv "$tmp" package.json
             echo "updated_package_json=true" >> $GITHUB_OUTPUT
           else
             echo "updated_package_json=false" >> $GITHUB_OUTPUT
           fi
-          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "new_version=$TARGET_VERSION" >> $GITHUB_OUTPUT
+          echo "should_generate_changelog=$SHOULD_GENERATE" >> $GITHUB_OUTPUT
 
       - name: Collect PR commits metadata
+        if: steps.version.outputs.should_generate_changelog == 'true'
         id: commits
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
@@ -93,6 +128,7 @@ jobs:
           echo "count=$(jq 'length' commits_compact.json)" >> $GITHUB_OUTPUT
 
       - name: Collect PR files (overview)
+        if: steps.version.outputs.should_generate_changelog == 'true'
         id: files
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
@@ -103,6 +139,7 @@ jobs:
           jq '[.[] | {filename, status, additions, deletions, changes, patch: ((.patch//"") | split("\n")[0:40] | join("\n") | .[:4000])}]' files.json > files_compact.json
 
       - name: Prepare model input
+        if: steps.version.outputs.should_generate_changelog == 'true'
         run: |
           set -euo pipefail
           VERSION="${{ steps.version.outputs.new_version }}"
@@ -117,6 +154,7 @@ jobs:
                 '{version:$version,date:$date,pr:{title:$pr_title,url:$pr_url},commits:$commits[0],files:$files[0]}' > model_context.json
 
       - name: Generate categorized changelog via OpenAI
+        if: steps.version.outputs.should_generate_changelog == 'true'
         id: ai
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
@@ -166,6 +204,7 @@ jobs:
           jq . changelog.json > /dev/null
 
       - name: Render CHANGELOG entry and update file
+        if: steps.version.outputs.should_generate_changelog == 'true'
         run: |
           set -euo pipefail
           VERSION="${{ steps.version.outputs.new_version }}"

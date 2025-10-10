@@ -1,3 +1,7 @@
+## [0.1.12] - 2025-10-10
+
+### Changed: Auto detect version/changelog if none added, create changelog and bump version, else auto bump and generate.
+
 ## [0.1.11] - 2025-10-10
 
 ### PR: [dev to main ](https://github.com/openchatui/openchat/pull/23)
