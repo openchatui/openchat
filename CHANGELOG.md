@@ -1,3 +1,17 @@
+## [0.1.13] - 2025-10-10
+
+### PR: [release dev to main](https://github.com/openchatui/openchat/pull/29)
+
+### Fixed
+- Resolved issues with image and video tools to ensure proper functionality. (https://github.com/openchatui/openchat/commit/adf49a17c6a3a9c2e9c076e90a9da45401618d6f)
+- Restored status display in the video component. (https://github.com/openchatui/openchat/commit/7fa640ccd2970a89f705b414cbdee96f8d8ed94d)
+
+### Changed
+- Updated image service to save generated images under data/images for runtime persistence. (https://github.com/openchatui/openchat/commit/adf49a17c6a3a9c2e9c076e90a9da45401618d6f)
+- Refactored video service to ensure API parameters are passed as strings as required by the OpenAI Videos API. (https://github.com/openchatui/openchat/commit/adf49a17c6a3a9c2e9c076e90a9da45401618d6f)
+- Improved chat input restoration to correctly handle video generation state from session storage. (https://github.com/openchatui/openchat/commit/adf49a17c6a3a9c2e9c076e90a9da45401618d6f)
+- Fixed auto changelog detection in CI workflow to trigger on main branch merges. (https://github.com/openchatui/openchat/commit/afa668ed0dcc1538846defde7f9348a7e261d4fc)
+
 ## [0.1.12] - 2025-10-10
 
 ### Changed: Auto detect version/changelog if none added, create changelog and bump version, else auto bump and generate.

@@ -122,7 +122,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
 
     const payload: Record<string, any> = { prompt }
     if (size) payload.size = size
-    if (seconds && seconds > 0) payload.seconds = seconds
+    if (seconds && seconds > 0) payload.seconds = String(seconds)
 
     const json: any = await client.videos.remix(videoId as any, payload as any)
     const jobId = typeof json?.id === 'string' ? json.id : null
