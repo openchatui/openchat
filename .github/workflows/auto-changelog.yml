@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   update-pr:
-    if: github.event.pull_request.draft == false && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.base.ref == 'dev' && github.event.pull_request.head.ref != 'dev' && !startsWith(github.event.pull_request.title, 'Merge pull request') && !startsWith(github.event.pull_request.title, 'Merge branch') && github.actor != 'github-actions[bot]' && github.actor != 'web-flow'
+    if: github.event.pull_request.draft == false && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.base.ref == 'main' && github.event.pull_request.head.ref != 'main' && !startsWith(github.event.pull_request.title, 'Merge pull request') && !startsWith(github.event.pull_request.title, 'Merge branch') && github.actor != 'github-actions[bot]' && github.actor != 'web-flow'
     runs-on: ubuntu-latest
     env:
       REPO: ${{ github.repository }}
@@ -44,7 +44,7 @@ jobs:
         id: shas
         run: |
           echo "base=${{ github.event.pull_request.base.sha }}" >> $GITHUB_OUTPUT
-          echo "head=${{ github.sha }}" >> $GITHUB_OUTPUT
+          echo "head=${{ github.event.pull_request.head.sha }}" >> $GITHUB_OUTPUT
 
       - name: Detect user-provided CHANGELOG version
         id: changelog
