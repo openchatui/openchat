@@ -1,3 +1,10 @@
+## [0.1.9] - 2025-10-10
+
+### PR: [ci fixes into main](https://github.com/openchatui/openchat/pull/17)
+
+### Changed
+- Updated the auto-changelog workflow to skip merges and refine triggering conditions for main branch PRs. (https://github.com/openchatui/openchat/commit/9e3b593aaa7520c76a5216731a6f215e9fafcec0)
+
 ## [0.1.8] - 2025-10-10
 
 ### PR: [Merge pull request #14 from openchatui/main](https://github.com/openchatui/openchat/pull/15)
