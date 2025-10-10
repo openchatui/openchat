@@ -3,7 +3,7 @@
 ### PR: [Merge pull request #14 from openchatui/main](https://github.com/openchatui/openchat/pull/15)
 
 ### Changed
-- Merged updates from the main branch to synchronize codebase. (https://github.com/openchatui/openchat/commit/704e196159b17fabae90ec6e983727a9f40bc5d5)
+- Merged updates from the main branch to synchronize the codebase. (https://github.com/openchatui/openchat/commit/704e196159b17fabae90ec6e983727a9f40bc5d5)
 
 ## [0.1.7] - 2025-10-10
 
