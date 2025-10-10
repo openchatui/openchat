@@ -1,3 +1,10 @@
+## [0.1.11] - 2025-10-10
+
+### PR: [dev to main ](https://github.com/openchatui/openchat/pull/23)
+
+### Changed
+- Merged latest development changes into main branch to synchronize updates. (https://github.com/openchatui/openchat/pull/23)
+
 ## [0.1.10] - 2025-10-10
 
 ### PR: [ci: explicit checkout to pr](https://github.com/openchatui/openchat/pull/21)
