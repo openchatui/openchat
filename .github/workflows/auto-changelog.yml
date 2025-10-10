@@ -2,7 +2,7 @@ name: Auto Version & Changelog
 
 on:
   pull_request:
-    branches: [ "main" ]
+    branches: [ "dev" ]
     types: [ opened, reopened, ready_for_review, synchronize ]
 
 permissions:
@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   update-pr:
-    if: github.event.pull_request.draft == false && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.base.ref == 'main' && github.event.pull_request.head.ref != 'main' && !startsWith(github.event.pull_request.title, 'Merge pull request') && !startsWith(github.event.pull_request.title, 'Merge branch') && github.actor != 'github-actions[bot]' && github.actor != 'web-flow'
+    if: github.event.pull_request.draft == false && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.base.ref == 'dev' && github.event.pull_request.head.ref != 'dev' && !startsWith(github.event.pull_request.title, 'Merge pull request') && !startsWith(github.event.pull_request.title, 'Merge branch') && github.actor != 'github-actions[bot]' && github.actor != 'web-flow'
     runs-on: ubuntu-latest
     env:
       REPO: ${{ github.repository }}
