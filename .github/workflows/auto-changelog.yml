@@ -88,8 +88,7 @@ jobs:
             | {sha: .sha,
                title: (.commit.message | split("\n")[0] | .[:140]),
                url: ("https://github.com/'"$REPO"'/commit/" + .sha)}]
-            | .[:50]'
-            commits.json > commits_compact.json
+            | .[:50]' commits.json > commits_compact.json
           echo "count=$(jq 'length' commits_compact.json)" >> $GITHUB_OUTPUT
 
       - name: Collect PR files (overview)
