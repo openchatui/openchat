@@ -1,4 +1,4 @@
-import { LucideIcon, Users, Link as LinkIcon, Box, Mic, Globe, Image as ImageIcon, Terminal, HardDrive } from "lucide-react"
+import { LucideIcon, Users, Link as LinkIcon, Box, Mic, Globe, Image as ImageIcon, Terminal, HardDrive, Video } from "lucide-react"
 import { ReactSVGElement } from "react";
 import { CgScreen } from "react-icons/cg";
 import { IconTree, IconType } from "react-icons/lib";
@@ -46,6 +46,12 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
         label: "Image",
         icon: ImageIcon,
         href: "/admin/image"
+    },
+    {
+        id: "video",
+        label: "Video",
+        icon: Video,
+        href: "/admin/video"
     },
     {
       id: "websearch",

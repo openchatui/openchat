@@ -34,6 +34,15 @@ export type {
   OpenAIImageConfig,
 } from './image-generation/image.types';
 
+// Video generation
+export {
+  VideoGenerationService,
+} from './video-generation/video.service';
+
+export {
+  openaiVideoTools,
+} from './video-generation/video.tools';
+
 // Pyodide
 export {
   PyodideManager,

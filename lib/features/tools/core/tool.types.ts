@@ -32,7 +32,7 @@ export interface ProviderConfig {
 }
 
 // Tool categories
-export type ToolCategory = 'image-generation' | 'web-browsing' | 'text-processing' | 'data-analysis';
+export type ToolCategory = 'image-generation' | 'video-generation' | 'web-browsing' | 'text-processing' | 'data-analysis';
 
 export interface ToolDefinition {
   id: string;

@@ -126,11 +126,13 @@ export interface SystemPromptInput {
   systemForModel?: string;
   enableWebSearch?: boolean;
   enableImage?: boolean;
+  enableVideo?: boolean;
 }
 
 export interface ToolOptions {
   enableWebSearch?: boolean;
   enableImage?: boolean;
+  enableVideo?: boolean;
 }
 
 export interface CreateChatParams {

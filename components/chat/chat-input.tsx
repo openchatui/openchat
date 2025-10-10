@@ -18,6 +18,7 @@ import {
   Terminal,
   AudioWaveform,
   ArrowUp,
+  Video,
 } from "lucide-react";
 
 const RecordingWaveform = dynamic(() => import("./recording-waveform"), { ssr: false })
@@ -34,6 +35,7 @@ interface ChatInputProps {
     options: {
       webSearch: boolean;
       image: boolean;
+      video?: boolean;
       codeInterpreter: boolean;
     },
     overrideModel?: any,
@@ -70,6 +72,7 @@ export function ChatInput({
   const [webSearch, setWebSearch] = useState(false);
   const [image, setImage] = useState(false);
   const [codeInterpreter, setCodeInterpreter] = useState(false);
+  const [video, setVideo] = useState(false);
   const [isLive, setIsLive] = useState(false);
   const isLiveRef = useRef(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -118,11 +121,13 @@ export function ChatInput({
         imageGenerationEnabled: false,
         webSearchEnabled: false,
         codeInterpreterEnabled: false,
+        videoGenerationEnabled: false,
       }
       const data = raw ? { ...defaults, ...JSON.parse(raw) } : defaults
       if (typeof data.prompt === 'string') setValue(data.prompt)
       if (typeof data.webSearchEnabled === 'boolean') setWebSearch(data.webSearchEnabled)
       if (typeof data.imageGenerationEnabled === 'boolean') setImage(data.imageGenerationEnabled)
+      if (typeof (data as any).videoGenerationEnabled === 'boolean') setVideo(Boolean((data as any).videoGenerationEnabled))
     } catch {}
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionStorageKey])
@@ -166,7 +171,7 @@ export function ChatInput({
     e.preventDefault();
     const trimmed = value.trim();
     if (!trimmed) return;
-    onSubmit?.(trimmed, { webSearch, image, codeInterpreter });
+    onSubmit?.(trimmed, { webSearch, image, video, codeInterpreter });
     setValue("");
     requestAnimationFrame(resizeTextarea);
     textareaRef.current?.focus();
@@ -520,6 +525,35 @@ export function ChatInput({
                       }}
                       icon={<ImageIcon className="h-3.5 w-3.5" />}
                       label="Image input"
+                    />
+                    <Pill
+                      active={video}
+                      onClick={() => {
+                        setVideo((prev) => {
+                          const next = !prev
+                          try {
+                            if (sessionStorageKey) {
+                              const raw = sessionStorage.getItem(sessionStorageKey)
+                              const defaults = {
+                                prompt: "",
+                                files: [] as any[],
+                                selectedToolIds: [] as string[],
+                                selectedFilterIds: [] as string[],
+                                imageGenerationEnabled: false,
+                                webSearchEnabled: false,
+                                codeInterpreterEnabled: false,
+                                videoGenerationEnabled: false,
+                              }
+                              const data = raw ? { ...defaults, ...JSON.parse(raw) } : defaults
+                              ;(data as any).videoGenerationEnabled = next
+                              sessionStorage.setItem(sessionStorageKey, JSON.stringify(data))
+                            }
+                          } catch {}
+                          return next
+                        })
+                      }}
+                      icon={<Video className="h-3.5 w-3.5" />}
+                      label="Video tool"
                     />
                     <Pill
                       active={codeInterpreter}

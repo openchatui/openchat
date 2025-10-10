@@ -70,7 +70,7 @@ export function FilesLeftSidebar({ parentId = "", localRootId, googleRootId }: F
         <SidebarLink href="/drive" icon={<Home className="h-4 w-4" />} label="Home" className="my-4 mt-6"/>
         <Separator className="my-4"/>
         <SidebarLink 
-          href={`/drive/folder/${localRootId}`} 
+          href={localRootId ? `/drive/folder/${localRootId}` : `/drive`} 
           icon={<HardDrive className="h-4 w-4" />} 
           label="Local" 
         />

@@ -36,7 +36,7 @@ export function useChatStreaming({ chatId, initialModels, selectedModel }: UseCh
 
   const handleSendMessage = useCallback(async (
     value: string,
-    options: { webSearch: boolean; image: boolean; codeInterpreter: boolean },
+    options: { webSearch: boolean; image: boolean; video?: boolean; codeInterpreter: boolean },
     overrideModel?: Model,
     isAutoSend: boolean = false,
     streamHandlers?: StreamHandlers
@@ -74,8 +74,8 @@ export function useChatStreaming({ chatId, initialModels, selectedModel }: UseCh
       const currentMessages = state.messages
 
       const body = isAutoSend
-        ? { messages: currentMessages, chatId, modelId: providerModelId, enableWebSearch: options.webSearch, enableImage: options.image }
-        : { message: userMessage, chatId, modelId: providerModelId, enableWebSearch: options.webSearch, enableImage: options.image }
+        ? { messages: currentMessages, chatId, modelId: providerModelId, enableWebSearch: options.webSearch, enableImage: options.image, enableVideo: Boolean(options.video) }
+        : { message: userMessage, chatId, modelId: providerModelId, enableWebSearch: options.webSearch, enableImage: options.image, enableVideo: Boolean(options.video) }
 
       const response = await fetch('/api/v1/chat', {
         method: 'POST',
