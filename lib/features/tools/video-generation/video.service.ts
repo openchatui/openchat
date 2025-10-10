@@ -81,9 +81,10 @@ export class VideoGenerationService {
 
     const created: any = await client.videos.create({
       prompt: input.prompt,
-      model: configuredModel as any,
-      size: configuredSize as any,
-      seconds: configuredSeconds as any,
+      model: configuredModel as string,
+      size: configuredSize as string,
+      // OpenAI Videos API expects seconds as a string union: '4' | '8' | '12'
+      seconds: String(configuredSeconds) as string,
     } as any)
 
     // Always return job; defer downloading until status reaches 100%

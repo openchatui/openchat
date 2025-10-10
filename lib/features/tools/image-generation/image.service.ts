@@ -16,7 +16,7 @@ import { OpenAIImageConfigSchema } from './image.types';
  */
 export class ImageGenerationService {
   /**
-   * Save base64 image data to public directory
+   * Save base64 image data under data/images (for runtime persistence)
    */
   static async saveBase64ImageToPublic(
     base64Data: string, 
@@ -25,8 +25,8 @@ export class ImageGenerationService {
     try {
       const subdir = options?.subdir || 'images';
       const prefix = (options?.filenamePrefix || 'img').replace(/[^a-zA-Z0-9_-]/g, '') || 'img';
-      const publicDir = path.join(process.cwd(), 'public');
-      const imagesDir = path.join(publicDir, subdir);
+      const dataDir = path.join(process.cwd(), 'data');
+      const imagesDir = path.join(dataDir, subdir);
       
       await mkdir(imagesDir, { recursive: true });
       
@@ -36,6 +36,7 @@ export class ImageGenerationService {
       
       await writeFile(filePath, buffer);
       
+      // Serve via /images/[name] route which reads from data/images
       const url = `/${subdir}/${filename}`;
       return { url, filePath };
     } catch (error) {

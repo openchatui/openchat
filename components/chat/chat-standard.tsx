@@ -175,6 +175,7 @@ export function ChatStandard({
               let webSearchFromStorage = false
               let imageFromStorage = false
               let codeFromStorage = false
+              let videoFromStorage = false
               try {
                 const raw = sessionStorage.getItem(`chat-input-${chatId}`)
                 if (raw) {
@@ -182,11 +183,12 @@ export function ChatStandard({
                   webSearchFromStorage = Boolean(data?.webSearchEnabled)
                   imageFromStorage = Boolean(data?.imageGenerationEnabled)
                   codeFromStorage = Boolean(data?.codeInterpreterEnabled)
+                  videoFromStorage = Boolean((data as any)?.videoGenerationEnabled)
                 }
               } catch {}
               void handleSendMessage(
                 textContent,
-                { webSearch: webSearchFromStorage, image: imageFromStorage, codeInterpreter: codeFromStorage },
+                { webSearch: webSearchFromStorage, image: imageFromStorage, video: videoFromStorage, codeInterpreter: codeFromStorage },
                 selectedModel,
                 true
               )
