@@ -1,3 +1,18 @@
+## [0.1.7] - 2025-10-10
+
+### PR: [feat: sora 2 tool/api](https://github.com/openchatui/openchat/pull/13)
+
+### Added
+- Introduced Sora 2 video generation tool and API endpoints, enabling video creation from prompts and admin configuration. (https://github.com/openchatui/openchat/commit/5c0f033a8a926589ebe7c0264844b066317e3ac6)
+- Added Swagger UI CSS asset route and improved Swagger UI integration for API documentation. (https://github.com/openchatui/openchat/commit/5c0f033a8a926589ebe7c0264844b066317e3ac6)
+
+### Fixed
+- Fixed auto changelog CI error to ensure changelog generation works reliably. (https://github.com/openchatui/openchat/commit/47461df5a5b83d93d034716748c8c829bc7fe676)
+
+### Changed
+- Reduced the number of tokens passed to the summarize model in CI to optimize resource usage. (https://github.com/openchatui/openchat/commit/faf0d904539a55230b073db464e7a1d1469649d6)
+- Switched CI model provider from GitHub to OpenAI for changelog generation. (https://github.com/openchatui/openchat/commit/30f1aab9122179834a2b6af6df24eb3465bc1b6f)
+
 ## [0.1.6] - 2025-10-09
 
 ### PR: [fix: nextauth redirect url hardcoded fixed](https://github.com/openchatui/openchat/pull/11)

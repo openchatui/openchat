@@ -13,6 +13,7 @@ import { WebPreview, WebPreviewNavigation, WebPreviewUrl, WebPreviewBody } from 
 import type { Model } from '@/lib/features/models/model.types'
 import { Loader } from '@/components/ui/loader'
 import { Image } from '@/components/ai/image'
+import { VideoJob } from '@/components/ai/video'
 import { CodeExecutor } from '@/components/ai/code-exec/CodeExecutor'
 
 interface ChatMessagesProps {
@@ -358,6 +359,37 @@ export default function ChatMessages({
                 }
               }
 
+              // Special handling for video generation tool
+              const latestVideoPart = (toolsAvailable) ? ([...toolParts].reverse().find((p: any) => {
+                const name = getToolName(p)
+                if (name === 'generateVideo') return true
+                const summary = typeof p?.output?.summary === 'string' ? p.output.summary.toLowerCase() : ''
+                if (summary.includes('video job accepted') || summary.includes('video generated')) return true
+                return false
+              }) as any) : undefined
+              if (latestVideoPart) {
+                const out = latestVideoPart?.output
+                const url: string | undefined = (out && typeof out.url === 'string' && out.url) ? out.url : undefined
+                if (url) {
+                  return (
+                    <div className="mb-3 rounded-lg overflow-hidden border max-w-[1024px]">
+                      <video src={url} controls className="w-full h-auto" />
+                    </div>
+                  )
+                }
+                // Poll job status while queued
+                const jobId: string | undefined = (out?.details?.job?.id as string) || undefined
+                if (jobId) {
+                  return <VideoJob jobId={jobId} />
+                }
+                // Fallback to loader
+                return (
+                  <div className="mb-3 flex items-center justify-center w-full max-w-[1024px] h-[256px] rounded-lg bg-muted/30 border">
+                    <Loader className="h-8 w-8" />
+                  </div>
+                )
+              }
+
               const latestWithUrl = (toolsAvailable && webSearchAllowed) ? ([...toolParts].reverse().find((p: any) => {
                 if (isImageToolPart(p)) return false // handled above
                 const outUrl = (p as any)?.output && typeof (p as any).output?.url === 'string' && (p as any).output.url
@@ -445,6 +477,12 @@ export default function ChatMessages({
                         ? String((output as any).details.model).toLowerCase()
                         : ''
                       if (toolName === 'generateImage' || summary.includes('image generated') || detailsModel === 'gpt-image-1' || detailsModel === 'dall-e-3') {
+                        return null
+                      }
+
+                      // Special handling for video tool: do not render generic tool UI (VideoJob renders above)
+                      const isVideo = toolName === 'generateVideo' || summary.includes('video job accepted') || summary.includes('video generated')
+                      if (isVideo) {
                         return null
                       }
 

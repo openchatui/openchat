@@ -111,7 +111,7 @@ export async function POST(req: NextRequest) {
     if (!parsed.success) {
       return new Response(JSON.stringify({ error: 'Invalid request' }), { status: 400, headers: { 'content-type': 'application/json' } })
     }
-    const { messages, modelId, chatId, message, temperature, topP, maxOutputTokens, seed, stopSequences, advanced, enableWebSearch: reqEnableWebSearch, enableImage: reqEnableImage } = parsed.data as any
+    const { messages, modelId, chatId, message, temperature, topP, maxOutputTokens, seed, stopSequences, advanced, enableWebSearch: reqEnableWebSearch, enableImage: reqEnableImage, enableVideo: reqEnableVideo } = parsed.data as any
 
     const userId = session.user.id;
     let finalMessages: UIMessage<MessageMetadata>[] = [];
@@ -128,6 +128,7 @@ export async function POST(req: NextRequest) {
     const eff = await getEffectivePermissionsForUser(userId)
     const enableWebSearch = !!eff.features.web_search && reqEnableWebSearch === true
     const enableImage = !!eff.features.image_generation && reqEnableImage === true
+    const enableVideo = reqEnableVideo === true // Gate by config elsewhere if needed
 
     // Determine the model to use via shared resolver
     const { selectedModelInfo, modelName, modelHandle } = await ModelResolutionService.resolveModelInfoAndHandle({
@@ -151,11 +152,11 @@ export async function POST(req: NextRequest) {
 
     const systemForModel = MessageUtils.systemParamForModel(fullMessages, defaults.systemPrompt)
 
-    const combinedSystem = await SystemPromptService.composeSystemPrompt({ systemForModel, enableWebSearch, enableImage })
+    const combinedSystem = await SystemPromptService.composeSystemPrompt({ systemForModel, enableWebSearch, enableImage, enableVideo })
 
     const openaiProviderOptions: Record<string, any> = ProviderUtils.resolveOpenAIProviderOptions(modelName)
 
-    const mergedTools = await ToolsService.buildTools({ enableWebSearch, enableImage })
+    const mergedTools = await ToolsService.buildTools({ enableWebSearch, enableImage, enableVideo })
     const toolsEnabled = Boolean(mergedTools)
 
     try {
@@ -185,7 +186,11 @@ export async function POST(req: NextRequest) {
         topK: mergedGenParams.topK,
         presencePenalty: mergedGenParams.presencePenalty,
         frequencyPenalty: mergedGenParams.frequencyPenalty,
-        toolChoice: toolsEnabled ? (mergedGenParams.toolChoice ?? 'auto') : 'none',
+        toolChoice: toolsEnabled
+          ? ((mergedGenParams.toolChoice && mergedGenParams.toolChoice !== 'none')
+              ? mergedGenParams.toolChoice
+              : 'auto')
+          : 'none',
         tools: mergedTools as any,
       });
       const toUIArgs = StreamUtils.buildToUIMessageStreamArgs(

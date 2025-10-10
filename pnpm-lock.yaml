@@ -284,6 +284,9 @@ importers:
       ollama-ai-provider-v2:
         specifier: ^1.3.1
         version: 1.3.1(zod@4.1.8)
+      openai:
+        specifier: ^6.3.0
+        version: 6.3.0(ws@8.18.3)(zod@4.1.8)
       pdfjs-dist:
         specifier: 3.11.174
         version: 3.11.174
@@ -3926,6 +3929,18 @@ packages:
 
   onnxruntime-web@1.14.0:
     resolution: {integrity: sha512-Kcqf43UMfW8mCydVGcX9OMXI2VN17c0p6XvR7IPSZzBf/6lteBzXHvcEVWDPmCKuGombl997HgLqj91F11DzXw==}
+
+  openai@6.3.0:
+    resolution: {integrity: sha512-E6vOGtZvdcb4yXQ5jXvDlUG599OhIkb/GjBLZXS+qk0HF+PJReIldEc9hM8Ft81vn+N6dRdFRb7BZNK8bbvXrw==}
+    hasBin: true
+    peerDependencies:
+      ws: ^8.18.0
+      zod: ^3.25 || ^4.0
+    peerDependenciesMeta:
+      ws:
+        optional: true
+      zod:
+        optional: true
 
   openapi-path-templating@2.2.1:
     resolution: {integrity: sha512-eN14VrDvl/YyGxxrkGOHkVkWEoPyhyeydOUrbvjoz8K5eIGgELASwN1eqFOJ2CTQMGCy2EntOK1KdtJ8ZMekcg==}
@@ -9062,6 +9077,11 @@ snapshots:
       onnx-proto: 4.0.4
       onnxruntime-common: 1.14.0
       platform: 1.3.6
+
+  openai@6.3.0(ws@8.18.3)(zod@4.1.8):
+    optionalDependencies:
+      ws: 8.18.3
+      zod: 4.1.8
 
   openapi-path-templating@2.2.1:
     dependencies:
