@@ -33,6 +33,7 @@ jobs:
         with:
           fetch-depth: 0
           token: ${{ steps.app-token.outputs.token }}
+          ref: ${{ github.event.pull_request.head.ref }}
 
       - name: Ensure jq is available
         run: |
@@ -216,7 +217,7 @@ jobs:
           git add package.json CHANGELOG.md
           if ! git diff --cached --quiet; then
             git commit -m "RELEASE: Update v${{ steps.version.outputs.new_version }} CHANGELOG"
-            git push origin HEAD:${{ github.event.pull_request.head.ref }}
+            git push origin HEAD:refs/heads/${{ github.event.pull_request.head.ref }}
           else
             echo "No changes to commit"
           fi
