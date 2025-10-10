@@ -12,6 +12,7 @@ export {
   getFolderBreadcrumb,
   getRootFolderId,
   getGoogleRootFolderId,
+  findLocalRootFolderId,
   getTrashFolderId,
   getFolderNameById,
   isGoogleDriveFolder,

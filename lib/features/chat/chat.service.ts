@@ -5,6 +5,7 @@ import { ModelAccessService } from '@/lib/server';
 import { ProviderService } from '@/lib/features/ai';
 import { createBrowserlessTools } from '@/lib/features/tools';
 import { openaiImageTools } from '@/lib/features/tools';
+import { openaiVideoTools } from '@/lib/features/tools';
 import { getWebSearchConfigAction } from '@/actions/websearch';
 import type {
   ChatData,
@@ -520,7 +521,7 @@ export class ChatPreparationService {
  */
 export class SystemPromptService {
   static async composeSystemPrompt(input: SystemPromptInput): Promise<string | undefined> {
-    const { systemForModel, enableWebSearch, enableImage } = input;
+    const { systemForModel, enableWebSearch, enableImage, enableVideo } = input;
 
     // Fetch optional prompts and provider from config (websearch/image)
     let DB_TOPLEVEL_WS_PROMPT = '';
@@ -589,6 +590,7 @@ export class SystemPromptService {
       systemForModel || undefined,
       enableWebSearch && resolvedWebSearchPrompt ? resolvedWebSearchPrompt : undefined,
       enableImage ? imageSystemPrompt : undefined,
+      enableVideo ? 'Video generation tools are available. When a user requests a short video, call the generateVideo tool with the intended prompt text and optional size/seconds. Do not include the file link in your response.' : undefined,
     ].filter((s) => typeof s === 'string' && String(s).trim().length > 0) as string[];
 
     return systemSegments.length > 0 ? systemSegments.join('\n\n') : undefined;
@@ -600,8 +602,8 @@ export class SystemPromptService {
  */
 export class ToolsService {
   static async buildTools(options: ToolOptions): Promise<Record<string, unknown> | undefined> {
-    const { enableWebSearch, enableImage } = options;
-    const toolsEnabled = Boolean(enableWebSearch) || Boolean(enableImage);
+    const { enableWebSearch, enableImage, enableVideo } = options;
+    const toolsEnabled = Boolean(enableWebSearch) || Boolean(enableImage) || Boolean(enableVideo);
     if (!toolsEnabled) return undefined;
 
     let webTools: Record<string, unknown> = {};
@@ -631,6 +633,7 @@ export class ToolsService {
     return {
       ...webTools,
       ...(enableImage ? openaiImageTools : {}),
+      ...(enableVideo ? openaiVideoTools : {}),
     } as any;
   }
 }

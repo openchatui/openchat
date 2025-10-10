@@ -1,16 +1,17 @@
 import { FilesLeftSidebar } from "@/components/drive/FilesLeftSidebar"
 import { auth } from "@/lib/auth"
 import { redirect } from "next/navigation"
-import { getRootFolderId, getGoogleRootFolderId } from "@/lib/server/drive"
+import { findLocalRootFolderId, getGoogleRootFolderId } from "@/lib/server/drive"
 
 export default async function DriveLayout({ children }: { children: React.ReactNode }) {
   const session = await auth()
   if (!session?.user?.id) redirect("/login")
 
-  const [localRootId, googleRootId] = await Promise.all([
-    getRootFolderId(session.user.id),
+  const [localRootIdRaw, googleRootId] = await Promise.all([
+    findLocalRootFolderId(session.user.id),
     getGoogleRootFolderId(session.user.id),
   ])
+  const localRootId = localRootIdRaw ?? ''
 
   return (
     <div className="flex w-full">

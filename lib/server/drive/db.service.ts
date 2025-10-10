@@ -81,6 +81,29 @@ export class DriveDbService {
     }
   }
 
+  // Find existing local My Drive root without creating it
+  static async findLocalRootFolderId(userId: string): Promise<string | null> {
+    try {
+      const rs = await db.$queryRaw<{ id: string }[]>`
+        SELECT id FROM "folder"
+        WHERE user_id = ${userId}
+          AND parent_id IS NULL
+          AND LOWER(name) = ('my drive')
+          AND (json_extract(meta, '$.provider') IS NULL OR json_extract(meta, '$.provider') <> 'google-drive')
+        LIMIT 1`
+      return rs && rs[0]?.id ? String(rs[0].id) : null
+    } catch {
+      const rs = await db.$queryRaw<{ id: string }[]>`
+        SELECT id FROM "folder"
+        WHERE user_id = ${userId}
+          AND parent_id IS NULL
+          AND LOWER(name) = ('my drive')
+          AND ((meta ->> 'provider') IS NULL OR (meta ->> 'provider') <> 'google-drive')
+        LIMIT 1`
+      return rs && rs[0]?.id ? String(rs[0].id) : null
+    }
+  }
+
   static async getTrashFolderId(userId: string): Promise<string> {
     // Prefer Google Trash if integrated
     const isGoogle = await DriveDbService.isGoogleIntegrated(userId)
@@ -608,6 +631,7 @@ export class DriveDbService {
 
 export const getRootFolderId = DriveDbService.getRootFolderId.bind(DriveDbService)
 export const getGoogleRootFolderId = DriveDbService.getGoogleRootFolderId.bind(DriveDbService)
+export const findLocalRootFolderId = DriveDbService.findLocalRootFolderId.bind(DriveDbService)
 export const getTrashFolderId = DriveDbService.getTrashFolderId.bind(DriveDbService)
 export const createFolderRecord = DriveDbService.createFolderRecord.bind(DriveDbService)
 export const listRootEntries = DriveDbService.listRootEntries.bind(DriveDbService)
