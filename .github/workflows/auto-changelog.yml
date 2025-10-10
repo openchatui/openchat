@@ -115,10 +115,10 @@ jobs:
                 --slurpfile files files_compact.json \
                 '{version:$version,date:$date,pr:{title:$pr_title,url:$pr_url},commits:$commits[0],files:$files[0]}' > model_context.json
 
-      - name: Generate categorized changelog via GitHub Models
+      - name: Generate categorized changelog via OpenAI
         id: ai
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
           set -euo pipefail
           INSTRUCTIONS=$(cat <<'EOF'
@@ -134,26 +134,27 @@ jobs:
           EOF
           )
           CONTEXT=$(cat model_context.json)
-          # Build chat/completions payload via jq to avoid escaping issues
+          # Build OpenAI Chat Completions payload
           jq -n \
-            --arg model "openai/gpt-4o-mini" \
+            --arg model "gpt-4.1" \
             --arg system "$INSTRUCTIONS" \
             --arg user "$CONTEXT" \
             --argjson temperature 0.2 \
-            '{model:$model, messages:[{role:"system", content:$system},{role:"user", content:$user}], temperature:$temperature}' > payload.json
-          # Call GitHub Models Inference API via curl (per docs)
+            --argjson max_tokens 800 \
+            '{model:$model, messages:[{role:"system", content:$system},{role:"user", content:$user}], temperature:$temperature, max_tokens:$max_tokens}' > payload.json
+          # Call OpenAI Chat Completions API
           http_status=$(curl -sS -o response.json -w "%{http_code}" \
-            -X POST "https://models.github.ai/inference/chat/completions" \
-            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -X POST "https://api.openai.com/v1/chat/completions" \
+            -H "Authorization: Bearer ${OPENAI_API_KEY}" \
             -H "Content-Type: application/json" \
             --data-binary @payload.json)
           if [ "$http_status" -lt 200 ] || [ "$http_status" -ge 300 ]; then
-            echo "GitHub Models API returned HTTP $http_status" >&2
+            echo "OpenAI API returned HTTP $http_status" >&2
             cat response.json >&2 || true
             exit 1
           fi
-          # Extract content from chat completions response
-          TEXT=$(jq -r '(.choices[0].message.content // .output_text // empty)' response.json)
+          # Extract content
+          TEXT=$(jq -r '(.choices[0].message.content // empty)' response.json)
           if [ -z "$TEXT" ]; then
             echo "Could not extract text from response; dumping for diagnostics" >&2
             cat response.json >&2
