@@ -13,6 +13,7 @@ import {
   SessionEndInputSchema,
 } from './web.types';
 import type { ToolDefinition, ToolExecutionContext, ToolResult } from '../core/tool.types';
+import type { BrowserResult } from './web.types';
 
 /**
  * Get browserless tools from the new provider
@@ -20,27 +21,12 @@ import type { ToolDefinition, ToolExecutionContext, ToolResult } from '../core/t
 async function getBrowserlessTools() {
   const { BrowserlessProvider } = await import('./browserless.provider');
   const tools = BrowserlessProvider.createAllTools();
-  return {
-    ...tools,
-    type: {
-      execute: async (input: any) => Promise.resolve({ summary: "Type action executed", url: "", details: {} })
-    },
-    keyPress: {
-      execute: async (input: any) => Promise.resolve({ summary: "Key press executed", url: "", details: {} })
-    },
-    listSelectors: {
-      execute: async (input: any) => Promise.resolve({ summary: "Selectors listed", url: "", details: {} })
-    },
-    listAnchors: {
-      execute: async (input: any) => Promise.resolve({ summary: "Anchors listed", url: "", details: {} })
-    },
-    getText: {
-      execute: async (input: any) => Promise.resolve({ summary: "Text extracted", url: "", details: {} })
-    },
-    captchaWait: {
-      execute: async (input: any) => Promise.resolve({ summary: "Captcha wait completed", url: "", details: {} })
-    }
-  };
+  return tools;
+}
+
+function execProvider(executeFn: unknown, input: unknown): Promise<unknown> {
+  const fn = executeFn as (...args: unknown[]) => Promise<unknown>;
+  return fn(input, {});
 }
 
 /**
@@ -58,7 +44,7 @@ const navigateTool: ToolDefinition = {
     if (!tools?.navigate?.execute) {
       return { summary: "Navigation failed - tool not available", url: "", details: {} };
     }
-    const result = await tools.navigate.execute(input, { toolCallId: '', messages: [], ...context } as any);
+    const result = await execProvider(tools.navigate.execute, input);
     if (!result || typeof result !== 'object' || Symbol.asyncIterator in result) {
       return { summary: "Navigation failed", url: "", details: {} };
     }
@@ -85,7 +71,7 @@ const clickTool: ToolDefinition = {
     if (!tools?.click?.execute) {
       return { summary: "Click failed - tool not available", url: "", details: {} };
     }
-    const result = await tools.click.execute(input, { toolCallId: '', messages: [], ...context } as any);
+    const result = await execProvider(tools.click.execute, input);
     if (!result || typeof result !== 'object' || Symbol.asyncIterator in result) {
       return { summary: "Click failed", url: "", details: {} };
     }
@@ -110,14 +96,17 @@ const typeTool: ToolDefinition = {
   inputSchema: TypeInputSchema,
   execute: async (input, context?: ToolExecutionContext) => {
     const tools = await getBrowserlessTools();
-    const result = await tools.type.execute(input);
-    if (!result || typeof result !== 'object') {
+    if (!tools?.type?.execute) {
+      return { summary: "Type action failed - tool not available", url: "", details: {} };
+    }
+    const result = await execProvider(tools.type.execute, input);
+    if (!result || typeof result !== 'object' || Symbol.asyncIterator in result) {
       return { summary: "Type action failed", url: "", details: {} };
     }
     return {
       summary: String('summary' in result ? result.summary : "Type action completed"),
       url: String('url' in result ? result.url : ""),
-      details: 'details' in result ? result.details : {}
+      details: 'details' in result ? (result as Record<string, unknown>).details as Record<string, unknown> : {}
     };
   }
 };
@@ -137,14 +126,14 @@ const keyPressTool: ToolDefinition = {
     if (!tools?.keyPress?.execute) {
       return { summary: "Key press failed - tool not available", url: "", details: {} };
     }
-    const result = await tools.keyPress.execute(input);
+    const result = await execProvider(tools.keyPress.execute, input);
     if (!result || typeof result !== 'object' || Symbol.asyncIterator in result) {
       return { summary: "Key press failed", url: "", details: {} };
     }
     return {
       summary: String('summary' in result ? result.summary : "Key press completed"),
       url: String('url' in result ? result.url : ""),
-      details: 'details' in result ? result.details as Record<string, unknown> : {}
+      details: 'details' in result ? (result as Record<string, unknown>).details as Record<string, unknown> : {}
     };
   }
 };
@@ -161,11 +150,17 @@ const listSelectorsTool: ToolDefinition = {
   inputSchema: ListSelectorsInputSchema,
   execute: async (input, context) => {
     const tools = await getBrowserlessTools();
-    const result = await tools.listSelectors.execute(input);
+    if (!tools?.listSelectors?.execute) {
+      return { summary: "List selectors failed - tool not available", url: "", details: {} };
+    }
+    const result = await execProvider(tools.listSelectors.execute, input);
+    if (!result || typeof result !== 'object' || Symbol.asyncIterator in result) {
+      return { summary: "List selectors failed", url: "", details: {} };
+    }
     return {
-      summary: String(result.summary),
-      url: String(result.url),
-      details: result.details ?? {}
+      summary: String('summary' in result ? (result as { summary?: unknown }).summary : "List selectors completed"),
+      url: String('url' in result ? (result as { url?: unknown }).url : ""),
+      details: 'details' in result ? (result as { details?: unknown }).details as Record<string, unknown> ?? {} : {}
     };
   }
 };
@@ -182,11 +177,17 @@ const listAnchorsTool: ToolDefinition = {
   inputSchema: ListAnchorsInputSchema,
   execute: async (input, context) => {
     const tools = await getBrowserlessTools();
-    const result = await tools.listAnchors.execute(input);
+    if (!tools?.listAnchors?.execute) {
+      return { summary: "List anchors failed - tool not available", url: "", details: {} };
+    }
+    const result = await execProvider(tools.listAnchors.execute, input);
+    if (!result || typeof result !== 'object' || Symbol.asyncIterator in result) {
+      return { summary: "List anchors failed", url: "", details: {} };
+    }
     return {
-      summary: String(result.summary),
-      url: String(result.url),
-      details: result.details ?? {}
+      summary: String('summary' in result ? (result as { summary?: unknown }).summary : "List anchors completed"),
+      url: String('url' in result ? (result as { url?: unknown }).url : ""),
+      details: 'details' in result ? (result as { details?: unknown }).details as Record<string, unknown> ?? {} : {}
     };
   }
 };
@@ -203,11 +204,17 @@ const getTextTool: ToolDefinition = {
   inputSchema: GetTextInputSchema,
   execute: async (input, context) => {
     const tools = await getBrowserlessTools();
-    const result = await tools.getText.execute(input);
+    if (!tools?.getText?.execute) {
+      return { summary: "Get text failed - tool not available", url: "", details: {} };
+    }
+    const result = await execProvider(tools.getText.execute, input);
+    if (!result || typeof result !== 'object' || Symbol.asyncIterator in result) {
+      return { summary: "Get text failed", url: "", details: {} };
+    }
     return {
-      summary: String(result.summary),
-      url: String(result.url),
-      details: result.details ?? {}
+      summary: String('summary' in result ? (result as { summary?: unknown }).summary : "Get text completed"),
+      url: String('url' in result ? (result as { url?: unknown }).url : ""),
+      details: 'details' in result ? (result as { details?: unknown }).details as Record<string, unknown> ?? {} : {}
     };
   }
 };
@@ -224,11 +231,17 @@ const captchaWaitTool: ToolDefinition = {
   inputSchema: CaptchaWaitInputSchema,
   execute: async (input, context) => {
     const tools = await getBrowserlessTools();
-    const result = await tools.captchaWait.execute(input);
+    if (!tools?.captchaWait?.execute) {
+      return { summary: "Captcha wait failed - tool not available", url: "", details: {} };
+    }
+    const result = await execProvider(tools.captchaWait.execute, input);
+    if (!result || typeof result !== 'object' || Symbol.asyncIterator in result) {
+      return { summary: "Captcha wait failed", url: "", details: {} };
+    }
     return {
-      summary: String(result.summary),
-      url: String(result.url),
-      details: result.details ?? {}
+      summary: String('summary' in result ? (result as { summary?: unknown }).summary : "Captcha wait completed"),
+      url: String('url' in result ? (result as { url?: unknown }).url : ""),
+      details: 'details' in result ? (result as { details?: unknown }).details as Record<string, unknown> ?? {} : {}
     };
   }
 };
@@ -248,7 +261,7 @@ const sessionEndTool: ToolDefinition = {
     if (!tools?.sessionEnd?.execute) {
       return { summary: "Session end failed - tool not available", url: "", details: {} };
     }
-    const result = await tools.sessionEnd.execute(input, { toolCallId: '', messages: [], ...context } as any);
+    const result = await execProvider(tools.sessionEnd.execute, input);
     if (!result || typeof result !== 'object' || Symbol.asyncIterator in result) {
       return { summary: "Session end failed", url: "", details: {} };
     }
@@ -278,7 +291,7 @@ export function registerBrowserlessTools(): void {
 /**
  * Get legacy-compatible browserless tools
  */
-export async function createBrowserlessTools(params: any) {
+export async function createBrowserlessTools(params?: unknown) {
   return await getBrowserlessTools();
 }
 
