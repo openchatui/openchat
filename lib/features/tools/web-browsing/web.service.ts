@@ -21,35 +21,39 @@ export class WebBrowsingService {
         select: { data: true } 
       });
       
-      const data = (cfg?.data || {}) as any;
-      const websearch = data?.websearch || {};
-      
-      const provider = websearch.PROVIDER?.toLowerCase() === 'googlepse' ? 'googlepse' : 'browserless';
-      const enabled = Boolean(websearch.ENABLED);
+      const data = (cfg?.data ?? {}) as Record<string, unknown>;
+      const rawWebsearch = (data['websearch'] && typeof data['websearch'] === 'object') ? (data['websearch'] as Record<string, unknown>) : {};
+      const websearch = rawWebsearch;
 
+      const provider = (typeof websearch['PROVIDER'] === 'string' && (websearch['PROVIDER'] as string).toLowerCase() === 'googlepse') ? 'googlepse' : 'browserless';
+      const enabled = Boolean(websearch['ENABLED']);
+
+      const bl = (websearch['browserless'] && typeof websearch['browserless'] === 'object') ? (websearch['browserless'] as Record<string, unknown>) : {};
       const browserlessConfig: BrowserConfig = {
         provider: 'browserless',
-        token: websearch.browserless?.apiKey,
+        token: typeof bl['apiKey'] === 'string' ? (bl['apiKey'] as string) : undefined,
         settings: {
-          stealth: websearch.browserless?.stealth !== false,
-          stealthRoute: websearch.browserless?.stealthRoute === true,
-          blockAds: websearch.browserless?.blockAds === true,
-          headless: websearch.browserless?.headless !== false,
-          locale: websearch.browserless?.locale || 'en-US',
-          timezone: websearch.browserless?.timezone || 'America/Los_Angeles',
-          userAgent: websearch.browserless?.userAgent,
-          route: websearch.browserless?.route,
+          stealth: bl['stealth'] !== false,
+          stealthRoute: bl['stealthRoute'] === true,
+          blockAds: bl['blockAds'] === true,
+          headless: bl['headless'] !== false,
+          locale: typeof bl['locale'] === 'string' && (bl['locale'] as string).trim().length > 0 ? (bl['locale'] as string) : 'en-US',
+          timezone: typeof bl['timezone'] === 'string' && (bl['timezone'] as string).trim().length > 0 ? (bl['timezone'] as string) : 'America/Los_Angeles',
+          userAgent: typeof bl['userAgent'] === 'string' ? (bl['userAgent'] as string) : undefined,
+          route: typeof bl['route'] === 'string' ? (bl['route'] as string) : undefined,
         }
       };
 
-      const googlepseRaw = websearch.googlepse || {};
+      const googlepseRawObj = (websearch['googlepse'] && typeof websearch['googlepse'] === 'object') ? (websearch['googlepse'] as Record<string, unknown>) : {};
       const googlepseConfig = {
-        apiKey: googlepseRaw?.apiKey,
+        apiKey: typeof googlepseRawObj['apiKey'] === 'string' ? (googlepseRawObj['apiKey'] as string) : undefined,
         // Support both keys (engineId preferred; fall back to searchEngineId)
-        engineId: typeof googlepseRaw?.engineId === 'string' ? googlepseRaw.engineId : undefined,
-        searchEngineId: typeof googlepseRaw?.searchEngineId === 'string' ? googlepseRaw.searchEngineId : undefined,
-        resultCount: Number.isFinite(googlepseRaw?.resultCount) ? Math.max(1, Math.min(50, Number(googlepseRaw?.resultCount))) : undefined,
-        domainFilters: Array.isArray(googlepseRaw?.domainFilters) ? (googlepseRaw.domainFilters as any[]).filter(v => typeof v === 'string' && v.trim().length > 0) : undefined,
+        engineId: typeof googlepseRawObj['engineId'] === 'string' ? (googlepseRawObj['engineId'] as string) : undefined,
+        searchEngineId: typeof googlepseRawObj['searchEngineId'] === 'string' ? (googlepseRawObj['searchEngineId'] as string) : undefined,
+        resultCount: Number.isFinite(googlepseRawObj['resultCount'] as number) ? Math.max(1, Math.min(50, Number(googlepseRawObj['resultCount']))) : undefined,
+        domainFilters: Array.isArray(googlepseRawObj['domainFilters'])
+          ? (googlepseRawObj['domainFilters'] as unknown[]).filter((v): v is string => typeof v === 'string' && v.trim().length > 0)
+          : undefined,
       };
 
       return {
@@ -135,15 +139,17 @@ export class WebSearchProviderService {
         select: { data: true } 
       });
       
-      const data = (cfg?.data || {}) as any;
-      const websearch = data?.websearch || {};
+      const data = (cfg?.data ?? {}) as Record<string, unknown>;
+      const rawWebsearch2 = (data['websearch'] && typeof data['websearch'] === 'object') ? (data['websearch'] as Record<string, unknown>) : {};
+      const websearch = rawWebsearch2;
 
       // Provider-specific prompts
       let providerPrompt = '';
       
       if (config.provider === 'browserless') {
-        providerPrompt = websearch.browserless?.systemPrompt ||
-                        websearch.SYSTEM_PROMPT ||
+        const bl = (websearch['browserless'] && typeof websearch['browserless'] === 'object') ? (websearch['browserless'] as Record<string, unknown>) : {};
+        providerPrompt = (typeof bl['systemPrompt'] === 'string' ? (bl['systemPrompt'] as string) : '') ||
+                        (typeof websearch['SYSTEM_PROMPT'] === 'string' ? (websearch['SYSTEM_PROMPT'] as string) : '') ||
                         process.env.BROWSERLESS_SYSTEM_PROMPT ||
                         'Web browsing tools are available (Browserless). Use them when helpful to fetch up-to-date information. ' +
                         'Prefer: navigate -> listAnchors/listSelectors -> click/type/keyPress as needed. Summarize findings with URLs. ' +
@@ -151,8 +157,9 @@ export class WebSearchProviderService {
                         'Use navigate with thoughtfully crafted URLs (including query params) to reach targets efficiently. ' +
                         'If a CAPTCHA appears, use captchaWait and report status; do not attempt to solve it yourself.';
       } else if (config.provider === 'googlepse') {
-        providerPrompt = websearch.googlepse?.systemPrompt ||
-                        websearch.SYSTEM_PROMPT ||
+        const gp = (websearch['googlepse'] && typeof websearch['googlepse'] === 'object') ? (websearch['googlepse'] as Record<string, unknown>) : {};
+        providerPrompt = (typeof gp['systemPrompt'] === 'string' ? (gp['systemPrompt'] as string) : '') ||
+                        (typeof websearch['SYSTEM_PROMPT'] === 'string' ? (websearch['SYSTEM_PROMPT'] as string) : '') ||
                         process.env.GOOGLEPSE_SYSTEM_PROMPT ||
                         'Web search is available via Google Programmable Search Engine. Use it to retrieve sources and summarize findings. ' +
                         'Favor precise queries and cite result titles and URLs. Avoid unnecessary requests.';
