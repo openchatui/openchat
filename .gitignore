@@ -45,6 +45,7 @@ next-env.d.ts
 
 public/profiles/*
 /data/images/*
+/data/prisma/*
 /data/files/*
 /public/images/*
 

@@ -1,3 +1,23 @@
+## [0.1.14] - 2025-10-11
+
+### PR: [Release: v0.1.14](https://github.com/openchatui/openchat/pull/35)
+
+### Added
+- Added LICENSE.md file to clarify project licensing under AGPLv3 with additional terms. (https://github.com/openchatui/openchat/commit/efadd628b0bdd8dd738ce1a9b84e4157289f7c40)
+- Added new assets including OpenChat logo and GIFs for text, image, and video generation demos. (https://github.com/openchatui/openchat/commit/efadd628b0bdd8dd738ce1a9b84e4157289f7c40)
+
+### Fixed
+- Fixed missing browserless tools to ensure all expected web browsing features are available. (https://github.com/openchatui/openchat/commit/af4ee0529186b3bd2945f94a05e44b99ca23677b)
+- Fixed GIFs not rendering in README by updating to better Giphy links. (https://github.com/openchatui/openchat/commit/82d74f22a19c3f7a76dbebbd476f2350e2ee430d)
+- Fixed image hosting by moving to Giphy CDN for improved reliability. (https://github.com/openchatui/openchat/commit/e83fc796aa1c230e17dd186913c8fd7f3be33819)
+- Reverted GIF hosting back to repository assets to resolve rendering issues. (https://github.com/openchatui/openchat/commit/2b2ecc9370291c779024077f49d060a957d9223c)
+
+### Changed
+- Updated README with new badges, project description, and demo images for improved clarity and presentation. (https://github.com/openchatui/openchat/commit/efadd628b0bdd8dd738ce1a9b84e4157289f7c40)
+- Refactored browserless provider and web service logic for improved robustness and type safety. (https://github.com/openchatui/openchat/commit/af4ee0529186b3bd2945f94a05e44b99ca23677b)
+- Reduced GIF file sizes to optimize repository size and loading times. (https://github.com/openchatui/openchat/commit/e8685978bec48cee75c59cd0e2d743a125f6ec04)
+- Updated .dockerignore, .gitignore, and docker-compose.yml for improved development and deployment workflow. (https://github.com/openchatui/openchat/commit/efadd628b0bdd8dd738ce1a9b84e4157289f7c40)
+
 ## [0.1.13] - 2025-10-10
 
 ### PR: [release dev to main](https://github.com/openchatui/openchat/pull/29)

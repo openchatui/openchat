@@ -18,5 +18,5 @@ services:
     #  DRIVE_CLIENT_ID: "your-google-client-id"
     #  DRIVE_CLIENT_SECRET: "your-google-client-secret"
     volumes:
-      - ./data/prisma:/prisma
+      - ./prisma:/prisma
     restart: unless-stopped
