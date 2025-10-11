@@ -9,7 +9,7 @@
 
 **OpenChat is an open source, self-hosted, AI User Interface** with the goal of developing the most **feature rich, free, AI User Interface.**
 
-![Text generation demo](https://media.giphy.com/media/Z4f9aB4z9CxbZDwfzj/giphy.gif)
+![Text generation demo](/assets/text-gen.gif)
 
 ### Get Started
 
@@ -119,8 +119,8 @@ docker compose down
 
 <br>
 
-![Browser demo](https://media.giphy.com/media/yRhyZvzC5sYkkxtgRo/giphy.gif)
+![Browser demo](/assets/browser.gif)
 
-![Image generation demo](https://media.giphy.com/media/MoKKKsU73qXfalNZsq/giphy.gif)
+![Image generation demo](/assets/image-gen.gif)
 
-![Video generation demo](https://media.giphy.com/media/xSDUK5R3NvpJSC0DKS/giphy.gif)
+![Video generation demo](/assets/video-gen.gif)
