@@ -9,7 +9,7 @@
 
 **OpenChat is an open source, self-hosted, AI User Interface** with the goal of developing the most **feature rich, free, AI User Interface.**
 
-![Text generation demo](assets/text-gen.gif)
+![Text generation demo](https://media0.giphy.com/media/v1.Y2lkPTc5MGI3NjExYW8yNzJ4NTVtZ3hianh2ODdmaXBzNnR4ZHluMDAydDhvNjQ4aXg4eCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/Z4f9aB4z9CxbZDwfzj/giphy.gif)
 
 ### Get Started
 
@@ -119,8 +119,8 @@ docker compose down
 
 <br>
 
-![Browser demo](assets/browser.gif)
+![Browser demo](https://media3.giphy.com/media/v1.Y2lkPTc5MGI3NjExdmtwa2wwbXltdTM5d2syejd1cnMwbGcyZHZ5MmVneW1zdWRvZW9ybiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/yRhyZvzC5sYkkxtgRo/giphy.gif)
 
-![Image generation demo](assets/image-gen.gif)
+![Image generation demo](https://media4.giphy.com/media/v1.Y2lkPTc5MGI3NjExNHk3eGpmZnV5dmo2Y3RhbHoyY2Qyd2Zha3l6aTg4eGswc2EyYnludSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/MoKKKsU73qXfalNZsq/giphy.gif)
 
-![Video generation demo](assets/video-gen.gif)
+![Video generation demo](https://media4.giphy.com/media/v1.Y2lkPTc5MGI3NjExMGZhcmtldzBhdGhoajhkYml6OWVnencxYXhmdXIyNXpuYnpmYmxsZiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/xSDUK5R3NvpJSC0DKS/giphy.gif)
