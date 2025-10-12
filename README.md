@@ -44,16 +44,16 @@ Now open [http://localhost:3000](http://localhost:3000).
 > - For PostgreSQL set `DB=postgres` and `DATABASE_URL` (or `POSTGRES_URL` / `POSTGRES_DIRECT_URL`) in `.env`.
 
 #### Docker (single container)
-Build and run with defaults (port 3000 inside the container):
+Pull and run with defaults (port 3000 inside the container):
 ```bash
-docker build -t openchat:local .
+docker pull ghcr.io/openchatui/openchatui:latest
 docker run --name openchat \
   -p 3000:3000 \
   -e NEXTAUTH_URL="http://localhost:3000" \
   -e NEXTAUTH_SECRET="$(openssl rand -base64 32)" \
   -v "$(pwd)/data/prisma:/prisma" \
   --restart unless-stopped \
-  openchat:local
+  ghcr.io/openchatui/openchatui:latest
 ```
 
 > [!TIP]
@@ -68,7 +68,7 @@ Minimal compose file:
 ```yaml
 services:
   openchat:
-    image: openchatui/openchatui:latest
+    image: ghcr.io/openchatui/openchatui:latest
     ports:
       - "3000:3000"
     volumes:
