@@ -1,3 +1,10 @@
+## [0.1.16] - 2025-10-12
+
+### PR: [chore: update compose and readme with ghcr](https://github.com/openchatui/openchat/pull/39)
+
+### Changed
+- Updated Docker Compose and README instructions to use the official GHCR image instead of Docker Hub. (https://github.com/openchatui/openchat/commit/10f8e5ca77db1132e43fbfa9380f36f10e6f8b81)
+
 ## [0.1.13] - 2025-10-10
 
 ### PR: [release dev to main](https://github.com/openchatui/openchat/pull/29)
