@@ -1,3 +1,10 @@
+## [0.1.15] - 2025-10-12
+
+### PR: [ci: mirgrate to ghcr](https://github.com/openchatui/openchat/pull/38)
+
+### Changed
+- Migrated Docker image publishing from Docker Hub to GitHub Container Registry (ghcr.io) in CI workflows. (https://github.com/openchatui/openchat/commit/c1c53ac33454d009e59f8b0296625abb6dbf923a)
+
 ## [0.1.14] - 2025-10-11
 
 ### PR: [Release: v0.1.14](https://github.com/openchatui/openchat/pull/35)
