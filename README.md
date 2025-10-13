@@ -4,6 +4,10 @@
 ![Repo Size](https://img.shields.io/github/repo-size/openchatui/openchat)
 ![GitHub last commit](https://img.shields.io/github/last-commit/openchatui/openchat?color=red)
 [![Discord](https://img.shields.io/badge/Discord-OpenChat-blue?logo=discord&logoColor=white)](https://discord.gg/fVz7N5Nduj)
+![Language](https://img.shields.io/github/languages/top/openchatui/openchat
+)
+![](https://tokei.rs/b1/github/openchatui/openchat)
+
 
 <h1><img src="assets/OpenChat.png" alt="OpenChat" width="32" height="32" style="vertical-align: middle; margin-bottom: 8px;" /> OpenChat</h1>
 
@@ -60,6 +64,23 @@ docker run --name openchat \
 > - Change the host port by editing the `-p` flag (e.g., `-p 3001:3001` together with `-e PORT=3001`).
 > - If you prefer PostgreSQL, add `-e DB=postgres -e DATABASE_URL=postgresql://user:pass@host:5432/dbname`.
 > - The container will generate a `NEXTAUTH_SECRET` if not provided; set it for persistence across restarts.
+
+##### Optional: Public landing (disable auth)
+
+Set `AUTH=false` to allow unauthenticated users to access the public landing page while keeping the `/admin` area protected and requiring admin login.
+
+Examples:
+
+```bash
+docker run \
+  -p 3000:3000 \
+  -e NEXTAUTH_URL="http://localhost:3000" \
+  -e NEXTAUTH_SECRET="$(openssl rand -base64 32)" \
+  -e AUTH=false \
+  -v "$(pwd)/data/prisma:/prisma" \
+  --restart unless-stopped \
+  ghcr.io/openchatui/openchatui:latest
+```
 
 #### Docker Compose
 A ready-to-use `docker-compose.yml` is included. It maps port `3000` and persists SQLite data to `./prisma`.

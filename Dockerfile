@@ -29,12 +29,11 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
-
-# Default environment variables (can be overridden at runtime)
 ENV DB=sqlite
 ENV SQLITE_URL=file:/prisma/dev.db
 ENV AUTH_TRUST_HOST=true
 ENV NEXTAUTH_URL=http://localhost:${PORT}
+ENV AUTH=false
 
 # Copy runtime assets
 COPY --from=builder /app/public ./public

@@ -2,6 +2,8 @@ import { Suspense } from "react"
 import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
 import { auth, AuthService } from "@/lib/auth"
+import { isAuthEnabled } from "@/lib/auth/toggle"
+import { ensurePublicUser } from "@/lib/auth/public-user"
 import { AppSidebar } from "@/components/sidebar/app-sidebar"
 import { SidebarProvider } from "@/components/ui/sidebar"
 import { getInitialChats, getActiveModelsLight, getUserSettings } from "@/actions/chat"
@@ -16,9 +18,14 @@ export default async function MainLayout({
   const firstUser = await AuthService.isFirstUser()
   if (firstUser) redirect('/setup')
 
-  // Require authentication for main layout once a user exists
+  // In public mode, ensure the public user exists for permission management
+  if (!isAuthEnabled()) {
+    try { await ensurePublicUser() } catch {}
+  }
+
+  // Require authentication for main layout once a user exists (unless AUTH=false)
   const session = await auth()
-  if (!session?.user?.id) redirect('/login')
+  if (isAuthEnabled() && !session?.user?.id) redirect('/login')
 
   // Read sidebar state from cookie to prevent remounting on refresh
   const cookieStore = await cookies()
