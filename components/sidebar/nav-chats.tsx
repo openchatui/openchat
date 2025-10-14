@@ -11,7 +11,6 @@ import {
 } from "@/components/ui/collapsible"
 import {
   SidebarGroup,
-  SidebarGroupLabel,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
@@ -30,8 +29,7 @@ import { usePathname, useRouter } from "next/navigation"
 import type { ChatData } from "@/lib/features/chat"
 import { useChatTitles } from "@/hooks/useChatTitles"
 import { useTags } from "@/hooks/useTags"
-import { archiveChatAction } from "@/actions/chat"
-import { AnimatedLoader } from "@/components/ui/loader"
+// Using API endpoints for chat mutations
 
 interface NavChatsProps {
   chats: ChatData[]
@@ -198,6 +196,70 @@ export function NavChats({ chats, timeZone = 'UTC' }: NavChatsProps) {
     setTimeout(() => { suppressLoadMoreRef.current = false }, 300)
   }, [])
 
+  const removeChatById = useCallback((id: string) => {
+    setAllChats(prev => prev.filter(c => c.id !== id))
+    const initial = initialPageRef.current || []
+    if (initial.some(c => c.id === id)) {
+      initialPageRef.current = initial.filter(c => c.id !== id)
+      setOffset(o => Math.max(0, o - 1))
+    }
+  }, [])
+
+  // Batch archive queue (debounced flush)
+  const archiveQueueRef = useRef<Set<string>>(new Set())
+  const archiveTimerRef = useRef<number | null>(null)
+  const flushArchiveQueue = useCallback(async () => {
+    const ids = Array.from(archiveQueueRef.current)
+    archiveQueueRef.current.clear()
+    if (ids.length === 0) return
+    try {
+      await fetch('/api/v1/chats/archive', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids }),
+        cache: 'no-store',
+      })
+    } finally {
+      router.refresh()
+    }
+  }, [router])
+
+  const queueArchive = useCallback((id: string) => {
+    archiveQueueRef.current.add(id)
+    if (archiveTimerRef.current) {
+      window.clearTimeout(archiveTimerRef.current)
+      archiveTimerRef.current = null
+    }
+    archiveTimerRef.current = window.setTimeout(() => {
+      archiveTimerRef.current = null
+      void flushArchiveQueue()
+    }, 200) as unknown as number
+  }, [flushArchiveQueue])
+
+  // React to cross-tab/chat updates
+  useEffect(() => {
+    let bc: BroadcastChannel | null = null
+    try {
+      bc = new BroadcastChannel('chats')
+      bc.onmessage = (ev: MessageEvent) => {
+        const msg = (ev && ev.data) || {}
+        if (msg && typeof msg === 'object') {
+          if ((msg as any).type === 'archived' && typeof (msg as any).id === 'string') {
+            removeChatById((msg as any).id as string)
+          }
+          if ((msg as any).type === 'deleted' && typeof (msg as any).id === 'string') {
+            removeChatById((msg as any).id as string)
+          }
+          if ((msg as any).type === 'unarchived' && typeof (msg as any).id === 'string') {
+            // We don't have full chat data to optimistically add – refresh list
+            router.refresh()
+          }
+        }
+      }
+    } catch {}
+    return () => { try { bc && bc.close() } catch {} }
+  }, [removeChatById, router])
+
   // Optimistically add the current chat to the sidebar on navigation to /c/{id}
   useEffect(() => {
     const p = String(pathname || '')
@@ -309,15 +371,15 @@ export function NavChats({ chats, timeZone = 'UTC' }: NavChatsProps) {
                                         e.preventDefault()
                                         e.stopPropagation()
                                         try {
-                                          await archiveChatAction(chat.id)
+                                          // Optimistic UI removal
+                                          removeChatById(chat.id)
+                                          queueArchive(chat.id)
                                           try {
                                             const bc = new BroadcastChannel('chats')
                                             bc.postMessage({ type: 'archived', id: chat.id })
                                             bc.close()
                                           } catch {}
-                                        } finally {
-                                          router.refresh()
-                                        }
+                                        } finally {}
                                       }}
                                     >
                                       <Archive className="mr-2 h-3 w-3" />
@@ -325,11 +387,24 @@ export function NavChats({ chats, timeZone = 'UTC' }: NavChatsProps) {
                                     </DropdownMenuItem>
                                     <DropdownMenuItem
                                       className=""
-                                      onClick={(e) => {
+                                      onClick={async (e) => {
                                         e.preventDefault()
                                         e.stopPropagation()
-                                        // TODO: Implement delete chat functionality
-                                        console.log('Delete chat:', chat.id)
+                                        try {
+                                          // Optimistic removal
+                                          removeChatById(chat.id)
+                                          await fetch(`/api/v1/chats/${encodeURIComponent(chat.id)}`, {
+                                            method: 'DELETE',
+                                            cache: 'no-store',
+                                          })
+                                          try {
+                                            const bc = new BroadcastChannel('chats')
+                                            bc.postMessage({ type: 'deleted', id: chat.id })
+                                            bc.close()
+                                          } catch {}
+                                        } finally {
+                                          router.refresh()
+                                        }
                                       }}
                                     >
                                       <Trash2 className="mr-2 h-3 w-3" />

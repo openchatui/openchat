@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import db from '@/lib/db'
 import { auth } from '@/lib/auth'
+import { isAuthEnabled } from '@/lib/auth/toggle'
 
 export const runtime = 'nodejs'
 
@@ -8,7 +9,8 @@ export async function GET(req: NextRequest) {
   try {
     const session = await auth()
     const userId = session?.user?.id
-    if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const requireAuth = isAuthEnabled()
+    if (requireAuth && !userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     // Allow all authenticated users to see the aggregate (adjust if needed)
 
@@ -25,6 +27,11 @@ export async function GET(req: NextRequest) {
        ORDER BY lastSeenAt DESC`,
       cutoff.toISOString()
     )
+
+    if (!requireAuth && !userId) {
+      // Public mode: return count only via array length to avoid exposing PII
+      return NextResponse.json({ users: Array(rows.length).fill(null) })
+    }
 
     const users = rows.map((r: any) => ({
       id: String(r.id),

@@ -12,7 +12,7 @@ export default function ArchiveLiveRefresher() {
       bc = new BroadcastChannel('chats')
       const handler = (event: MessageEvent) => {
         const data = event?.data
-        if (data && (data.type === 'archived' || data.type === 'deleted' || data.type === 'updated')) {
+        if (data && (data.type === 'archived' || data.type === 'deleted' || data.type === 'updated' || data.type === 'unarchived')) {
           router.refresh()
         }
       }
