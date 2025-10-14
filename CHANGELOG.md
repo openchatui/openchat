@@ -3,7 +3,7 @@
 ### PR: [Dev to Main](https://github.com/openchatui/openchat/pull/44)
 
 ### Added
-- Introduced an authentication toggle via the AUTH environment variable, allowing a public landing mode while keeping admin protected. (https://github.com/openchatui/openchat/commit/6b94e06bfb4a4ae6a9b652656c1bdf6d749b7268)
+- Introduced an authentication toggle via the AUTH environment variable, enabling a public landing mode while keeping admin protected. (https://github.com/openchatui/openchat/commit/6b94e06bfb4a4ae6a9b652656c1bdf6d749b7268)
 - Added API endpoints for archiving and deleting chats to support optimistic UI updates and external integrations. (https://github.com/openchatui/openchat/commit/1a7172c0729919ad1dbe07b2ad9f081199e7ef22)
 
 ### Fixed
