@@ -1,3 +1,17 @@
+## [0.1.16] - 2025-10-14
+
+### PR: [Dev to Main](https://github.com/openchatui/openchat/pull/44)
+
+### Added
+- Introduced an authentication toggle via the AUTH environment variable, allowing public landing mode while keeping admin protected. (6b94e06bfb4a4ae6a9b652656c1bdf6d749b7268)
+- Added API endpoints for archiving and deleting chats to support optimistic UI updates and external integrations. (1a7172c0729919ad1dbe07b2ad9f081199e7ef22)
+
+### Fixed
+- Fixed optimistic updates and API endpoint handling for chat archive and delete actions. (1a7172c0729919ad1dbe07b2ad9f081199e7ef22)
+
+### Changed
+- Updated Docker Compose and documentation to use the GitHub Container Registry (ghcr) image and document the new AUTH toggle. (656f4412af98c76d7cd87da76a884a1fc830fafa)
+
 ## [0.1.15] - 2025-10-12
 
 ### PR: [ci: mirgrate to ghcr](https://github.com/openchatui/openchat/pull/38)
