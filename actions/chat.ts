@@ -3,6 +3,7 @@
 import { createOpenAI } from '@ai-sdk/openai';
 import { streamText, UIMessage, convertToModelMessages, validateUIMessages, createIdGenerator } from 'ai';
 import { auth } from "@/lib/auth";
+import { cookies } from 'next/headers';
 import db from '@/lib/db';
 import { getEffectivePermissionsForUser, filterModelsReadableByUser } from '@/lib/server'
 import { ChatStore, type ChatData } from '@/lib/features/chat';
@@ -25,6 +26,27 @@ async function getConnectionsConfig(): Promise<any> {
   } catch {
     return { openai: {}, ollama: {} }
   }
+}
+
+function resolveAppBaseUrl(): string {
+  const envCandidate = process.env.NEXT_PUBLIC_BASE_URL || process.env.APP_URL || process.env.VERCEL_URL || process.env.NEXTAUTH_URL
+  if (envCandidate) {
+    const normalized = envCandidate.replace(/\/$/, '')
+    if (/^https?:\/\//i.test(normalized)) return normalized
+    return `https://${normalized}`
+  }
+  const port = process.env.PORT || '3000'
+  return `http://localhost:${port}`
+}
+
+async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
+  const base = resolveAppBaseUrl()
+  const cookieStore = await cookies()
+  const cookieHeader = cookieStore.getAll().map(c => `${c.name}=${encodeURIComponent(c.value)}`).join('; ')
+  const headers = new Headers(init?.headers || {})
+  if (cookieHeader) headers.set('Cookie', cookieHeader)
+  if (!headers.has('Content-Type') && init?.body) headers.set('Content-Type', 'application/json')
+  return fetch(`${base}${path}`, { ...init, headers, cache: 'no-store' })
 }
 
 function normalizeProviderName(raw?: string | null): 'openai' | 'openrouter' | 'ollama' | 'openai-compatible' | null {
@@ -583,38 +605,44 @@ export const getInitialChats = cache(async function getInitialChats() {
 
 // Server action to archive a chat
 export async function archiveChatAction(chatId: string): Promise<void> {
-  try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      throw new Error('Unauthorized');
-    }
-
-    const userId = session.user.id;
-    await ChatStore.archiveChat({ chatId, userId });
-    revalidatePath('/');
-    revalidatePath('/archive');
-  } catch (error) {
-    console.error('Archive chat error:', error);
-    throw error;
-  }
+  const res = await apiFetch(`/api/v1/chats/${encodeURIComponent(chatId)}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ archived: true }),
+  })
+  if (!res.ok) throw new Error('Archive chat failed')
+  revalidatePath('/')
+  revalidatePath('/archive')
 }
 
+// Server action to archive multiple chats in one call
+export async function archiveChatsAction(chatIds: string[]): Promise<void> {
+  const ids = Array.isArray(chatIds) ? chatIds.filter((id) => typeof id === 'string' && id.length > 0) : []
+  if (ids.length === 0) return
+  const res = await apiFetch('/api/v1/chats/archive', {
+    method: 'POST',
+    body: JSON.stringify({ ids }),
+  })
+  if (!res.ok) throw new Error('Archive chats (batch) failed')
+  revalidatePath('/')
+  revalidatePath('/archive')
+}
 // Server action to unarchive a chat
 export async function unarchiveChatAction(chatId: string): Promise<void> {
-  try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      throw new Error('Unauthorized');
-    }
+  const res = await apiFetch(`/api/v1/chats/${encodeURIComponent(chatId)}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ archived: false }),
+  })
+  if (!res.ok) throw new Error('Unarchive chat failed')
+  revalidatePath('/')
+  revalidatePath('/archive')
+}
 
-    const userId = session.user.id;
-    await ChatStore.unarchiveChat({ chatId, userId });
-    revalidatePath('/');
-    revalidatePath('/archive');
-  } catch (error) {
-    console.error('Unarchive chat error:', error);
-    throw error;
-  }
+// Server action to delete a chat
+export async function deleteChatAction(chatId: string): Promise<void> {
+  const res = await apiFetch(`/api/v1/chats/${encodeURIComponent(chatId)}`, { method: 'DELETE' })
+  if (!res.ok) throw new Error('Delete chat failed')
+  revalidatePath('/')
+  revalidatePath('/archive')
 }
 
 // Helper function to get assistant display info from model
