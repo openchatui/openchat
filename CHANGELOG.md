@@ -3,7 +3,7 @@
 ### PR: [Dev to main](https://github.com/openchatui/openchat/pull/51)
 
 ### Added
-- Added a CONTRIBUTING.md file outlining guidelines for contributing, code of conduct, API-first development, branching, commit messages, and PR checklist. (https://github.com/openchatui/openchat/commit/66bba9484868d3eb4f90252ddbef7763b2cf993d)
+- Added a CONTRIBUTING.md file outlining contribution guidelines, code of conduct, API-first development, branching strategy, commit message conventions, and PR checklist. (https://github.com/openchatui/openchat/commit/66bba9484868d3eb4f90252ddbef7763b2cf993d)
 
 ## [0.1.17] - 2025-10-16
 
