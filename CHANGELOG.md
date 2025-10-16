@@ -1,3 +1,11 @@
+## [0.1.17] - 2025-10-16
+
+### PR: [Dev to main](https://github.com/openchatui/openchat/pull/48)
+
+### Added
+- Introduced API endpoints for Ollama model pull, list, and delete operations. (https://github.com/openchatui/openchat/commit/09dd7fbe210cf8563208726b5e58e3485e907106)
+- Added admin UI components to manage Ollama models, including download and delete actions. (https://github.com/openchatui/openchat/commit/09dd7fbe210cf8563208726b5e58e3485e907106)
+
 ## [0.1.16] - 2025-10-14
 
 ### PR: [Dev to Main](https://github.com/openchatui/openchat/pull/44)
