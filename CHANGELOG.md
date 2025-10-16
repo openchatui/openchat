@@ -1,3 +1,10 @@
+## [0.1.18] - 2025-10-16
+
+### PR: [chore: add contributing.md](https://github.com/openchatui/openchat/pull/49)
+
+### Added
+- Added CONTRIBUTING.md to provide guidelines for contributing, including code of conduct, API-first practices, and PR checklist. (https://github.com/openchatui/openchat/commit/9203f952ddc4723b9abac727438fb63852f01777)
+
 ## [0.1.16] - 2025-10-14
 
 ### PR: [Dev to Main](https://github.com/openchatui/openchat/pull/44)
