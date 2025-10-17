@@ -12,12 +12,11 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Checkbox } from "@/components/ui/checkbox"
 import { cn } from "@/lib/utils"
-import { useActionState } from "react"
-import { updateGroupAction, type ActionResult } from "@/actions/groups"
+import { useRouter } from "next/navigation"
+import { useUpdateGroup } from '@/hooks/admin/groups/useUpdateGroup'
 import type { Group } from "@/lib/server/group-management/group.types"
 import type { User } from "@/lib/server/user-management/user.types"
 import { DEFAULT_GROUP_PERMISSIONS, type GroupPermissions } from "@/lib/server/access-control/permissions.types"
-import { SaveStatusButton } from "@/components/ui/save-button"
 import { getEmailInitials } from "@/constants/user"
 
 interface EditGroupDialogProps {
@@ -32,8 +31,8 @@ export function EditGroupDialog({ group, users, onClose }: EditGroupDialogProps)
   const [perms, setPerms] = useState<GroupPermissions>(DEFAULT_GROUP_PERMISSIONS)
   const [userIds, setUserIds] = useState<string[]>([])
   const [membersOpen, setMembersOpen] = useState(false)
-  const [result, formAction] = useActionState<ActionResult, FormData>(updateGroupAction as any, { status: 'idle' })
-  const [didSubmit, setDidSubmit] = useState(false)
+  const { mutate: update, isLoading: isSaving, error: errorMsg } = useUpdateGroup()
+  const router = useRouter()
 
   useEffect(() => {
     if (group) {
@@ -44,12 +43,15 @@ export function EditGroupDialog({ group, users, onClose }: EditGroupDialogProps)
     }
   }, [group])
 
-  useEffect(() => {
-    if (group && didSubmit && result?.status === 'success') {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    if (!group) return
+    try {
+      await update({ id: group.id, name, description, permissions: perms, userIds })
       onClose()
-      setDidSubmit(false)
-    }
-  }, [group, didSubmit, result, onClose])
+      router.refresh()
+    } catch {}
+  }
 
   if (!group) return null
 
@@ -60,8 +62,7 @@ export function EditGroupDialog({ group, users, onClose }: EditGroupDialogProps)
           <DialogTitle>Edit Group</DialogTitle>
           <DialogDescription>Update group name, description and permissions.</DialogDescription>
         </DialogHeader>
-        <form action={formAction} className="flex flex-col gap-4" onSubmit={() => setDidSubmit(true)}>
-          <input type="hidden" name="id" value={group?.id || ''} />
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div className="grid gap-4">
             <div className="grid gap-2">
               <Label htmlFor="edit-name">Name</Label>
@@ -178,16 +179,12 @@ export function EditGroupDialog({ group, users, onClose }: EditGroupDialogProps)
               </div>
             </div>
           </div>
-
-          <input type="hidden" name="permissions" value={JSON.stringify(perms)} />
-          <input type="hidden" name="userIds" value={JSON.stringify(userIds)} />
-
           <DialogFooter>
-            {result?.status === 'error' && (
-              <div className="text-sm text-destructive mr-auto">{(result as any).message}</div>
+            {errorMsg && (
+              <div className="text-sm text-destructive mr-auto">{errorMsg}</div>
             )}
             <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-            <SaveStatusButton label="Save Changes" />
+            <Button type="submit" disabled={isSaving} className="gap-2">{isSaving ? 'Saving…' : 'Save Changes'}</Button>
           </DialogFooter>
         </form>
       </DialogContent>

@@ -27,7 +27,7 @@ export function NavModels({ pinnedModels }: { pinnedModels: Model[] }) {
     // Load current user id once on mount
     const loadUser = async () => {
       try {
-        const meRes = await fetch('/api/users/me', { credentials: 'include' })
+        const meRes = await fetch('/api/v1/users/me', { credentials: 'include' })
         if (!meRes.ok) return
         const me = await meRes.json().catch(() => null)
         if (me?.id) setCurrentUserId(String(me.id))
@@ -41,7 +41,7 @@ export function NavModels({ pinnedModels }: { pinnedModels: Model[] }) {
       try {
         if (!currentUserId) return
         const [settingsRes, modelsRes] = await Promise.all([
-          fetch(`/api/users/${currentUserId}/settings`, { credentials: 'include' }),
+          fetch(`/api/v1/users/${currentUserId}/settings`, { credentials: 'include' }),
           fetch('/api/v1/models', { credentials: 'include' }),
         ])
         if (!settingsRes.ok || !modelsRes.ok) return

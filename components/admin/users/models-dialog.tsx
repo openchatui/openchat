@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
+import { useUpdateModelAccess } from '@/hooks/admin/groups/useUpdateModelAccess'
 import { DialogHeader, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
@@ -24,6 +25,7 @@ interface ModelsDialogContentProps {
 export function ModelsDialogContent({ group, onSave, onClose }: ModelsDialogContentProps) {
   const [models, setModels] = useState<Model[]>([])
   const [selection, setSelection] = useState<Record<string, { read: boolean; write: boolean }>>({})
+  const { mutate: updateModelAccess, isLoading } = useUpdateModelAccess()
 
   useEffect(() => {
     if (!group) return
@@ -116,21 +118,14 @@ export function ModelsDialogContent({ group, onSave, onClose }: ModelsDialogCont
 
       <DialogFooter>
         <Button type="button" variant="outline" onClick={() => onClose?.()}>Cancel</Button>
-        <Button type="button" onClick={async () => {
+        <Button type="button" disabled={isLoading} onClick={async () => {
           try {
-            // send selection to server to update accessControl immediately
-            await fetch('/api/v1/models/access', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ groupId: group.id, selection })
-            })
-          } catch (e) {
-            // ignore network errors for now
-          }
+            await updateModelAccess({ groupId: group.id, selection })
+          } catch {}
           onSave?.(selection)
           onClose?.()
         }}>
-          Save
+          {isLoading ? 'Saving…' : 'Save'}
         </Button>
       </DialogFooter>
     </div>

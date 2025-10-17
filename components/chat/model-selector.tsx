@@ -114,7 +114,7 @@ export function ModelSelector({ selectedModelId, onModelSelect, models = [] }: M
     let mounted = true
     const loadUser = async () => {
       try {
-        const meRes = await fetch('/api/users/me', { credentials: 'include' })
+        const meRes = await fetch('/api/v1/users/me', { credentials: 'include' })
         if (!meRes.ok) return
         const me = await meRes.json().catch(() => null)
         if (mounted && me?.id) setCurrentUserId(String(me.id))
@@ -128,7 +128,7 @@ export function ModelSelector({ selectedModelId, onModelSelect, models = [] }: M
     try {
       if (!modelId) return
       if (!currentUserId) return
-      await fetch(`/api/users/${currentUserId}/settings/pinned`, {
+      await fetch(`/api/v1/users/${currentUserId}/settings/pinned`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ modelIds: [modelId] }),
@@ -146,13 +146,13 @@ export function ModelSelector({ selectedModelId, onModelSelect, models = [] }: M
     try {
       if (!modelId) return
       if (!currentUserId) return
-      const settingsRes = await fetch(`/api/users/${currentUserId}/settings`, { credentials: 'include' })
+      const settingsRes = await fetch(`/api/v1/users/${currentUserId}/settings`, { credentials: 'include' })
       const settings = await settingsRes.json().catch(() => ({}))
       const ui = typeof settings?.ui === 'object' && settings.ui !== null ? settings.ui : {}
       const current: string[] = Array.isArray(ui.pinned_models) ? ui.pinned_models.filter((v: any) => typeof v === 'string') : []
       const next = current.filter((id: string) => id !== modelId)
       const nextSettings = { ...settings, ui: { ...ui, pinned_models: next } }
-      await fetch(`/api/users/${currentUserId}/settings`, {
+      await fetch(`/api/v1/users/${currentUserId}/settings`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(nextSettings),
@@ -171,7 +171,7 @@ export function ModelSelector({ selectedModelId, onModelSelect, models = [] }: M
     const loadPinned = async () => {
       try {
         if (!currentUserId) return
-        const res = await fetch(`/api/users/${currentUserId}/settings`, { credentials: 'include' })
+        const res = await fetch(`/api/v1/users/${currentUserId}/settings`, { credentials: 'include' })
         if (!res.ok) return
         const data = await res.json().catch(() => ({}))
         const ids = Array.isArray(data?.ui?.pinned_models) ? data.ui.pinned_models.filter((v: any) => typeof v === 'string') : []

@@ -12,7 +12,6 @@ import { MESSAGES, PLACEHOLDERS, getEmailInitials } from "@/constants/user";
 import type { User } from "@/lib/server/user-management/user.types";
 import type { Group } from "@/lib/server/group-management/group.types";
 import { useState, useMemo, useEffect } from "react";
-import { deleteUserAction } from "@/actions/users";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -29,9 +28,6 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Plus } from "lucide-react";
 import { DEFAULT_GROUP_PERMISSIONS, type GroupPermissions } from "@/lib/server/access-control/permissions.types";
-import { useActionState } from "react";
-import { createGroupAction, updateGroupAction, type ActionResult } from "@/actions/groups";
-import { SaveStatusButton } from "@/components/ui/save-button";
 import { UsersTab } from "./UsersTab";
 import { GroupsTab } from "./GroupsTab";
 
@@ -50,30 +46,17 @@ export function AdminUsers({ session, initialChats = [], initialUsers = [], init
   const [groupName, setGroupName] = useState("")
   const [groupDescription, setGroupDescription] = useState("")
   const [perms, setPerms] = useState<GroupPermissions>(DEFAULT_GROUP_PERMISSIONS)
-  const [result, formAction] = useActionState<ActionResult, FormData>(createGroupAction as any, { status: 'idle' })
   const [createFormInstance, setCreateFormInstance] = useState(0)
-  const [createDidSubmit, setCreateDidSubmit] = useState(false)
 
   const [editingGroup, setEditingGroup] = useState<Group | null>(null)
   const [editName, setEditName] = useState("")
   const [editDescription, setEditDescription] = useState("")
   const [editPerms, setEditPerms] = useState<GroupPermissions>(DEFAULT_GROUP_PERMISSIONS)
-  const [editResult, editFormAction] = useActionState<ActionResult, FormData>(updateGroupAction as any, { status: 'idle' })
   const [editFormInstance, setEditFormInstance] = useState(0)
-  const [editDidSubmit, setEditDidSubmit] = useState(false)
   const [editUserIds, setEditUserIds] = useState<string[]>([])
   const [membersOpen, setMembersOpen] = useState(false)
 
-  useEffect(() => {
-    if (openCreate && createDidSubmit && result?.status === 'success') {
-      setOpenCreate(false)
-      setGroupName("")
-      setGroupDescription("")
-      setPerms(DEFAULT_GROUP_PERMISSIONS)
-      setCreateFormInstance((v) => v + 1)
-      setCreateDidSubmit(false)
-    }
-  }, [openCreate, createDidSubmit, result])
+  // Creation handled in GroupsTab
 
   useEffect(() => {
     if (editingGroup) {
@@ -84,13 +67,7 @@ export function AdminUsers({ session, initialChats = [], initialUsers = [], init
     }
   }, [editingGroup])
 
-  useEffect(() => {
-    if (editingGroup && editDidSubmit && editResult?.status === 'success') {
-      setEditingGroup(null)
-      setEditFormInstance((v) => v + 1)
-      setEditDidSubmit(false)
-    }
-  }, [editingGroup, editDidSubmit, editResult])
+  // Group edit handled in EditGroupDialog
 
   const {
     users,

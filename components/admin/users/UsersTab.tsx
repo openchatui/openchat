@@ -19,6 +19,7 @@ import type { User, EditUserForm } from "@/lib/server/user-management/user.types
 import type { Group } from "@/lib/server/group-management/group.types"
 import { getEmailInitials, MESSAGES, PLACEHOLDERS } from "@/constants/user"
 import { EditUserDialog } from "./edit-user-dialog"
+import { useDeleteUser } from '@/hooks/admin/users/useDeleteUser'
 
 interface UsersTabProps {
   users: User[]
@@ -38,7 +39,7 @@ interface UsersTabProps {
 
 export function UsersTab({ users, searchTerm, onSearchTermChange, onViewChats, onEditUser, editingUser, editForm, showPassword, onCloseEditUser, onUpdateForm, onTogglePasswordVisibility, onProfileImageUploaded, groups = [] }: UsersTabProps) {
   const [confirmDeleteUserId, setConfirmDeleteUserId] = useState<string | null>(null)
-  const [isDeleting, setIsDeleting] = useState(false)
+  const { mutate: removeUser, isLoading: isDeleting } = useDeleteUser()
   const [removedUserIds, setRemovedUserIds] = useState<Set<string>>(new Set())
   const formatDate = (dateString?: string) => {
     if (!dateString) return "Never"
@@ -78,18 +79,11 @@ export function UsersTab({ users, searchTerm, onSearchTermChange, onViewChats, o
 
   const deleteUser = async (id: string) => {
     try {
-      setIsDeleting(true)
-      const res = await fetch(`/api/users/${id}/delete`, { method: 'DELETE' })
-      if (!res.ok) {
-        throw new Error('Failed to delete user')
-      }
+      await removeUser(id)
       setRemovedUserIds(prev => new Set([...Array.from(prev), id]))
       setConfirmDeleteUserId(null)
     } catch (e) {
-      // Optional: surface error
       console.error(e)
-    } finally {
-      setIsDeleting(false)
     }
   }
 

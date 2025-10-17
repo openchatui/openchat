@@ -13,9 +13,9 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { MESSAGES, PLACEHOLDERS, USER_ROLES, USER_GROUPS, getEmailInitials } from "@/constants/user"
 import type { User as UserType, EditUserForm } from "@/lib/server/user-management/user.types"
 import type { Group } from "@/lib/server/group-management/group.types"
-import { updateUserAction, deleteUserAction } from "@/actions/users"
-import { useFormStatus } from "react-dom"
-import { SaveStatusButton } from "@/components/ui/save-button"
+import { useUpdateUser } from '@/hooks/admin/users/useUpdateUser'
+import { useDeleteUser } from '@/hooks/admin/users/useDeleteUser'
+import { useUploadUserProfileImage } from '@/hooks/admin/users/useUploadUserProfileImage'
 
 interface EditUserDialogProps {
   editingUser: UserType | null
@@ -49,6 +49,9 @@ export function EditUserDialog({
   if (!editingUser) return null
 
   const updateFormId = `update-user-form-${editingUser.id}`
+  const { mutate: saveUser, isLoading: isSaving, error: saveError } = useUpdateUser()
+  const { mutate: removeUser, isLoading: isDeleting, error: deleteError } = useDeleteUser()
+  const { mutate: uploadImage } = useUploadUserProfileImage()
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)
@@ -115,26 +118,15 @@ export function EditUserDialog({
               const objectUrl = URL.createObjectURL(file)
               setLocalPreviewSrc(objectUrl)
               setIsUploading(true)
-              const formData = new FormData()
-              formData.append('userId', editingUser.id)
-              formData.append('file', file)
-              fetch('/api/users/profile-image', { method: 'POST', body: formData })
-                .then(async (res) => {
-                  if (!res.ok) throw new Error('Upload failed')
-                  const data = await res.json()
-                  const url = data?.url as string | undefined
+              uploadImage({ userId: editingUser.id, file })
+                .then((url) => {
                   if (url) {
                     setLocalPreviewSrc(url)
                     onProfileImageUploaded?.(url)
                   }
                 })
-                .catch(() => {
-                  // If upload fails, revert preview
-                  setLocalPreviewSrc(undefined)
-                })
-                .finally(() => {
-                  setIsUploading(false)
-                })
+                .catch(() => setLocalPreviewSrc(undefined))
+                .finally(() => setIsUploading(false))
               // reset to allow re-selecting the same file
               e.currentTarget.value = ''
             }}
@@ -300,30 +292,54 @@ export function EditUserDialog({
 
           {/* Action Buttons: Delete on left, Save on right, side-by-side */}
           <div className="flex items-center justify-between pt-4">
-            <form action={deleteUserAction}>
-              <input type="hidden" name="id" value={editingUser.id} />
-              <DeleteButton />
-            </form>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="destructive"
+                disabled={isDeleting}
+                onClick={async () => {
+                  try {
+                    await removeUser(editingUser.id)
+                    onDeleteUser?.()
+                    onClose()
+                  } catch {}
+                }}
+                className="flex items-center gap-2"
+              >
+                <Trash2 className="h-4 w-4" />
+                {isDeleting ? "Deleting…" : MESSAGES.DELETE}
+              </Button>
+              {deleteError && <span className="text-sm text-destructive">{deleteError}</span>}
+            </div>
 
-            <form id={updateFormId} action={updateUserAction}>
+            <form
+              id={updateFormId}
+              onSubmit={async (e) => {
+                e.preventDefault()
+                try {
+                  await saveUser({
+                    id: editingUser.id,
+                    name: editForm.name,
+                    email: editForm.email,
+                    role: editForm.role as any,
+                    password: editForm.password?.trim() ? editForm.password : undefined,
+                    groupIds: selectedGroupIds,
+                  })
+                  onUpdateUser?.()
+                  onClose()
+                } catch {}
+              }}
+            >
               <input type="hidden" name="id" value={editingUser.id} />
-              <SaveStatusButton disabled={!editForm.name.trim() || !editForm.email.trim()} />
+              <Button type="submit" disabled={!editForm.name.trim() || !editForm.email.trim() || isSaving} className="flex items-center gap-2">
+                <Save className="h-4 w-4" />
+                {isSaving ? 'Saving…' : 'Save'}
+              </Button>
+              {saveError && <div className="text-sm text-destructive text-right mt-2">{saveError}</div>}
             </form>
           </div>
         </div>
       </DialogContent>
     </Dialog>
-  )
-}
-
-// Removed local SubmitButton in favor of SaveStatusButton
-
-function DeleteButton() {
-  const { pending } = useFormStatus()
-  return (
-    <Button type="submit" variant="destructive" disabled={pending} className="flex items-center gap-2">
-      <Trash2 className="h-4 w-4" />
-      {pending ? "Deleting…" : MESSAGES.DELETE}
-    </Button>
   )
 }

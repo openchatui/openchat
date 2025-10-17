@@ -53,7 +53,7 @@ export function NavUser({
     let cancelled = false
     const loadMe = async () => {
       try {
-        const res = await fetch('/api/users/me', { credentials: 'include' })
+        const res = await fetch('/api/v1/users/me', { credentials: 'include' })
         if (!res.ok) return
         const me = await res.json().catch(() => null)
         if (!cancelled && me) {
