@@ -118,7 +118,7 @@ export function EditUserDialog({
               const formData = new FormData()
               formData.append('userId', editingUser.id)
               formData.append('file', file)
-              fetch('/api/v1/users/profile-image', { method: 'POST', body: formData })
+              fetch('/api/users/profile-image', { method: 'POST', body: formData })
                 .then(async (res) => {
                   if (!res.ok) throw new Error('Upload failed')
                   const data = await res.json()
@@ -171,7 +171,6 @@ export function EditUserDialog({
               value={editForm.email}
               onChange={(e) => onUpdateForm('email', e.target.value)}
               placeholder={PLACEHOLDERS.EMAIL}
-              onFocus={(e) => e.target.setSelectionRange(e.target.value.length, e.target.value.length)}
             />
           </div>
 

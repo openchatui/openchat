@@ -38,6 +38,7 @@ export function ModelSelector({ selectedModelId, onModelSelect, models = [] }: M
   const [open, setOpen] = useState(false)
   const [userSelectedModel, setUserSelectedModel] = useState<Model | null>(null)
   const [pinnedIds, setPinnedIds] = useState<string[]>([])
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const searchParams = useSearchParams()
 
   // Filter for active models only
@@ -108,10 +109,26 @@ export function ModelSelector({ selectedModelId, onModelSelect, models = [] }: M
     }
   }, [searchParams, activeModels, onModelSelect, userSelectedModel])
 
+  // Load current user id
+  useEffect(() => {
+    let mounted = true
+    const loadUser = async () => {
+      try {
+        const meRes = await fetch('/api/users/me', { credentials: 'include' })
+        if (!meRes.ok) return
+        const me = await meRes.json().catch(() => null)
+        if (mounted && me?.id) setCurrentUserId(String(me.id))
+      } catch {}
+    }
+    loadUser()
+    return () => { mounted = false }
+  }, [])
+
   const handlePinModelById = async (modelId: string) => {
     try {
       if (!modelId) return
-      await fetch('/api/users/user/settings/models/pin', {
+      if (!currentUserId) return
+      await fetch(`/api/users/${currentUserId}/settings/pinned`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ modelIds: [modelId] }),
@@ -128,13 +145,14 @@ export function ModelSelector({ selectedModelId, onModelSelect, models = [] }: M
   const handleUnpinModelById = async (modelId: string) => {
     try {
       if (!modelId) return
-      const settingsRes = await fetch('/api/users/user/settings', { credentials: 'include' })
+      if (!currentUserId) return
+      const settingsRes = await fetch(`/api/users/${currentUserId}/settings`, { credentials: 'include' })
       const settings = await settingsRes.json().catch(() => ({}))
       const ui = typeof settings?.ui === 'object' && settings.ui !== null ? settings.ui : {}
       const current: string[] = Array.isArray(ui.pinned_models) ? ui.pinned_models.filter((v: any) => typeof v === 'string') : []
       const next = current.filter((id: string) => id !== modelId)
       const nextSettings = { ...settings, ui: { ...ui, pinned_models: next } }
-      await fetch('/api/users/user/settings', {
+      await fetch(`/api/users/${currentUserId}/settings`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(nextSettings),
@@ -152,7 +170,8 @@ export function ModelSelector({ selectedModelId, onModelSelect, models = [] }: M
     let mounted = true
     const loadPinned = async () => {
       try {
-        const res = await fetch('/api/users/user/settings', { credentials: 'include' })
+        if (!currentUserId) return
+        const res = await fetch(`/api/users/${currentUserId}/settings`, { credentials: 'include' })
         if (!res.ok) return
         const data = await res.json().catch(() => ({}))
         const ids = Array.isArray(data?.ui?.pinned_models) ? data.ui.pinned_models.filter((v: any) => typeof v === 'string') : []
@@ -161,7 +180,7 @@ export function ModelSelector({ selectedModelId, onModelSelect, models = [] }: M
     }
     loadPinned()
     return () => { mounted = false }
-  }, [])
+  }, [currentUserId])
 
   return (
     <div className="absolute top-4 left-4 z-10">

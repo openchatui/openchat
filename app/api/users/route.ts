@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import db from '@/lib/db'
 import type { User } from '@/lib/server/user-management/user.types'
+import { fetchToken, isAdminToken, isSameOrigin } from '@/lib/security/authz'
+import { z } from 'zod'
 
 // Role mapping between database enum and frontend types
 const roleMap = {
@@ -20,14 +22,22 @@ const reverseRoleMap = {
  *   get:
  *     tags: [Admin]
  *     summary: List all users
+ *     security:
+ *       - BearerAuth: []
  *     responses:
  *       200:
  *         description: List of users
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
  *       500:
  *         description: Failed to fetch users
  *   post:
  *     tags: [Admin]
  *     summary: Create a new user
+ *     security:
+ *       - BearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
@@ -50,14 +60,26 @@ const reverseRoleMap = {
  *         description: User created
  *       400:
  *         description: Validation error
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
  *       409:
  *         description: User already exists
  *       500:
  *         description: Failed to create user
  */
 // GET /api/users - List all users
-export async function GET() {
+export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
+    // Re-derive identity and enforce admin role
+    const token = await fetchToken(request)
+    if (!token) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    if (!isAdminToken(token)) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
     // Fetch all users with their accounts (for OAuth ID)
     const dbUsers = await db.user.findMany({
       select: {
@@ -125,19 +147,31 @@ export async function GET() {
 }
 
 // POST /api/users - Create new user (optional, for future use)
-export async function POST(request: NextRequest) {
+export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
-
-    const body = await request.json()
-    const { name, email, password, role = 'user', userGroup = 'default' } = body
-
-    // Validate required fields
-    if (!email || !name) {
-      return NextResponse.json(
-        { error: 'Name and email are required' },
-        { status: 400 }
-      )
+    // CSRF: same-origin check
+    if (!isSameOrigin(request)) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
+
+    // Re-derive identity and enforce admin role
+    const token = await fetchToken(request)
+    if (!token) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    if (!isAdminToken(token)) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
+    // Validate input
+    const Body = z.object({
+      name: z.string().min(1),
+      email: z.string().email(),
+      password: z.string().min(8).optional(),
+      role: z.enum(['user', 'admin']).default('user'),
+      userGroup: z.enum(['default', 'premium', 'enterprise']).default('default')
+    })
+    const { name, email, password, role = 'user', userGroup = 'default' } = Body.parse(await request.json())
 
     // Check if user already exists
     const existingUser = await db.user.findUnique({
@@ -188,7 +222,7 @@ export async function POST(request: NextRequest) {
       name: newUser.name || 'Unknown User',
       email: newUser.email,
       role: roleMap[newUser.role as keyof typeof roleMap] || 'user',
-      userGroup,
+      userGroup: userGroup as User['userGroup'],
       profilePicture: newUser.image || undefined,
       createdAt: newUser.createdAt.toISOString(),
       updatedAt: newUser.updatedAt.toISOString()

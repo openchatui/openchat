@@ -7,6 +7,8 @@ export {
   AuthActionsService,
 } from './core/auth.actions';
 
+import { AuthActionsService } from './core/auth.actions';
+
 export {
   authOptions,
   handlers,
@@ -50,7 +52,6 @@ export const schema = loginSchema; // For backward compatibility
 export async function executeAction<T>(options: {
   actionFn: () => Promise<T>;
   successMessage?: string;
-}): Promise<{ success: boolean; message: string }> {
-  const { AuthActionsService } = await import('./core/auth.actions');
-  return (AuthActionsService as any).executeAction(options.actionFn, options.successMessage);
+}): Promise<{ success: boolean; message: string; data?: T }> {
+  return AuthActionsService.executeAction(options.actionFn, options.successMessage);
 }

@@ -15,6 +15,7 @@ import {
 
 export function NavModels({ pinnedModels }: { pinnedModels: Model[] }) {
   const [localPinned, setLocalPinned] = useState<Model[]>(pinnedModels || [])
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
 
   // Sync local state when props change
   useEffect(() => {
@@ -23,10 +24,24 @@ export function NavModels({ pinnedModels }: { pinnedModels: Model[] }) {
 
   // Listen for client-side pin updates and refresh list
   useEffect(() => {
+    // Load current user id once on mount
+    const loadUser = async () => {
+      try {
+        const meRes = await fetch('/api/users/me', { credentials: 'include' })
+        if (!meRes.ok) return
+        const me = await meRes.json().catch(() => null)
+        if (me?.id) setCurrentUserId(String(me.id))
+      } catch {
+        // ignore
+      }
+    }
+    loadUser()
+
     const refresh = async () => {
       try {
+        if (!currentUserId) return
         const [settingsRes, modelsRes] = await Promise.all([
-          fetch('/api/users/user/settings', { credentials: 'include' }),
+          fetch(`/api/users/${currentUserId}/settings`, { credentials: 'include' }),
           fetch('/api/v1/models', { credentials: 'include' }),
         ])
         if (!settingsRes.ok || !modelsRes.ok) return
@@ -44,7 +59,7 @@ export function NavModels({ pinnedModels }: { pinnedModels: Model[] }) {
     const handler = () => { refresh() }
     window.addEventListener('pinned-models-updated', handler)
     return () => window.removeEventListener('pinned-models-updated', handler)
-  }, [])
+  }, [currentUserId])
 
   return (
     <SidebarGroup>
