@@ -4,8 +4,8 @@ import { useEffect, useState } from "react"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ApiKeyField } from "@/components/admin/ApiKeyField"
-import { setElevenLabsApiKey } from "@/actions/connections"
-import { updateAudioConfigAction } from "@/actions/audio"
+import { useSetElevenLabsApiKey } from '@/hooks/admin/audio/useSetElevenLabsApiKey'
+import { useUpdateAudioConfig } from '@/hooks/admin/audio/useUpdateAudioConfig'
 
 interface ElevenLabsTtsConnectionFormProps {
   initialApiKey?: string
@@ -14,6 +14,8 @@ interface ElevenLabsTtsConnectionFormProps {
 }
 
 export function ElevenLabsTtsConnectionForm({ initialApiKey = "", initialVoiceId = "", initialModelId = "" }: ElevenLabsTtsConnectionFormProps) {
+  const { mutate: saveElevenKey } = useSetElevenLabsApiKey()
+  const { mutate: updateAudio } = useUpdateAudioConfig()
   const [isLoading, setIsLoading] = useState(true)
   const [apiKey, setApiKey] = useState(initialApiKey)
   const [savedOk, setSavedOk] = useState(false)
@@ -31,7 +33,7 @@ export function ElevenLabsTtsConnectionForm({ initialApiKey = "", initialVoiceId
   }, [initialApiKey])
 
   const onSave = async (keyToSave: string) => {
-    await setElevenLabsApiKey(keyToSave)
+    await saveElevenKey(keyToSave)
   }
 
   // Auto-save handled by ApiKeyField
@@ -92,7 +94,7 @@ export function ElevenLabsTtsConnectionForm({ initialApiKey = "", initialVoiceId
                 onValueChange={async (val) => {
                 setSelectedVoice(val)
                 try {
-                  await updateAudioConfigAction({ audio: { tts: { voiceId: val } } })
+                  await updateAudio({ audio: { tts: { voiceId: val } } })
                 } catch {}
               }}
               disabled={!savedOk || voicesLoading}
@@ -114,7 +116,7 @@ export function ElevenLabsTtsConnectionForm({ initialApiKey = "", initialVoiceId
                 onValueChange={async (val) => {
                 setSelectedModel(val)
                 try {
-                  await updateAudioConfigAction({ audio: { tts: { modelId: val } } })
+                  await updateAudio({ audio: { tts: { modelId: val } } })
                 } catch {}
               }}
               disabled={!savedOk || modelsLoading}
