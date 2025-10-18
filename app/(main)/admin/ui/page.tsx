@@ -4,7 +4,7 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { AdminUI } from "@/components/admin/ui/AdminUI";
 import { adminGetModels } from "@/actions/chat";
-import { ChatStore } from "@/lib/features/chat";
+import { ChatStore } from "@/lib/modules/chat";
 
 export default async function AdminUIPage() {
     const session = await auth();

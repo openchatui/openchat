@@ -4,7 +4,7 @@ import {
   exportGoogleDriveFile, 
   isGoogleWorkspaceFile,
   getExportMimeType
-} from '@/lib/server/drive/providers/google-drive.service'
+} from '@/lib/modules/drive/providers/google-drive.service'
 import { Readable } from 'stream'
 import db from '@/lib/db'
 

@@ -1,6 +1,6 @@
 "use client"
 
-import type { AppUIMessage, ChatData } from "@/lib/features/chat"
+import type { AppUIMessage, ChatData } from "@/lib/modules/chat"
 import { cn } from "@/lib/utils"
 import { Response } from "@/components/ai/response"
 

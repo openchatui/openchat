@@ -1,7 +1,7 @@
 "use client"
 
 import { createContext, useCallback, useContext, useMemo, useState } from 'react'
-import { updateAudioConfigAction } from '@/actions/audio'
+import { useUpdateAudioConfig } from '@/hooks/admin/audio/useUpdateAudioConfig'
 
 type SttProvider = 'whisper-web' | 'openai' | 'webapi' | 'deepgram'
 type TtsProvider = 'openai' | 'elevenlabs'
@@ -46,6 +46,7 @@ interface AppConfigProviderProps {
 const AUDIO_API_BASE = '/api/v1/audio/config'
 
 export function AppConfigProvider({ initial, children }: AppConfigProviderProps) {
+  const { mutate: updateAudio } = useUpdateAudioConfig()
   const [webSearchAvailable] = useState<boolean>(Boolean(initial.webSearchAvailable))
   const [imageAvailable] = useState<boolean>(Boolean(initial.imageAvailable))
 
@@ -59,50 +60,50 @@ export function AppConfigProvider({ initial, children }: AppConfigProviderProps)
     setTtsEnabled(enabled)
     ;(async () => {
       try {
-        await updateAudioConfigAction({ audio: { ttsEnabled: enabled } })
+        await updateAudio({ audio: { ttsEnabled: enabled } })
       } catch {
         setTtsEnabled(prev => !enabled)
       }
     })()
-  }, [])
+  }, [updateAudio])
 
   const toggleSttEnabled = useCallback((enabled: boolean) => {
     setSttEnabled(enabled)
     ;(async () => {
       try {
-        await updateAudioConfigAction({ audio: { sttEnabled: enabled } })
+        await updateAudio({ audio: { sttEnabled: enabled } })
       } catch {
         setSttEnabled(prev => !enabled)
       }
     })()
-  }, [])
+  }, [updateAudio])
 
   const setTtsProvider = useCallback((provider: TtsProvider) => {
     setTtsProviderState(provider)
     ;(async () => {
       try {
-        await updateAudioConfigAction({ audio: { tts: { provider } } })
+        await updateAudio({ audio: { tts: { provider } } })
       } catch {}
     })()
-  }, [])
+  }, [updateAudio])
 
   const setSttProvider = useCallback((provider: SttProvider) => {
     setSttProviderState(provider)
     ;(async () => {
       try {
-        await updateAudioConfigAction({ audio: { stt: { provider } } })
+        await updateAudio({ audio: { stt: { provider } } })
       } catch {}
     })()
-  }, [])
+  }, [updateAudio])
 
   const setWhisperWebModel = useCallback((model: string) => {
     setWhisperWebModelState(model)
     ;(async () => {
       try {
-        await updateAudioConfigAction({ audio: { stt: { whisperWeb: { model } } } })
+        await updateAudio({ audio: { stt: { whisperWeb: { model } } } })
       } catch {}
     })()
-  }, [])
+  }, [updateAudio])
 
   const value = useMemo<AppConfigContextValue>(() => ({
     webSearchAvailable,

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
-import type { ChatData } from "@/lib/features/chat"
+import type { ChatData } from "@/lib/modules/chat"
 import { cn } from "@/lib/utils"
 import ChatPreview from "@/components/search/chat-preview"
 

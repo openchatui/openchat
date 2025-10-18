@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type { ChatData } from '@/lib/features/chat'
+import type { ChatData } from '@/lib/modules/chat'
 
 interface UseTagsResult {
   tags: Record<string, string[]>

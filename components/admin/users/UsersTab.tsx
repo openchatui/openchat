@@ -1,10 +1,12 @@
 "use client"
 
 import { MessageCircle, Edit, Trash2, Search } from "lucide-react"
+import { useState } from "react"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import {
   Table,
   TableBody,
@@ -13,10 +15,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import type { User, EditUserForm } from "@/lib/server/user-management/user.types"
-import type { Group } from "@/lib/server/group-management/group.types"
+import type { User, EditUserForm } from "@/types/user.types"
+import type { Group } from "@/types/group.types"
 import { getEmailInitials, MESSAGES, PLACEHOLDERS } from "@/constants/user"
 import { EditUserDialog } from "./edit-user-dialog"
+import { useDeleteUser } from '@/hooks/admin/users/useDeleteUser'
 
 interface UsersTabProps {
   users: User[]
@@ -35,6 +38,9 @@ interface UsersTabProps {
 }
 
 export function UsersTab({ users, searchTerm, onSearchTermChange, onViewChats, onEditUser, editingUser, editForm, showPassword, onCloseEditUser, onUpdateForm, onTogglePasswordVisibility, onProfileImageUploaded, groups = [] }: UsersTabProps) {
+  const [confirmDeleteUserId, setConfirmDeleteUserId] = useState<string | null>(null)
+  const { mutate: removeUser, isLoading: isDeleting } = useDeleteUser()
+  const [removedUserIds, setRemovedUserIds] = useState<Set<string>>(new Set())
   const formatDate = (dateString?: string) => {
     if (!dateString) return "Never"
     const date = new Date(dateString)
@@ -57,13 +63,29 @@ export function UsersTab({ users, searchTerm, onSearchTermChange, onViewChats, o
     }
   }
 
-  const filteredUsers = !searchTerm
+  const filteredUsers = (!searchTerm
     ? users
     : users.filter((user) =>
         user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
         user.role.toLowerCase().includes(searchTerm.toLowerCase())
       )
+  ).filter((u) => !removedUserIds.has(u.id))
+
+  const userById = (id: string | null) => {
+    if (!id) return null
+    return users.find(u => u.id === id) || null
+  }
+
+  const deleteUser = async (id: string) => {
+    try {
+      await removeUser(id)
+      setRemovedUserIds(prev => new Set([...Array.from(prev), id]))
+      setConfirmDeleteUserId(null)
+    } catch (e) {
+      console.error(e)
+    }
+  }
 
   return (
     <div className="space-y-4">
@@ -128,7 +150,13 @@ export function UsersTab({ users, searchTerm, onSearchTermChange, onViewChats, o
                       <Button variant="ghost" size="sm" onClick={() => onEditUser(user)} className="h-8 w-8 p-0" title={MESSAGES.EDIT}>
                         <Edit className="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-destructive hover:text-destructive" title={MESSAGES.DELETE}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                        title={MESSAGES.DELETE}
+                        onClick={() => setConfirmDeleteUserId(user.id)}
+                      >
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
@@ -153,6 +181,45 @@ export function UsersTab({ users, searchTerm, onSearchTermChange, onViewChats, o
         onProfileImageUploaded={(url) => { if (url) onProfileImageUploaded?.(url) }}
         groups={groups}
       />
+
+      <Dialog open={!!confirmDeleteUserId} onOpenChange={(open) => { if (!open) setConfirmDeleteUserId(null) }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete User</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            {(() => {
+              const u = userById(confirmDeleteUserId)
+              return (
+                <p className="text-sm text-muted-foreground">
+                  Are you sure you want to delete
+                  {" "}
+                  <span className="font-medium">{u?.name || u?.email || confirmDeleteUserId}</span>?
+                  This action cannot be undone.
+                </p>
+              )
+            })()}
+            <div className="flex justify-end gap-2 pt-2">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setConfirmDeleteUserId(null)}
+                disabled={isDeleting}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                onClick={() => { if (confirmDeleteUserId) deleteUser(confirmDeleteUserId) }}
+                disabled={isDeleting}
+              >
+                {isDeleting ? 'Deleting…' : 'Delete'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

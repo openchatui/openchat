@@ -6,12 +6,13 @@ import { isAuthEnabled } from "@/lib/auth/toggle";
 import { redirect } from "next/navigation";
 import { getActiveModelsLight, getUserSettings } from "@/actions/chat";
 import { cookies } from "next/headers";
-import { getWebSearchEnabled, getImageGenerationAvailable, getAudioConfig } from "@/lib/server";
-import { getEffectivePermissionsForUser, filterModelsReadableByUser } from "@/lib/server";
+import { getWebSearchEnabled, getImageGenerationAvailable, getAudioConfig } from '@/lib';
+import { getEffectivePermissionsForUser } from '@/lib/modules/access-control/permissions.service';
+import { filterModelsReadableByUser } from "@/lib/modules/access-control/model-access.service";
 import db from "@/lib/db";
 import { ensurePublicUser } from "@/lib/auth/public-user";
 import { AppConfigProvider } from "@/components/providers/AppConfigProvider";
-import type { EffectivePermissions } from "@/lib/server/access-control/permissions.types";
+import type { EffectivePermissions } from "@/lib/modules/access-control/permissions.types";
 
 export default async function Page() {
   const firstUser = await AuthService.isFirstUser();

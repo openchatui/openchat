@@ -9,7 +9,7 @@ export class AuthActionsService {
   /**
    * Execute an action with proper error handling
    */
-  private static async executeAction<T>(
+  static async executeAction<T>(
     actionFn: () => Promise<T>,
     successMessage: string = "The action was successful"
   ): Promise<{ success: boolean; message: string; data?: T }> {
@@ -57,7 +57,7 @@ export class AuthActionsService {
    * Sign up a new user
    */
   static async signUp(formData: FormData) {
-    return this.executeAction(async () => {
+    return AuthActionsService.executeAction(async () => {
       const email = formData.get("email");
       const username = formData.get("username");
       const password = formData.get("password");
@@ -95,7 +95,7 @@ export class AuthActionsService {
    * Update user profile
    */
   static async updateProfile(formData: FormData) {
-    return this.executeAction(async () => {
+    return AuthActionsService.executeAction(async () => {
       // Implementation for profile updates
       // This would include updating name, email, etc.
       throw new Error("Profile update not yet implemented");

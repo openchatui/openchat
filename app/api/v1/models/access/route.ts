@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import db from '@/lib/db'
-import { ApiAuthService } from '@/lib/api'
+import { ApiAuthService } from '@/lib/auth/api-auth.service'
 
 export async function POST(request: NextRequest) {
   try {

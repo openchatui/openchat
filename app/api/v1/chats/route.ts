@@ -1,6 +1,6 @@
 import { auth } from "@/lib/auth";
 import { NextRequest, NextResponse } from 'next/server';
-import { ChatStore } from '@/lib/features/chat';
+import { ChatStore } from '@/lib/modules/chat';
 
 // Allow streaming responses up to 30 seconds
 export const maxDuration = 30;

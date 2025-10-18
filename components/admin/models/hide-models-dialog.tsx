@@ -18,7 +18,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
-import type { Model } from "@/lib/features/models/model.types"
+import type { Model } from '@/types/model.types'
 
 interface HideModelsDialogProps {
   owner: string

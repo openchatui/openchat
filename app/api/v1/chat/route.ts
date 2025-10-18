@@ -1,8 +1,7 @@
 import { streamText, UIMessage, convertToModelMessages, validateUIMessages, smoothStream, stepCountIs } from 'ai';
 import { auth } from '@/lib/auth';
 import { NextRequest } from 'next/server';
-import type { MessageMetadata } from '@/lib/features/chat/chat.types';
-import { SSEService } from '@/lib/api';
+import type { MessageMetadata } from '@/lib/modules/chat/chat.types';
 import {
   StreamUtils,
   ModelResolutionService,
@@ -13,9 +12,9 @@ import {
   ChatPreparationService,
   GenerationUtils,
   MessageUtils
-} from '@/lib/features/chat';
-import { ChatPostSchema } from '@/lib/api/schemas/chat';
-import { getEffectivePermissionsForUser } from '@/lib/server';
+} from '@/lib/modules/chat';
+import { ChatPostSchema } from '@/lib/modules/chat/schemas/chat';
+import { getEffectivePermissionsForUser } from '@/lib/modules/access-control/permissions.service';
 
 // Allow streaming responses up to 30 seconds
 export const maxDuration = 30;
@@ -199,7 +198,7 @@ export async function POST(req: NextRequest) {
         { finalChatId, userId },
         undefined,
       );
-      return SSEService.withSSEHeaders(result.toUIMessageStreamResponse(toUIArgs));
+      return result.toUIMessageStreamResponse(toUIArgs);
     } catch (err: any) {
       const msg = String(err?.message || '')
       const code = String((err as any)?.code || '')

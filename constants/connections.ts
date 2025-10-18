@@ -1,4 +1,4 @@
-import type { NewConnection, NewOllamaConnection } from '@/lib/features/connections/connections.types'
+import type { NewConnection, NewOllamaConnection } from '@/lib/modules/connections/connections.types'
 
 export const DEFAULT_OPENAI_CONNECTION: NewConnection = {
   id: "1",

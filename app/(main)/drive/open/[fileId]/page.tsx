@@ -4,7 +4,7 @@ import { notFound, redirect } from "next/navigation"
 import { auth } from "@/lib/auth"
 import db from "@/lib/db"
 import { sign } from "jsonwebtoken"
-import { exportGoogleDriveFile } from "@/lib/server/drive/providers/google-drive.service"
+import { exportGoogleDriveFile } from "@/lib/modules/drive/providers/google-drive.service"
 import { CollaborativeEditor } from "@/components/docs/CollaborativeEditor"
 import { DocsChrome } from "@/components/docs/DocsChrome"
 

@@ -3,9 +3,9 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { AdminUsers } from "@/components/admin/users/AdminUsers";
-import { getAdminGroups } from "@/lib/server";
-import { getAdminUsersLightPage } from "@/lib/server";
-import { ChatStore } from "@/lib/features/chat";
+import { listGroups } from "@api/groups";
+import { listUsers } from "@api/users";
+import { ChatStore } from "@/lib/modules/chat";
 
 export default async function AdminUsersPage({ searchParams }: { searchParams?: Promise<{ q?: string | string[]; page?: string | string[] }> }) {
     const session = await auth();
@@ -18,9 +18,9 @@ export default async function AdminUsersPage({ searchParams }: { searchParams?: 
     const pageStr = Array.isArray(pageRaw) ? (pageRaw[0] || '1') : (pageRaw || '1')
     const page = Number(pageStr) || 1
 
-    const [{ users }, groups, chats] = await Promise.all([
-        getAdminUsersLightPage({ q, page, pageSize: 20 }),
-        getAdminGroups(),
+    const [users, groups, chats] = await Promise.all([
+        listUsers(),
+        listGroups(),
         ChatStore.getUserChats(session.user.id)
     ])
 

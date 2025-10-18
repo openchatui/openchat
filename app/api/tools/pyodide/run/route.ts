@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { PyodideManager } from '@/lib/features/tools/pyodide/pyodide.service'
+import { PyodideManager } from '@/lib/modules/tools/pyodide/pyodide.service'
 
 export async function POST(request: NextRequest) {
   try {

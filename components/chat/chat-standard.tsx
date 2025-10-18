@@ -6,8 +6,8 @@ import { ModelSelector } from '@/components/chat/model-selector'
 import { ChatInput } from '@/components/chat/chat-input'
 import dynamic from 'next/dynamic'
 import type { Session } from 'next-auth'
-import type { Model } from '@/lib/features/models/model.types'
-import { useChatStore } from '@/lib/features/chat/chat.client-store'
+import type { Model } from '@/types/model.types'
+import { useChatStore } from '@/lib/modules/chat/chat.client-store'
 import { useRouter } from 'next/navigation'
 import { loadChatMessages, updateUserSettings } from '@/actions/chat'
 import { useChatStreaming } from '@/hooks/useChatStreaming'
@@ -208,6 +208,7 @@ export function ChatStandard({
           selectedModelId={currentModel?.id}
           onModelSelect={handleModelSelect}
           models={initialModels}
+          currentUserId={session?.user?.id || null}
         />
 
         <div className="flex-1 relative overflow-hidden">

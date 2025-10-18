@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { auth } from "@/lib/auth"
 import { redirect } from "next/navigation"
-import { ChatStore } from "@/lib/features/chat"
+import { ChatStore } from "@/lib/modules/chat"
 import ArchiveLiveRefresher from "@/components/archive/ArchiveLiveRefresher"
 import UnarchiveButton from "@/components/archive/UnarchiveButton"
 import {

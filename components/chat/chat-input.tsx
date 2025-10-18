@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import dynamic from "next/dynamic";
-import { useVoiceInput } from "@/hooks/useVoiceInput";
+import { useVoiceInput } from "@/hooks/audio/useVoiceInput";
 import { cn } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";

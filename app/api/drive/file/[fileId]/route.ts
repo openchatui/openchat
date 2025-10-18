@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
-import { getGoogleDriveFileStream } from '@/lib/server/drive/providers/google-drive.service'
+import { getGoogleDriveFileStream } from '@/lib/modules/drive/providers/google-drive.service'
 import { Readable } from 'stream'
 
 export async function GET(

@@ -1,6 +1,6 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import { getTrashFolderId, listFoldersByParent, listFilesByParent } from "@/lib/server/drive";
+import { getTrashFolderId, listFoldersByParent, listFilesByParent } from "@/lib/modules/drive";
 import { FilesResultsTable } from "@/components/drive/FilesResultsTable";
 import { FilesSearchBar } from "@/components/drive/FilesSearchBar";
 

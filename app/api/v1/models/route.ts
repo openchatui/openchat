@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import db from '@/lib/db'
-import { ApiAuthService } from '@/lib/api'
-import { getEffectivePermissionsForUser, filterModelsReadableByUser } from '@/lib/server'
+import { ApiAuthService } from '@/lib/auth/api-auth.service'
+import { getEffectivePermissionsForUser } from '@/lib/modules/access-control/permissions.service'
+import { filterModelsReadableByUser } from '@/lib/modules/access-control/model-access.service'
 
 /**
  * @swagger

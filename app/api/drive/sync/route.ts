@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
-import { syncUserGoogleDrive } from '@/lib/server/drive/providers/google-drive.service'
+import { syncUserGoogleDrive } from '@/lib/modules/drive/providers/google-drive.service'
 
 export async function POST(req: Request) {
   try {

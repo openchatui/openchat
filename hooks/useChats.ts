@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from 'react'
-import { ChatData } from '@/lib/features/chat'
+import { ChatData } from '@/lib/modules/chat'
 
 export function useChats() {
   const [chats, setChats] = useState<ChatData[]>([])
