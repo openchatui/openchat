@@ -4,8 +4,8 @@ import { redirect } from 'next/navigation'
 import { z } from 'zod'
 import { randomUUID } from 'crypto'
 import { auth } from '@/lib/auth'
-import { saveFile, getRootFolderId } from '@/lib/server/drive'
-import { createFolderRecord, getTrashFolderId } from '@/lib/server/drive'
+import { saveFile, getRootFolderId } from '@/lib/modules/drive'
+import { createFolderRecord, getTrashFolderId } from '@/lib/modules/drive'
 
 export type ActionResult =
   | { status: 'success'; message?: string }

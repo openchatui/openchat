@@ -48,23 +48,11 @@ export function NavUser({
 
   const [displayName, setDisplayName] = useState<string>(user.name)
   const [displayEmail, setDisplayEmail] = useState<string>(user.email)
-
+  // Keep local display state in sync with incoming props (no extra fetch)
   useEffect(() => {
-    let cancelled = false
-    const loadMe = async () => {
-      try {
-        const res = await fetch('/api/v1/users/me', { credentials: 'include' })
-        if (!res.ok) return
-        const me = await res.json().catch(() => null)
-        if (!cancelled && me) {
-          if (typeof me.name === 'string' && me.name) setDisplayName(me.name)
-          if (typeof me.email === 'string' && me.email) setDisplayEmail(me.email)
-        }
-      } catch {}
-    }
-    loadMe()
-    return () => { cancelled = true }
-  }, [])
+    setDisplayName(user.name)
+    setDisplayEmail(user.email)
+  }, [user.name, user.email])
 
 
   const handleSignOut = async () => {

@@ -27,8 +27,8 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar"
 import { Session } from "next-auth"
-import type { Model } from "@/lib/features/models/model.types"
-import type { ChatData } from "@/lib/features/chat"
+import type { Model } from '@/types/model.types'
+import type { ChatData } from "@/lib/modules/chat"
 
 // Navigation data
 const data = {
@@ -103,7 +103,7 @@ export function AppSidebar({ session, initialChats = [], pinnedModels = [], time
       </SidebarHeader>
       <SidebarContent className="[&::-webkit-scrollbar]:hidden [scrollbar-width:none] [-ms-overflow-style:none] gap-0">
         <NavMain items={data.mainButtons} />
-        <NavModels pinnedModels={pinnedModels} />
+        <NavModels pinnedModels={pinnedModels} currentUserId={session?.user?.id || null} />
         {state === "expanded" && <NavChannels items={data.sections} />}
         {state === "expanded" && <NavChats chats={initialChats} timeZone={timeZone} />}
       </SidebarContent>

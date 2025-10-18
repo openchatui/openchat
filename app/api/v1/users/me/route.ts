@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import db from '@/lib/db'
-import { fetchToken, getUserIdFromToken } from '@/lib/security/authz'
+import { fetchToken, getUserIdFromToken } from '@/lib'
 
 /**
  * @swagger

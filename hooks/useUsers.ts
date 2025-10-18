@@ -8,7 +8,7 @@ import type {
   EditUserState,
   EditUserForm,
   UpdateUserData
-} from '@/lib/server/user-management/user.types'
+} from '@/types/user.types'
 import { API_ENDPOINTS, TOAST_MESSAGES, MESSAGES } from '@/constants/user'
 
 export function useUsers(initialUsers?: User[]) {

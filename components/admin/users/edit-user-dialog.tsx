@@ -11,8 +11,8 @@ import { Badge } from "@/components/ui/badge"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import { MESSAGES, PLACEHOLDERS, USER_ROLES, USER_GROUPS, getEmailInitials } from "@/constants/user"
-import type { User as UserType, EditUserForm } from "@/lib/server/user-management/user.types"
-import type { Group } from "@/lib/server/group-management/group.types"
+import type { User as UserType, EditUserForm } from "@/types/user.types"
+import type { Group } from "@/types/group.types"
 import { useUpdateUser } from '@/hooks/admin/users/useUpdateUser'
 import { useDeleteUser } from '@/hooks/admin/users/useDeleteUser'
 import { useUploadUserProfileImage } from '@/hooks/admin/users/useUploadUserProfileImage'

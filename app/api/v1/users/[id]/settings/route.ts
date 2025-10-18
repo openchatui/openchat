@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import db from '@/lib/db'
-import { fetchToken, getUserIdFromToken, isOwnerOrAdmin, isSameOrigin } from '@/lib/security/authz'
+import { fetchToken, getUserIdFromToken, isOwnerOrAdmin, isSameOrigin } from '@/lib'
 import type { JWT } from 'next-auth/jwt'
 import type { Prisma } from '@prisma/client'
 import { z } from 'zod'

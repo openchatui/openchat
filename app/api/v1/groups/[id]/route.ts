@@ -3,7 +3,7 @@ import { revalidatePath, revalidateTag } from 'next/cache'
 import db from '@/lib/db'
 import type { Prisma } from '@prisma/client'
 import { z } from 'zod'
-import { fetchToken, isAdminToken, isSameOrigin } from '@/lib/security/authz'
+import { fetchToken, isAdminToken, isSameOrigin } from '@/lib'
 
 // Reuse permisssion schemas similar to create route
 const WorkspacePermsSchema = z.object({

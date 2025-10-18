@@ -1,5 +1,5 @@
 import { streamText } from 'ai'
-import { ProviderService } from '@/lib/features/ai'
+import { ProviderService } from '@/lib/modules/ai'
 
 // Allow streaming responses up to 30 seconds
 export const maxDuration = 30

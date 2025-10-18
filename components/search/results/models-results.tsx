@@ -1,7 +1,7 @@
 "use server"
 
 import Link from "next/link"
-import { searchUserModels } from "@/lib/features/search"
+import { searchUserModels } from "@/lib/modules/search"
 import { getModels } from "@/actions/chat"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"

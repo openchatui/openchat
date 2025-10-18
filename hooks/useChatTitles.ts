@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { usePathname } from 'next/navigation'
-import type { ChatData } from '@/lib/features/chat'
+import type { ChatData } from '@/lib/modules/chat'
 
 interface UseChatTitlesResult {
   titles: Record<string, string>

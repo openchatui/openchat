@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { revalidatePath, revalidateTag } from 'next/cache'
 import db from '@/lib/db'
-import { DEFAULT_GROUP_PERMISSIONS, type GroupPermissions } from '@/lib/server/access-control/permissions.types'
+import { DEFAULT_GROUP_PERMISSIONS, type GroupPermissions } from '@/lib/modules/access-control/permissions.types'
 import type { Prisma } from '@prisma/client'
 import { z } from 'zod'
-import { fetchToken, isAdminToken, isSameOrigin } from '@/lib/security/authz'
+import { fetchToken, isAdminToken, isSameOrigin } from '@/lib/core/security/authz'
 
 const WorkspacePermsSchema = z.object({
   models: z.boolean().optional(),
@@ -143,6 +143,54 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ id }, { status: 201 })
   } catch (error) {
     return NextResponse.json({ error: 'Could not create group' }, { status: 500 })
+  }
+}
+
+/**
+ * @swagger
+ * /api/v1/groups:
+ *   get:
+ *     tags: [Admin]
+ *     summary: List all groups
+ *     security:
+ *       - BearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of groups
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       500:
+ *         description: Failed to fetch groups
+ */
+export async function GET(request: NextRequest) {
+  try {
+    const token = await fetchToken(request)
+    if (!token) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    if (!isAdminToken(token)) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
+    const groups = await db.group.findMany({
+      select: {
+        id: true,
+        userId: true,
+        name: true,
+        description: true,
+        permissions: true,
+        userIds: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    })
+
+    return NextResponse.json(groups)
+  } catch (error) {
+    return NextResponse.json({ error: 'Failed to fetch groups' }, { status: 500 })
   }
 }
 

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
-import { getGoogleDriveAbout } from '@/lib/server/drive/providers/google-drive.service'
+import { getGoogleDriveAbout } from '@/lib/modules/drive/providers/google-drive.service'
 
 export async function GET() {
   try {

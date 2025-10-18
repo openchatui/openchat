@@ -1,7 +1,7 @@
 import { auth } from "@/lib/auth"
 import { redirect } from "next/navigation"
 import { AdminImage } from "@/components/admin/image/AdminImage"
-import { ChatStore } from "@/lib/features/chat"
+import { ChatStore } from "@/lib/modules/chat"
 import db from "@/lib/db"
 
 export default async function AdminImagePage() {

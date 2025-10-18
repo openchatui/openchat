@@ -14,9 +14,9 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { cn } from "@/lib/utils"
 import { useRouter } from "next/navigation"
 import { useUpdateGroup } from '@/hooks/admin/groups/useUpdateGroup'
-import type { Group } from "@/lib/server/group-management/group.types"
-import type { User } from "@/lib/server/user-management/user.types"
-import { DEFAULT_GROUP_PERMISSIONS, type GroupPermissions } from "@/lib/server/access-control/permissions.types"
+import type { Group } from "@/types/group.types"
+import type { User } from "@/types/user.types"
+import { DEFAULT_GROUP_PERMISSIONS, type GroupPermissions } from "@/lib/modules/access-control/permissions.types"
 import { getEmailInitials } from "@/constants/user"
 
 interface EditGroupDialogProps {

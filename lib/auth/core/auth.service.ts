@@ -1,5 +1,5 @@
 import 'server-only';
-import db from '@/lib/db';
+import * as UsersRepo from '@/lib/db/users.repository';
 import type { ExtendedUser, UserCreation, PasswordValidation } from './auth.types';
 
 /**
@@ -11,10 +11,7 @@ export class AuthService {
    */
   static async findUserByEmail(email: string): Promise<ExtendedUser | null> {
     try {
-      const user = await db.user.findUnique({
-        where: { email: email.toLowerCase() },
-      });
-      return user as ExtendedUser | null;
+      return (await UsersRepo.findUserByEmail(email)) as ExtendedUser | null;
     } catch (error) {
       console.error('Error finding user by email:', error);
       return null;
@@ -26,10 +23,7 @@ export class AuthService {
    */
   static async findUserByUsername(username: string): Promise<ExtendedUser | null> {
     try {
-      const user = await db.user.findFirst({
-        where: { name: username },
-      });
-      return user as ExtendedUser | null;
+      return (await UsersRepo.findUserByUsername(username)) as ExtendedUser | null;
     } catch (error) {
       console.error('Error finding user by username:', error);
       return null;
@@ -41,10 +35,7 @@ export class AuthService {
    */
   static async findUserById(id: string): Promise<ExtendedUser | null> {
     try {
-      const user = await db.user.findUnique({
-        where: { id },
-      });
-      return user as ExtendedUser | null;
+      return (await UsersRepo.findUserById(id)) as ExtendedUser | null;
     } catch (error) {
       console.error('Error finding user by ID:', error);
       return null;
@@ -60,20 +51,11 @@ export class AuthService {
     hashedPassword: string;
     role?: 'ADMIN' | 'USER';
   }): Promise<UserCreation> {
-    const user = await db.user.create({
-      data: {
-        email: data.email.toLowerCase(),
-        name: data.username,
-        hashedPassword: data.hashedPassword,
-        role: data.role || 'USER',
-      },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        role: true,
-        createdAt: true,
-      },
+    const user = await UsersRepo.createUser({
+      email: data.email,
+      username: data.username,
+      hashedPassword: data.hashedPassword,
+      role: data.role,
     });
 
     return {
@@ -90,10 +72,7 @@ export class AuthService {
    */
   static async updateUserImage(userId: string, imageUrl: string): Promise<boolean> {
     try {
-      await db.user.update({
-        where: { id: userId },
-        data: { image: imageUrl },
-      });
+      await UsersRepo.updateUserImage(userId, imageUrl);
       return true;
     } catch (error) {
       console.error('Error updating user image:', error);
@@ -106,10 +85,7 @@ export class AuthService {
    */
   static async updateUserRole(userId: string, role: 'ADMIN' | 'USER'): Promise<boolean> {
     try {
-      await db.user.update({
-        where: { id: userId },
-        data: { role },
-      });
+      await UsersRepo.updateUserRole(userId, role);
       return true;
     } catch (error) {
       console.error('Error updating user role:', error);
@@ -138,7 +114,7 @@ export class AuthService {
    */
   static async getUserCount(): Promise<number> {
     try {
-      return await db.user.count();
+      return await UsersRepo.getUserCount();
     } catch (error) {
       console.error('Error getting user count:', error);
       // Don't return 0 on error - this can cause redirect loops

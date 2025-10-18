@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { mkdir, writeFile } from "fs/promises"
 import path from "path"
 import crypto from "crypto"
-import { fetchToken, getUserIdFromToken, isSameOrigin } from '@/lib/security/authz'
+import { fetchToken, getUserIdFromToken, isSameOrigin } from '@/lib'
 
 export const runtime = "nodejs"
 

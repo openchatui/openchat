@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache"
 import { cookies } from 'next/headers'
 import db from "@/lib/db"
-import type { Connection, CreateConnectionData, UpdateConnectionData, ConnectionsConfig } from "@/lib/features/connections/connections.types"
+import type { Connection, CreateConnectionData, UpdateConnectionData, ConnectionsConfig } from "@/lib/modules/connections/connections.types"
 
 function toConnection(o: any): Connection {
   return {

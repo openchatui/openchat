@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { useEffect, useState } from "react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import type { Model } from "@/lib/features/models/model.types"
+import type { Model } from '@/types/model.types'
 
 import {
   SidebarGroup,
@@ -13,9 +13,8 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
 
-export function NavModels({ pinnedModels }: { pinnedModels: Model[] }) {
+export function NavModels({ pinnedModels, currentUserId }: { pinnedModels: Model[]; currentUserId?: string | null }) {
   const [localPinned, setLocalPinned] = useState<Model[]>(pinnedModels || [])
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
 
   // Sync local state when props change
   useEffect(() => {
@@ -24,19 +23,6 @@ export function NavModels({ pinnedModels }: { pinnedModels: Model[] }) {
 
   // Listen for client-side pin updates and refresh list
   useEffect(() => {
-    // Load current user id once on mount
-    const loadUser = async () => {
-      try {
-        const meRes = await fetch('/api/v1/users/me', { credentials: 'include' })
-        if (!meRes.ok) return
-        const me = await meRes.json().catch(() => null)
-        if (me?.id) setCurrentUserId(String(me.id))
-      } catch {
-        // ignore
-      }
-    }
-    loadUser()
-
     const refresh = async () => {
       try {
         if (!currentUserId) return

@@ -15,8 +15,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import type { User, EditUserForm } from "@/lib/server/user-management/user.types"
-import type { Group } from "@/lib/server/group-management/group.types"
+import type { User, EditUserForm } from "@/types/user.types"
+import type { Group } from "@/types/group.types"
 import { getEmailInitials, MESSAGES, PLACEHOLDERS } from "@/constants/user"
 import { EditUserDialog } from "./edit-user-dialog"
 import { useDeleteUser } from '@/hooks/admin/users/useDeleteUser'

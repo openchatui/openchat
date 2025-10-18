@@ -26,19 +26,20 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import type { Model } from "@/lib/features/models/model.types"
+import type { Model } from '@/types/model.types'
 
 interface ModelSelectorProps {
   selectedModelId?: string
   onModelSelect?: (model: Model) => void
   models?: Model[]
+  currentUserId?: string | null
 }
 
-export function ModelSelector({ selectedModelId, onModelSelect, models = [] }: ModelSelectorProps) {
+export function ModelSelector({ selectedModelId, onModelSelect, models = [], currentUserId }: ModelSelectorProps) {
   const [open, setOpen] = useState(false)
   const [userSelectedModel, setUserSelectedModel] = useState<Model | null>(null)
   const [pinnedIds, setPinnedIds] = useState<string[]>([])
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+  // currentUserId is provided by parent to avoid redundant /users/me fetches
   const searchParams = useSearchParams()
 
   // Filter for active models only
@@ -109,20 +110,7 @@ export function ModelSelector({ selectedModelId, onModelSelect, models = [] }: M
     }
   }, [searchParams, activeModels, onModelSelect, userSelectedModel])
 
-  // Load current user id
-  useEffect(() => {
-    let mounted = true
-    const loadUser = async () => {
-      try {
-        const meRes = await fetch('/api/v1/users/me', { credentials: 'include' })
-        if (!meRes.ok) return
-        const me = await meRes.json().catch(() => null)
-        if (mounted && me?.id) setCurrentUserId(String(me.id))
-      } catch {}
-    }
-    loadUser()
-    return () => { mounted = false }
-  }, [])
+  // currentUserId now comes from props
 
   const handlePinModelById = async (modelId: string) => {
     try {

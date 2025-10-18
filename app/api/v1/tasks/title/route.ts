@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server'
 import { generateText } from 'ai'
-import { ProviderService } from '@/lib/features/ai'
+import { ProviderService } from '@/lib/modules/ai'
 import db from '@/lib/db'
 import { auth } from "@/lib/auth"
-import { ChatStore } from '@/lib/features/chat'
+import { ChatStore } from '@/lib/modules/chat'
 
 export const maxDuration = 30
 export const runtime = 'nodejs'

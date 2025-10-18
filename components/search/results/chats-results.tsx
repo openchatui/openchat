@@ -1,7 +1,7 @@
 "use server"
 
-import { searchUserArchivedChats, searchUserChats } from "@/lib/features/search"
-import { ChatStore, type ChatData } from "@/lib/features/chat"
+import { searchUserArchivedChats, searchUserChats } from "@/lib/modules/search"
+import { ChatStore, type ChatData } from "@/lib/modules/chat"
 import ChatsResultsView from "@/components/search/results/chats-results-view"
 import SearchInfinite from "@/components/search/search-infinite"
 

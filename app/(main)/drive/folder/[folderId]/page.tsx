@@ -1,6 +1,6 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import { listFoldersByParent, listFilesByParent, getFolderNameById, getFolderBreadcrumb, isGoogleDriveFolder } from "@/lib/server/drive";
+import { listFoldersByParent, listFilesByParent, getFolderNameById, getFolderBreadcrumb, isGoogleDriveFolder } from "@/lib/modules/drive";
 import { FilesSearchBar } from "@/components/drive/FilesSearchBar";
 import { FilesResultsTable } from "@/components/drive/FilesResultsTable";
 

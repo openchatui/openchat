@@ -10,8 +10,8 @@ import { ModelsByOwner } from "./models-by-owner"
 import { adminToggleModelActive, adminUpdateModelsVisibility, updateModel } from "@/actions/chat"
 import { useState, useCallback } from "react"
 import { toast } from "sonner"
-import type { Model } from "@/lib/features/models/model.types"
-import type { UpdateModelData } from "@/lib/features/models/model.types"
+import type { Model } from '@/types/model.types'
+import type { UpdateModelData } from '@/types/model.types'
 
 // Main Admin Models Component
 interface AdminModelsProps {

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import db from '@/lib/db'
-import { fetchToken, isAdminToken, isSameOrigin } from '@/lib/security/authz'
+import { fetchToken, isAdminToken, isSameOrigin } from '@/lib'
 import { z } from 'zod'
 
 /**
@@ -29,7 +29,7 @@ import { z } from 'zod'
  *       500:
  *         description: Failed to delete user
  */
-// authz helpers in '@/lib/security/authz'
+// authz helpers in '@/lib'
 
 export async function DELETE(
   request: NextRequest,

@@ -6,7 +6,7 @@ import { useUpdateModelAccess } from '@/hooks/admin/groups/useUpdateModelAccess'
 import { DialogHeader, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
-import type { Group } from "@/lib/server/group-management/group.types"
+import type { Group } from "@/types/group.types"
 
 type Model = {
   id: string

@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { AdminModels } from "@/components/admin/models/AdminModels";
 import db from "@/lib/db";
 import { adminGetModels, adminGetGroupedModels } from "@/actions/chat";
-import { ChatStore } from "@/lib/features/chat";
+import { ChatStore } from "@/lib/modules/chat";
 
 export default async function AdminModelsPage() {
     const session = await auth();

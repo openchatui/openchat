@@ -1,7 +1,7 @@
 import { auth } from "@/lib/auth"
 import { redirect } from "next/navigation"
 import { AdminWebSearch } from "@/components/admin/websearch/AdminWebSearch"
-import { ChatStore } from "@/lib/features/chat"
+import { ChatStore } from "@/lib/modules/chat"
 import { getWebSearchConfigAction } from "@/actions/websearch"
 
 export default async function AdminWebSearchPage() {

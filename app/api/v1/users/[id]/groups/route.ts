@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { revalidatePath, revalidateTag } from 'next/cache'
 import db from '@/lib/db'
 import { z } from 'zod'
-import { fetchToken, isAdminToken, isSameOrigin } from '@/lib/security/authz'
+import { fetchToken, isAdminToken, isSameOrigin } from '@/lib'
 
 const Params = z.object({ id: z.string().min(1) })
 const Body = z.object({ groupIds: z.array(z.string()).default([]) })

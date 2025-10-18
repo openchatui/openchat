@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import db from '@/lib/db'
-import { fetchToken, isOwnerOrAdmin, isSameOrigin } from '@/lib/security/authz'
+import { fetchToken, isOwnerOrAdmin, isSameOrigin } from '@/lib'
 import { z } from 'zod'
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -68,7 +68,7 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
  *       500:
  *         description: Failed to update pinned models
  */
-// authz helpers are imported from '@/lib/security/authz'
+// authz helpers are imported from '@/lib'
 
 export async function GET(
   request: NextRequest,

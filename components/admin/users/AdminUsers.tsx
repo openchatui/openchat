@@ -9,8 +9,8 @@ import { Button } from "@/components/ui/button";
 import { useUsers } from "@/hooks/useUsers";
 import { EditUserDialog } from "./edit-user-dialog";
 import { MESSAGES, PLACEHOLDERS, getEmailInitials } from "@/constants/user";
-import type { User } from "@/lib/server/user-management/user.types";
-import type { Group } from "@/lib/server/group-management/group.types";
+import type { User, EditUserState } from "@/types/user.types";
+import type { Group } from "@/types/group.types";
 import { useState, useMemo, useEffect } from "react";
 import {
   AlertDialog,
@@ -27,7 +27,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Plus } from "lucide-react";
-import { DEFAULT_GROUP_PERMISSIONS, type GroupPermissions } from "@/lib/server/access-control/permissions.types";
+import { DEFAULT_GROUP_PERMISSIONS, type GroupPermissions } from "@/lib/modules/access-control/permissions.types";
 import { UsersTab } from "./UsersTab";
 import { GroupsTab } from "./GroupsTab";
 
@@ -87,7 +87,7 @@ export function AdminUsers({ session, initialChats = [], initialUsers = [], init
     if (!searchTerm) return users;
 
     return users.filter(
-      (user) =>
+      (user: User) =>
         user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
         user.role.toLowerCase().includes(searchTerm.toLowerCase())
@@ -118,7 +118,7 @@ export function AdminUsers({ session, initialChats = [], initialUsers = [], init
 
   const handleDeleteUser = async () => {};
 
-  const handleViewChats = (userId: string) => {
+  const handleViewChats: (userId: string) => void = (userId: string) => {
     // TODO: Implement view chats functionality
     console.log("View chats for user:", userId);
   };
@@ -146,7 +146,7 @@ export function AdminUsers({ session, initialChats = [], initialUsers = [], init
             editingUser={editingUser}
             editForm={editForm}
             showPassword={showPassword}
-            onCloseEditUser={() => setEditState((prev) => ({ ...prev, editingUser: null }))}
+            onCloseEditUser={() => setEditState((prev: EditUserState) => ({ ...prev, editingUser: null }))}
             onUpdateForm={updateEditForm}
             onTogglePasswordVisibility={togglePasswordVisibility}
             onProfileImageUploaded={(url) => { if (url) updateUserImage(url) }}
