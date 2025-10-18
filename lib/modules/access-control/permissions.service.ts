@@ -16,13 +16,9 @@ interface MinimalUser {
   role: Role;
 }
 
-/**
- * Access Control and Permissions Service
- */
+// Access Control and Permissions Service
 export class PermissionsService {
-  /**
-   * Create default permission structures
-   */
+  // Create default permission structures
   private static createDefaultWorkspace(): WorkspacePerms {
     return { models: false, knowledge: false, prompts: false, tools: false };
   }
@@ -99,9 +95,7 @@ export class PermissionsService {
     };
   }
 
-  /**
-   * Get user role by ID
-   */
+  // Get user role by ID
   static async getUserRole(userId: string): Promise<Role | null> {
     try {
       const user = await db.user.findUnique({ 
@@ -115,9 +109,7 @@ export class PermissionsService {
     }
   }
 
-  /**
-   * Get group IDs for a user
-   */
+  // Get group IDs for a user
   static async getUserGroupIds(userId: string): Promise<string[]> {
     try {
       const groups = await db.group.findMany();
@@ -148,9 +140,7 @@ export class PermissionsService {
     }
   }
 
-  /**
-   * Get effective permissions for a user
-   */
+  // Get effective permissions for a user
   static async getEffectivePermissionsForUser(userId: string): Promise<EffectivePermissions> {
     try {
       const role = await PermissionsService.getUserRole(userId);
@@ -247,9 +237,7 @@ export class PermissionsService {
     }
   }
 
-  /**
-   * Check if a specific feature is enabled for a user
-   */
+  // Check if a specific feature is enabled for a user
   static async isFeatureEnabled(userId: string, key: string): Promise<boolean> {
     try {
       const role = await PermissionsService.getUserRole(userId);

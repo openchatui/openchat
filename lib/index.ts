@@ -3,20 +3,15 @@
 // =============================================================================
 
 // Core DB
-export { default as db } from './core/db/client'
-
-// Core API utilities
-export { ValidationService } from './core/api/validation'
-export { SSEService } from './core/api/sse'
-export { SwaggerService } from './core/api/swagger'
+export { default as db } from './db/client'
 
 // Core security and config
-export * from './core/security/authz'
+export * from './auth/authz'
 export {
   ConfigService,
   getWebSearchEnabled,
   getImageGenerationAvailable,
   getAudioConfig,
-} from './core/config/service'
+} from './modules/config/config.service'
 
 

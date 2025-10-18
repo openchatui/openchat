@@ -17,11 +17,11 @@ export interface ProviderResolutionInput {
 
 export interface ProviderResolutionResult {
   providerName: SupportedProvider;
-  /** function to obtain a model handle for ai.streamText */
+  // Function to obtain a model handle for ai.streamText
   getModelHandle: (providerModelId: string) => any;
-  /** provider-specific model id to pass to provider */
+  // Provider-specific model id to pass to provider
   providerModelId: string;
-  /** base URL used for the provider */
+  // Base URL used for the provider
   baseUrl?: string;
 }
 

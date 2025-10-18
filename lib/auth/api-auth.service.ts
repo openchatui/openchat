@@ -3,13 +3,9 @@ import { auth } from "@/lib/auth";
 import { ApiKeyService } from './api-key.service';
 import type { AuthenticationResult } from './api-auth.types';
 
-/**
- * API Authentication Service
- */
+// API Authentication Service
 export class ApiAuthService {
-  /**
-   * Extract API key from request headers
-   */
+  // Extract API key from request headers
   static extractApiKeyFromHeaders(headers: Headers): string | null {
     const authHeader = headers.get('authorization') || headers.get('Authorization');
     if (authHeader && authHeader.toLowerCase().startsWith('bearer ')) {
@@ -24,9 +20,7 @@ export class ApiAuthService {
     return null;
   }
 
-  /**
-   * Authenticate request using session or API key
-   */
+  // Authenticate request using session or API key
   static async authenticateRequest(headers: Headers): Promise<AuthenticationResult> {
     // Try session authentication first
     const session = await auth();
@@ -46,9 +40,7 @@ export class ApiAuthService {
     return { userId: null, via: 'none' };
   }
 
-  /**
-   * Require authentication for API endpoints
-   */
+  // Require authentication for API endpoints
   static async requireAuth(headers: Headers): Promise<string> {
     const auth = await this.authenticateRequest(headers);
     if (!auth.userId) {
@@ -57,9 +49,7 @@ export class ApiAuthService {
     return auth.userId;
   }
 
-  /**
-   * Check if request is authenticated
-   */
+  // Check if request is authenticated
   static async isAuthenticated(headers: Headers): Promise<boolean> {
     const auth = await this.authenticateRequest(headers);
     return auth.userId !== null;

@@ -1,5 +1,5 @@
 import 'server-only'
-import db from '@/lib/core/db/client'
+import db from '@/lib/db/client'
 
 export async function createApiKey(userId: string, keyName: string, hashedKey: string) {
   return await db.apiKey.create({

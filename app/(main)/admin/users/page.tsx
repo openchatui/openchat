@@ -3,8 +3,8 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { AdminUsers } from "@/components/admin/users/AdminUsers";
-import { listGroups } from "@sdk/groups";
-import { listUsers } from "@sdk/users";
+import { listGroups } from "@api/groups";
+import { listUsers } from "@api/users";
 import { ChatStore } from "@/lib/modules/chat";
 
 export default async function AdminUsersPage({ searchParams }: { searchParams?: Promise<{ q?: string | string[]; page?: string | string[] }> }) {

@@ -14,14 +14,14 @@ export interface Model {
 }
 
 export interface ModelMeta {
-  profile_image_url?: string
-  description?: string
-  tags?: string[]
-  tools?: any
+  profile_image_url?: string | null
+  description?: string | null
+  tags?: string[] | null
+  tools?: any | null
   ownedBy: string
-  details?: any
-  hidden?: boolean
-  system_prompt?: string
+  details?: any | null
+  hidden?: boolean | null
+  system_prompt?: string | null
 }
 
 export interface UpdateModelData {

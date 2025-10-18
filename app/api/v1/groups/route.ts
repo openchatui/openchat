@@ -4,7 +4,7 @@ import db from '@/lib/db'
 import { DEFAULT_GROUP_PERMISSIONS, type GroupPermissions } from '@/lib/modules/access-control/permissions.types'
 import type { Prisma } from '@prisma/client'
 import { z } from 'zod'
-import { fetchToken, isAdminToken, isSameOrigin } from '@/lib/core/security/authz'
+import { fetchToken, isAdminToken, isSameOrigin } from '@/lib/auth/authz'
 
 const WorkspacePermsSchema = z.object({
   models: z.boolean().optional(),

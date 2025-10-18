@@ -2,7 +2,6 @@ import { streamText, UIMessage, convertToModelMessages, validateUIMessages, smoo
 import { auth } from '@/lib/auth';
 import { NextRequest } from 'next/server';
 import type { MessageMetadata } from '@/lib/modules/chat/chat.types';
-import { SSEService } from '@/lib';
 import {
   StreamUtils,
   ModelResolutionService,
@@ -199,7 +198,7 @@ export async function POST(req: NextRequest) {
         { finalChatId, userId },
         undefined,
       );
-      return SSEService.withSSEHeaders(result.toUIMessageStreamResponse(toUIArgs));
+      return result.toUIMessageStreamResponse(toUIArgs);
     } catch (err: any) {
       const msg = String(err?.message || '')
       const code = String((err as any)?.code || '')

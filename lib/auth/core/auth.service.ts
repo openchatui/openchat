@@ -2,13 +2,9 @@ import 'server-only';
 import * as UsersRepo from '@/lib/db/users.repository';
 import type { ExtendedUser, UserCreation, PasswordValidation } from './auth.types';
 
-/**
- * Core Authentication Service
- */
+// Core Authentication Service
 export class AuthService {
-  /**
-   * Find user by email
-   */
+  // Find user by email
   static async findUserByEmail(email: string): Promise<ExtendedUser | null> {
     try {
       return (await UsersRepo.findUserByEmail(email)) as ExtendedUser | null;
@@ -18,9 +14,7 @@ export class AuthService {
     }
   }
 
-  /**
-   * Find user by username
-   */
+  // Find user by username
   static async findUserByUsername(username: string): Promise<ExtendedUser | null> {
     try {
       return (await UsersRepo.findUserByUsername(username)) as ExtendedUser | null;
@@ -30,9 +24,7 @@ export class AuthService {
     }
   }
 
-  /**
-   * Find user by ID
-   */
+  // Find user by ID
   static async findUserById(id: string): Promise<ExtendedUser | null> {
     try {
       return (await UsersRepo.findUserById(id)) as ExtendedUser | null;
@@ -42,9 +34,7 @@ export class AuthService {
     }
   }
 
-  /**
-   * Create a new user
-   */
+  // Create a new user
   static async createUser(data: {
     email: string;
     username: string;
@@ -67,9 +57,7 @@ export class AuthService {
     };
   }
 
-  /**
-   * Update user's image/avatar
-   */
+  // Update user's image/avatar
   static async updateUserImage(userId: string, imageUrl: string): Promise<boolean> {
     try {
       await UsersRepo.updateUserImage(userId, imageUrl);
@@ -80,9 +68,7 @@ export class AuthService {
     }
   }
 
-  /**
-   * Update user's role
-   */
+  // Update user's role
   static async updateUserRole(userId: string, role: 'ADMIN' | 'USER'): Promise<boolean> {
     try {
       await UsersRepo.updateUserRole(userId, role);
@@ -93,25 +79,19 @@ export class AuthService {
     }
   }
 
-  /**
-   * Check if user exists by email
-   */
+  // Check if user exists by email
   static async userExistsByEmail(email: string): Promise<boolean> {
     const user = await this.findUserByEmail(email);
     return user !== null;
   }
 
-  /**
-   * Check if user exists by username
-   */
+  // Check if user exists by username
   static async userExistsByUsername(username: string): Promise<boolean> {
     const user = await this.findUserByUsername(username);
     return user !== null;
   }
 
-  /**
-   * Get user count
-   */
+  // Get user count
   static async getUserCount(): Promise<number> {
     try {
       return await UsersRepo.getUserCount();
@@ -123,9 +103,7 @@ export class AuthService {
     }
   }
 
-  /**
-   * Check if this is the first user (for admin setup)
-   */
+  // Check if this is the first user (for admin setup)
   static async isFirstUser(): Promise<boolean> {
     try {
       const count = await this.getUserCount();

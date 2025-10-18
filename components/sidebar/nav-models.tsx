@@ -1,51 +1,19 @@
 "use client"
 
 import Link from "next/link"
-import { useEffect, useState } from "react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import type { Model } from '@/types/model.types'
+import { usePinnedModels } from "@/hooks/models/usePinnedModels"
 
 import {
   SidebarGroup,
-  SidebarGroupLabel,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
 
 export function NavModels({ pinnedModels, currentUserId }: { pinnedModels: Model[]; currentUserId?: string | null }) {
-  const [localPinned, setLocalPinned] = useState<Model[]>(pinnedModels || [])
-
-  // Sync local state when props change
-  useEffect(() => {
-    setLocalPinned(pinnedModels || [])
-  }, [pinnedModels])
-
-  // Listen for client-side pin updates and refresh list
-  useEffect(() => {
-    const refresh = async () => {
-      try {
-        if (!currentUserId) return
-        const [settingsRes, modelsRes] = await Promise.all([
-          fetch(`/api/v1/users/${currentUserId}/settings`, { credentials: 'include' }),
-          fetch('/api/v1/models', { credentials: 'include' }),
-        ])
-        if (!settingsRes.ok || !modelsRes.ok) return
-        const settings = await settingsRes.json().catch(() => ({}))
-        const modelsJson = await modelsRes.json().catch(() => ({}))
-        const ids: string[] = Array.isArray(settings?.ui?.pinned_models) ? settings.ui.pinned_models : []
-        const all: Model[] = Array.isArray(modelsJson?.models) ? modelsJson.models : []
-        const setIds = new Set(ids)
-        const next = all.filter((m: any) => setIds.has(m.id))
-        setLocalPinned(next)
-      } catch {
-        // ignore
-      }
-    }
-    const handler = () => { refresh() }
-    window.addEventListener('pinned-models-updated', handler)
-    return () => window.removeEventListener('pinned-models-updated', handler)
-  }, [currentUserId])
+  const { pinnedModels: localPinned } = usePinnedModels(currentUserId, { initialPinnedModels: pinnedModels })
 
   return (
     <SidebarGroup>

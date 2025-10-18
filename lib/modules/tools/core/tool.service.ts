@@ -11,50 +11,36 @@ import type {
 } from './tool.types';
 
 
-/**
- * Core Tool Management Service
- */
+// Core Tool Management Service
 export class ToolService {
   private static toolRegistry = new Map<string, ToolDefinition>();
 
-  /**
-   * Register a tool definition
-   */
+  // Register a tool definition
   static registerTool(tool: ToolDefinition): void {
     this.toolRegistry.set(tool.id, tool);
   }
 
-  /**
-   * Get all registered tools
-   */
+  // Get all registered tools
   static getAllTools(): ToolDefinition[] {
     return Array.from(this.toolRegistry.values());
   }
 
-  /**
-   * Get tools by category
-   */
+  // Get tools by category
   static getToolsByCategory(category: ToolCategory): ToolDefinition[] {
     return this.getAllTools().filter(tool => tool.category === category);
   }
 
-  /**
-   * Get tools by provider
-   */
+  // Get tools by provider
   static getToolsByProvider(provider: ToolProvider): ToolDefinition[] {
     return this.getAllTools().filter(tool => tool.provider === provider);
   }
 
-  /**
-   * Get a specific tool by ID
-   */
+  // Get a specific tool by ID
   static getTool(toolId: string): ToolDefinition | undefined {
     return this.toolRegistry.get(toolId);
   }
 
-  /**
-   * Execute a tool with the given input
-   */
+  // Execute a tool with the given input
   static async executeTool(
     toolId: string, 
     input: any, 
@@ -83,9 +69,7 @@ export class ToolService {
     }
   }
 
-  /**
-   * Get enabled tools for a user based on permissions and configuration
-   */
+  // Get enabled tools for a user based on permissions and configuration
   static async getEnabledToolsForUser(userId: string): Promise<ToolDefinition[]> {
     try {
       // Get user's effective permissions (using existing access control)
@@ -132,13 +116,9 @@ export class ToolService {
   }
 }
 
-/**
- * Tool Configuration Service
- */
+// Tool Configuration Service
 export class ToolConfigService {
-  /**
-   * Get tool configuration from database
-   */
+  // Get tool configuration from database
   static async getToolConfig(toolId: string): Promise<ToolConfig | null> {
     try {
       const config = await db.config.findUnique({ 
@@ -160,9 +140,7 @@ export class ToolConfigService {
     }
   }
 
-  /**
-   * Get provider configuration from database
-   */
+  // Get provider configuration from database
   static async getProviderConfig(provider: ToolProvider): Promise<ProviderConfig | null> {
     try {
       const config = await db.config.findUnique({ 
@@ -186,9 +164,7 @@ export class ToolConfigService {
     }
   }
 
-  /**
-   * Update tool configuration
-   */
+  // Update tool configuration
   static async updateToolConfig(toolId: string, config: Partial<ToolConfig>): Promise<void> {
     try {
       const currentConfig = await db.config.findUnique({ 
@@ -216,13 +192,9 @@ export class ToolConfigService {
   }
 }
 
-/**
- * Tool Builder Service - Creates tool objects for AI SDK
- */
+// Tool Builder Service - Creates tool objects for AI SDK
 export class ToolBuilderService {
-  /**
-   * Build AI SDK compatible tools from enabled tool definitions
-   */
+  // Build AI SDK compatible tools from enabled tool definitions
   static async buildToolsForUser(userId: string): Promise<Record<string, any>> {
     const enabledTools = await ToolService.getEnabledToolsForUser(userId);
     const toolsObject: Record<string, any> = {};
@@ -245,9 +217,7 @@ export class ToolBuilderService {
     return toolsObject;
   }
 
-  /**
-   * Build tools based on feature flags (legacy compatibility)
-   */
+  // Build tools based on feature flags (legacy compatibility)
   static async buildLegacyTools(options: { 
     enableWebSearch?: boolean; 
     enableImage?: boolean; 

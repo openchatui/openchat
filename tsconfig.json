@@ -21,7 +21,7 @@
     "paths": {
       "@/*": ["./*"],
       "@dropdowns/*": ["./components/docs/dropdowns/*"],
-      "@sdk/*": ["./lib/sdk/*"]
+      "@api/*": ["./lib/api/*"]
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],

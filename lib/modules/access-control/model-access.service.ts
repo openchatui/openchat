@@ -8,21 +8,15 @@ interface ModelLikeAC {
   accessControl?: any | null;
 }
 
-/**
- * Model Access Control Service
- */
+// Model Access Control Service
 export class ModelAccessService {
-  /**
-   * Convert value to string array
-   */
+  // Convert value to string array
   private static toStringArray(val: any): string[] {
     if (Array.isArray(val)) return val.filter((v) => typeof v === 'string');
     return [];
   }
 
-  /**
-   * Check if user can read a model
-   */
+  // Check if user can read a model
   static async canReadModel(userId: string, model: ModelLikeAC): Promise<boolean> {
     try {
       const role = await PermissionsService.getUserRole(userId);
@@ -48,9 +42,7 @@ export class ModelAccessService {
     }
   }
 
-  /**
-   * Check if user can write to a model
-   */
+  // Check if user can write to a model
   static async canWriteModel(userId: string, model: ModelLikeAC): Promise<boolean> {
     try {
       const role = await PermissionsService.getUserRole(userId);
@@ -76,9 +68,7 @@ export class ModelAccessService {
     }
   }
 
-  /**
-   * Check if user can read model by ID
-   */
+  // Check if user can read model by ID
   static async canReadModelById(userId: string, modelId: string): Promise<boolean> {
     try {
       const model = await db.model.findUnique({ 
@@ -94,9 +84,7 @@ export class ModelAccessService {
     }
   }
 
-  /**
-   * Filter models that are readable by user
-   */
+  // Filter models that are readable by user
   static async filterModelsReadableByUser(userId: string, models: any[]): Promise<any[]> {
     try {
       const results: any[] = [];
@@ -114,9 +102,7 @@ export class ModelAccessService {
     }
   }
 
-  /**
-   * Get models accessible to user
-   */
+  // Get models accessible to user
   static async getAccessibleModels(userId: string): Promise<any[]> {
     try {
       const allModels = await db.model.findMany();

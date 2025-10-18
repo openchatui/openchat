@@ -11,13 +11,9 @@ import type {
 } from './image.types';
 import { OpenAIImageConfigSchema } from './image.types';
 
-/**
- * Image Generation Service
- */
+// Image Generation Service
 export class ImageGenerationService {
-  /**
-   * Save base64 image data under data/images (for runtime persistence)
-   */
+  // Save base64 image data under data/images (for runtime persistence)
   static async saveBase64ImageToPublic(
     base64Data: string, 
     options?: { subdir?: string; filenamePrefix?: string }
@@ -45,9 +41,7 @@ export class ImageGenerationService {
     }
   }
 
-  /**
-   * Get image generation configuration from database
-   */
+  // Get image generation configuration from database
   static async getImageConfig(): Promise<OpenAIImageConfig | null> {
     try {
       const cfgRow = await db.config.findUnique({ 
@@ -89,9 +83,7 @@ export class ImageGenerationService {
     }
   }
 
-  /**
-   * Generate image using OpenAI API
-   */
+  // Generate image using OpenAI API
   static async generateWithOpenAI(
     input: ImageGenerationInput
   ): Promise<ImageGenerationResult> {
@@ -200,9 +192,7 @@ export class ImageGenerationService {
     };
   }
 
-  /**
-   * Generate image with automatic provider selection
-   */
+  // Generate image with automatic provider selection
   static async generateImage(input: ImageGenerationInput): Promise<ImageGenerationResult> {
     // For now, only OpenAI is supported
     // This can be extended to support other providers
@@ -210,13 +200,9 @@ export class ImageGenerationService {
   }
 }
 
-/**
- * Image Provider Service
- */
+// Image Provider Service
 export class ImageProviderService {
-  /**
-   * Check if image generation is available
-   */
+  // Check if image generation is available
   static async isImageGenerationAvailable(): Promise<boolean> {
     try {
       const config = await ImageGenerationService.getImageConfig();
@@ -226,9 +212,7 @@ export class ImageProviderService {
     }
   }
 
-  /**
-   * Get available image models
-   */
+  // Get available image models
   static async getAvailableModels(): Promise<string[]> {
     const config = await ImageGenerationService.getImageConfig();
     if (!config) return [];
@@ -237,9 +221,7 @@ export class ImageProviderService {
     return ['dall-e-2', 'dall-e-3', 'gpt-image-1'];
   }
 
-  /**
-   * Get supported image sizes for a model
-   */
+  // Get supported image sizes for a model
   static getSupportedSizes(model: string): string[] {
     switch (model) {
       case 'dall-e-2':

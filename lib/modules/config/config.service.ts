@@ -1,47 +1,31 @@
 import 'server-only';
-import db from '../db/client';
+import { ConfigDbService } from './db.service';
+import type { AudioConfig, SystemConfig } from './types';
 
-export interface AudioConfig {
-  ttsEnabled: boolean;
-  sttEnabled: boolean;
-  tts: { provider: 'openai' | 'elevenlabs' };
-  stt: { 
-    provider: 'whisper-web' | 'openai' | 'webapi' | 'deepgram'; 
-    whisperWeb: { model: string };
-  };
-}
-
-/**
- * System Configuration Service
- */
+// System Configuration Service
 export class ConfigService {
   /**
    * Get configuration value by path
    */
-  static async getConfig(path?: string): Promise<any> {
+  static async getConfig<T = unknown>(path?: string): Promise<T | undefined> {
     try {
-      const config = await db.config.findUnique({ 
-        where: { id: 1 }, 
-        select: { data: true } 
-      });
+      const data = await ConfigDbService.getRawConfig();
       
-      const data = (config?.data || {}) as any;
-      
-      if (!path) return data;
+      if (!path) return data as T;
       
       // Navigate to nested path (e.g., "websearch.browserless.apiKey")
       const keys = path.split('.');
-      let current = data;
+      let current: unknown = data;
       
       for (const key of keys) {
         if (current && typeof current === 'object' && key in current) {
-          current = current[key];
+          current = (current as Record<string, unknown>)[key];
         } else {
           return undefined;
         }
       }
       
-      return current;
+      return current as T;
     } catch (error) {
       console.error('Error getting config:', error);
       return undefined;
@@ -51,30 +35,25 @@ export class ConfigService {
   /**
    * Update configuration
    */
-  static async updateConfig(path: string, value: any): Promise<void> {
+  static async updateConfig(path: string, value: unknown): Promise<void> {
     try {
-      const currentConfig = await this.getConfig();
-      const data = currentConfig || {};
+      const data = await ConfigDbService.getRawConfig();
       
       // Set nested value
       const keys = path.split('.');
-      let current = data;
+      let current: Record<string, unknown> = data;
       
       for (let i = 0; i < keys.length - 1; i++) {
         const key = keys[i];
         if (!current[key] || typeof current[key] !== 'object') {
           current[key] = {};
         }
-        current = current[key];
+        current = current[key] as Record<string, unknown>;
       }
       
       current[keys[keys.length - 1]] = value;
 
-      await db.config.upsert({
-        where: { id: 1 },
-        create: { id: 1, data },
-        update: { data }
-      });
+      await ConfigDbService.updateConfig(data);
     } catch (error) {
       console.error('Error updating config:', error);
       throw error;
@@ -86,7 +65,7 @@ export class ConfigService {
    */
   static async getWebSearchEnabled(): Promise<boolean> {
     try {
-      const websearch = await this.getConfig('websearch');
+      const websearch = await this.getConfig<SystemConfig['websearch']>('websearch');
       return Boolean(websearch?.ENABLED);
     } catch {
       return false;
@@ -98,8 +77,8 @@ export class ConfigService {
    */
   static async getImageGenerationAvailable(): Promise<boolean> {
     try {
-      const image = await this.getConfig('image');
-      const connections = await this.getConfig('connections');
+      const image = await this.getConfig<SystemConfig['image']>('image');
+      const connections = await this.getConfig<SystemConfig['connections']>('connections');
       
       const provider = image?.provider || 'openai';
       if (provider !== 'openai') return false;
@@ -109,7 +88,7 @@ export class ConfigService {
 
       // Check for general OpenAI connection
       const openaiConn = connections?.openai || {};
-      const keys: any[] = Array.isArray(openaiConn.api_keys) ? openaiConn.api_keys : [];
+      const keys = Array.isArray(openaiConn.api_keys) ? openaiConn.api_keys : [];
       return keys.some(k => typeof k === 'string' && k.trim().length > 0);
     } catch {
       return false;
@@ -121,7 +100,7 @@ export class ConfigService {
    */
   static async getAudioConfig(): Promise<AudioConfig> {
     try {
-      const audio = await this.getConfig('audio') || {};
+      const audio = await this.getConfig<SystemConfig['audio']>('audio') || {};
       
       const ttsEnabled = Boolean(audio.ttsEnabled);
       const sttEnabled = Boolean(audio.sttEnabled);
@@ -132,9 +111,9 @@ export class ConfigService {
       return {
         ttsEnabled,
         sttEnabled,
-        tts: { provider: (ttsProv === 'elevenlabs' ? 'elevenlabs' : 'openai') as 'openai' | 'elevenlabs' },
+        tts: { provider: (ttsProv === 'elevenlabs' ? 'elevenlabs' : 'openai') },
         stt: { 
-          provider: (['openai', 'webapi', 'deepgram'].includes(sttProv) ? sttProv as any : 'whisper-web'), 
+          provider: (['openai', 'webapi', 'deepgram'].includes(sttProv) ? sttProv : 'whisper-web') as AudioConfig['stt']['provider'],
           whisperWeb: { model: whisperModel } 
         }
       };
@@ -151,24 +130,15 @@ export class ConfigService {
   /**
    * Get all configuration
    */
-  static async getAllConfig(): Promise<Record<string, any>> {
-    return await this.getConfig() || {};
+  static async getAllConfig(): Promise<SystemConfig> {
+    return await ConfigDbService.getRawConfig();
   }
 
   /**
    * Reset configuration to defaults
    */
   static async resetConfig(): Promise<void> {
-    try {
-      await db.config.upsert({
-        where: { id: 1 },
-        create: { id: 1, data: {} },
-        update: { data: {} }
-      });
-    } catch (error) {
-      console.error('Error resetting config:', error);
-      throw error;
-    }
+    await ConfigDbService.resetConfig();
   }
 }
 
@@ -176,5 +146,3 @@ export class ConfigService {
 export const getWebSearchEnabled = ConfigService.getWebSearchEnabled;
 export const getImageGenerationAvailable = ConfigService.getImageGenerationAvailable;
 export const getAudioConfig = ConfigService.getAudioConfig;
-
-

@@ -27,6 +27,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import type { Model } from '@/types/model.types'
+import { usePinnedModels } from "@/hooks/models/usePinnedModels"
 
 interface ModelSelectorProps {
   selectedModelId?: string
@@ -38,31 +39,21 @@ interface ModelSelectorProps {
 export function ModelSelector({ selectedModelId, onModelSelect, models = [], currentUserId }: ModelSelectorProps) {
   const [open, setOpen] = useState(false)
   const [userSelectedModel, setUserSelectedModel] = useState<Model | null>(null)
-  const [pinnedIds, setPinnedIds] = useState<string[]>([])
-  // currentUserId is provided by parent to avoid redundant /users/me fetches
+  const { pinnedIds, pin, unpin } = usePinnedModels(currentUserId, { allModels: models })
   const searchParams = useSearchParams()
-
-  // Filter for active models only
   const activeModels = models.filter(model => model.isActive && !model.meta?.hidden)
 
-  // Set selected model: user selection takes priority, then prop, then default
   const selectedModel = useMemo(() => {
-    // If user has selected a model, use that
     if (userSelectedModel) return userSelectedModel
 
-    // Otherwise use prop-specified model
     if (selectedModelId) {
       return activeModels.find(m => m.id === selectedModelId) || null
     }
 
-    // Finally, default to first active model
     return activeModels.length > 0 ? activeModels[0] : null
   }, [userSelectedModel, selectedModelId, activeModels])
 
-  // Models are pre-loaded, so no loading state needed
   const isLoading = false
-
-  // Get parameter size for Ollama models
   const getParameterSize = (model: Model): string | null => {
     if (model.meta?.ownedBy?.toLowerCase() === 'ollama') {
       return model.meta?.details?.details?.parameter_size || null
@@ -78,13 +69,10 @@ export function ModelSelector({ selectedModelId, onModelSelect, models = [], cur
     return model.meta?.ownedBy?.toLowerCase() === 'ollama'
   }
 
-  // Get display name (without parameter size for now)
   const getDisplayName = (model: Model): string => {
     return model.name
   }
 
-  // Set initial selected model when models load (but don't override user selections)
-  // Note: We don't call onModelSelect here because this is just initialization, not user selection
   useEffect(() => {
     if (!userSelectedModel && activeModels.length > 0) {
       const initialModel = selectedModelId
@@ -93,16 +81,13 @@ export function ModelSelector({ selectedModelId, onModelSelect, models = [], cur
 
       if (initialModel) {
         setUserSelectedModel(initialModel)
-        // Don't call onModelSelect here - this is initialization, not user selection
       }
     }
   }, [activeModels, selectedModelId, userSelectedModel])
 
-  // Activate model from URL param ?model=...
   useEffect(() => {
     const param = searchParams?.get('model')
     if (!param || activeModels.length === 0) return
-    // match by providerId or id
     const found = activeModels.find(m => (m as any).providerId === param || m.id === param || m.name === param)
     if (found && (!userSelectedModel || userSelectedModel.id !== found.id)) {
       setUserSelectedModel(found)
@@ -110,65 +95,8 @@ export function ModelSelector({ selectedModelId, onModelSelect, models = [], cur
     }
   }, [searchParams, activeModels, onModelSelect, userSelectedModel])
 
-  // currentUserId now comes from props
-
-  const handlePinModelById = async (modelId: string) => {
-    try {
-      if (!modelId) return
-      if (!currentUserId) return
-      await fetch(`/api/v1/users/${currentUserId}/settings/pinned`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ modelIds: [modelId] }),
-      })
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('pinned-models-updated'))
-      }
-      setPinnedIds(prev => Array.from(new Set([...(prev || []), modelId])))
-    } catch (e) {
-      console.error('Failed to pin model', e)
-    }
-  }
-
-  const handleUnpinModelById = async (modelId: string) => {
-    try {
-      if (!modelId) return
-      if (!currentUserId) return
-      const settingsRes = await fetch(`/api/v1/users/${currentUserId}/settings`, { credentials: 'include' })
-      const settings = await settingsRes.json().catch(() => ({}))
-      const ui = typeof settings?.ui === 'object' && settings.ui !== null ? settings.ui : {}
-      const current: string[] = Array.isArray(ui.pinned_models) ? ui.pinned_models.filter((v: any) => typeof v === 'string') : []
-      const next = current.filter((id: string) => id !== modelId)
-      const nextSettings = { ...settings, ui: { ...ui, pinned_models: next } }
-      await fetch(`/api/v1/users/${currentUserId}/settings`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(nextSettings),
-      })
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('pinned-models-updated'))
-      }
-      setPinnedIds(next)
-    } catch (e) {
-      console.error('Failed to unpin model', e)
-    }
-  }
-
-  useEffect(() => {
-    let mounted = true
-    const loadPinned = async () => {
-      try {
-        if (!currentUserId) return
-        const res = await fetch(`/api/v1/users/${currentUserId}/settings`, { credentials: 'include' })
-        if (!res.ok) return
-        const data = await res.json().catch(() => ({}))
-        const ids = Array.isArray(data?.ui?.pinned_models) ? data.ui.pinned_models.filter((v: any) => typeof v === 'string') : []
-        if (mounted) setPinnedIds(ids)
-      } catch {}
-    }
-    loadPinned()
-    return () => { mounted = false }
-  }, [currentUserId])
+  const handlePinModelById = async (modelId: string) => { await pin(modelId) }
+  const handleUnpinModelById = async (modelId: string) => { await unpin(modelId) }
 
   return (
     <div className="absolute top-4 left-4 z-10">
