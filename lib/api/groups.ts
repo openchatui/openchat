@@ -1,4 +1,5 @@
 import type { GroupPermissions } from '@/lib/modules/access-control/permissions.types'
+import { absoluteUrl, httpFetch } from './http'
 
 export type CreateGroupInput = {
   name: string
@@ -7,7 +8,7 @@ export type CreateGroupInput = {
 }
 
 export async function createGroup(input: CreateGroupInput): Promise<{ id: string }> {
-  const res = await fetch('/api/v1/groups', {
+  const res = await httpFetch(absoluteUrl('/api/v1/groups'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(input)
@@ -30,7 +31,7 @@ export type UpdateGroupInput = {
 
 export async function updateGroup(input: UpdateGroupInput): Promise<void> {
   const { id, ...body } = input
-  const res = await fetch(`/api/v1/groups/${id}`, {
+  const res = await httpFetch(absoluteUrl(`/api/v1/groups/${id}`), {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body)
@@ -42,7 +43,7 @@ export async function updateGroup(input: UpdateGroupInput): Promise<void> {
 }
 
 export async function listGroups(): Promise<any[]> {
-  const res = await fetch('/api/v1/groups', {
+  const res = await httpFetch(absoluteUrl('/api/v1/groups'), {
     method: 'GET',
     headers: { 'Content-Type': 'application/json' }
   })
@@ -54,7 +55,7 @@ export async function listGroups(): Promise<any[]> {
 }
 
 export async function updateModelAccess(input: { groupId: string; selection: Record<string, { read: boolean; write: boolean }> }): Promise<void> {
-  const res = await fetch('/api/v1/models/access', {
+  const res = await httpFetch(absoluteUrl('/api/v1/models/access'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ groupId: input.groupId, selection: input.selection })

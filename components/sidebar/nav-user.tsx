@@ -56,7 +56,7 @@ export function NavUser({
 
 
   const handleSignOut = async () => {
-    await signOut();
+    await signOut({ callbackUrl: "/login" });
   };
 
   const avatarSrc = user.image ?? user.avatar
