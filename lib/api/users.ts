@@ -1,3 +1,5 @@
+import { absoluteUrl, httpFetch, postFormData } from './http'
+
 export type UpdateUserInput = {
   id: string
   name: string
@@ -9,7 +11,7 @@ export type UpdateUserInput = {
 
 export async function updateUser(input: UpdateUserInput): Promise<void> {
   const { id, ...body } = input
-  const res = await fetch(`/api/v1/users/${id}`, {
+  const res = await httpFetch(absoluteUrl(`/api/v1/users/${id}`), {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body)
@@ -21,7 +23,7 @@ export async function updateUser(input: UpdateUserInput): Promise<void> {
 }
 
 export async function deleteUser(id: string): Promise<void> {
-  const res = await fetch(`/api/v1/users/${id}/delete`, { method: 'DELETE' })
+  const res = await httpFetch(absoluteUrl(`/api/v1/users/${id}/delete`), { method: 'DELETE' })
   if (!res.ok) {
     const data = await res.json().catch(() => ({}))
     throw new Error(data?.error || 'Failed to delete user')
@@ -32,7 +34,7 @@ export async function uploadProfileImage(userId: string, file: File): Promise<st
   const formData = new FormData()
   formData.append('userId', userId)
   formData.append('file', file)
-  const res = await fetch('/api/v1/users/profile-image', { method: 'POST', body: formData })
+  const res = await postFormData(absoluteUrl('/api/v1/users/profile-image'), formData)
   if (!res.ok) {
     const data = await res.json().catch(() => ({}))
     throw new Error(data?.error || 'Upload failed')
@@ -44,7 +46,7 @@ export async function uploadProfileImage(userId: string, file: File): Promise<st
 }
 
 export async function listUsers(): Promise<any[]> {
-  const res = await fetch('/api/v1/users', { method: 'GET' })
+  const res = await httpFetch(absoluteUrl('/api/v1/users'), { method: 'GET' })
   if (!res.ok) {
     const data = await res.json().catch(() => ({}))
     throw new Error(data?.error || 'Failed to fetch users')

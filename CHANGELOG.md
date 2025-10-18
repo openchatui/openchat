@@ -1,3 +1,11 @@
+## [0.1.20] - 2025-10-18
+
+### PR: [Dev](https://github.com/openchatui/openchat/pull/57)
+
+### Fixed
+- Resolved type errors related to user metadata in the admin panel. (https://github.com/openchatui/openchat/commit/7e47490d10d82194a714aa0794ce31127eab8803)
+- Fixed incorrect handling of admin panel user and group API URLs. (https://github.com/openchatui/openchat/commit/bcd6005677a693f236f6953bb3fee3b5f49a936f)
+
 ## [0.1.19] - 2025-10-18
 
 ### PR: [Dev](https://github.com/openchatui/openchat/pull/54)
