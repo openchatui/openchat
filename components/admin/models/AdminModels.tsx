@@ -134,7 +134,7 @@ export function AdminModels({ session, initialModels = [], initialGroupedModels 
       for (const owner in prev) {
         next[owner] = prev[owner].map(m => {
           if (m.id === modelId) {
-            previous = { name: m.name, profile_image_url: m.meta?.profile_image_url, tags: m.meta?.tags, system_prompt: (m.meta as any)?.system_prompt, params: m.params }
+            previous = { name: m.name, profile_image_url: m.meta?.profile_image_url ?? undefined, tags: m.meta?.tags ?? undefined, system_prompt: (m.meta as any)?.system_prompt ?? undefined, params: m.params }
 
             const nextMeta = { ...m.meta }
             if (data.meta) {
@@ -176,7 +176,7 @@ export function AdminModels({ session, initialModels = [], initialGroupedModels 
                 return {
                   ...m,
                   ...(previous?.name ? { name: previous.name } : {}),
-                  meta: { ...m.meta, profile_image_url: previous?.profile_image_url, tags: previous?.tags, system_prompt: previous?.system_prompt },
+                  meta: { ...m.meta, profile_image_url: previous?.profile_image_url ?? undefined, tags: previous?.tags, system_prompt: previous?.system_prompt ?? undefined },
                   ...(Object.prototype.hasOwnProperty.call(previous, 'params') ? { params: previous?.params } : {}),
                 }
               }
