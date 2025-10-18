@@ -1,3 +1,17 @@
+## [0.1.19] - 2025-10-18
+
+### PR: [Dev](https://github.com/openchatui/openchat/pull/54)
+
+### Added
+- Added API route support for user operations, including origin and authentication checks. (https://github.com/openchatui/openchat/commit/7b737e7e28d9c04f0c98acbe0be7b0efc7cb65bf)
+
+### Changed
+- Refactored user-related logic from server actions to API routes and hooks, moving relevant files. (https://github.com/openchatui/openchat/commit/058cc4b2efff6fdf95ec87cb22af6a20bef2f6cb)
+- Moved admin audio configuration logic into hooks and library functions for better modularity. (https://github.com/openchatui/openchat/commit/fe5723943bd27fa1e95a050d5be343023045b49c)
+- Moved API functions to the client directory instead of client/api for improved structure. (https://github.com/openchatui/openchat/commit/788fb9751a6e4201fe3f6fba02e7fbf921c11596)
+- Renamed and reorganized library code into auth, core, modules, sdk, and db as a data access layer. (https://github.com/openchatui/openchat/commit/e70cd328744ebc10f6235a694df8cb5ffc68bb9c)
+- Renamed sdk to api in the library and moved associated files. (https://github.com/openchatui/openchat/commit/533e33c7c3fee37bcf0935c10a9923bb8039acd7)
+
 ## [0.1.18] - 2025-10-16
 
 ### PR: [Dev to main](https://github.com/openchatui/openchat/pull/51)
