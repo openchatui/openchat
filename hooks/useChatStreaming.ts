@@ -3,10 +3,10 @@
 import { useCallback, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import type { Model } from '@/lib/features/models/model.types'
+import type { Model } from '@/types/model.types'
 import type { UIMessage } from 'ai'
-import type { MessageMetadata } from '@/lib/features/chat/chat.types'
-import { useChatStore } from '@/lib/features/chat/chat.client-store'
+import type { MessageMetadata } from '@/lib/modules/chat/chat.types'
+import { useChatStore } from '@/lib/modules/chat/chat.client-store'
 
 type StreamHandlers = {
   onStart?: () => void

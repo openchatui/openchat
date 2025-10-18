@@ -1,10 +1,11 @@
 import { auth } from "@/lib/auth"
 import { redirect } from "next/navigation"
 import { AdminAudio } from "@/components/admin/audio/AdminAudio"
-import { ChatStore } from "@/lib/features/chat"
+import { ChatStore } from "@/lib/modules/chat"
 import { AppConfigProvider } from "@/components/providers/AppConfigProvider"
 import db from "@/lib/db"
-import { getWebSearchEnabled, getImageGenerationAvailable, getAudioConfig } from "@/lib/server"
+import { getWebSearchEnabled, getImageGenerationAvailable, getAudioConfig } from "@/lib"
+
 
 export default async function AdminAudioPage() {
   const session = await auth()

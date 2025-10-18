@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
-import { getRootFolderId, listFoldersByParent } from '@/lib/server/drive'
+import { getRootFolderId, listFoldersByParent } from '@/lib/modules/drive'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'

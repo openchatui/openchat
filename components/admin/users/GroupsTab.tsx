@@ -1,6 +1,6 @@
 "use client"
 
-import { useActionState, useEffect, useState } from "react"
+import { useEffect, useState, type FormEvent } from "react"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
@@ -9,11 +9,11 @@ import { Switch } from "@/components/ui/switch"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Plus, Edit, Box } from "lucide-react"
 import { ModelsDialogContent } from "./models-dialog"
-import { DEFAULT_GROUP_PERMISSIONS, type GroupPermissions } from "@/lib/server/access-control/permissions.types"
-import type { Group } from "@/lib/server/group-management/group.types"
-import type { User } from "@/lib/server/user-management/user.types"
-import { createGroupAction, type ActionResult } from "@/actions/groups"
-import { SaveStatusButton } from "@/components/ui/save-button"
+import { DEFAULT_GROUP_PERMISSIONS, type GroupPermissions } from "@/lib/modules/access-control/permissions.types"
+import type { Group } from "@/types/group.types"
+import type { User } from "@/types/user.types"
+import { useRouter } from "next/navigation"
+import { useCreateGroup } from '@/hooks/admin/groups/useCreateGroup'
 import { EditGroupDialog } from "./edit-group-dialog"
 
 interface GroupsTabProps {
@@ -26,15 +26,16 @@ export function GroupsTab({ groups, users }: GroupsTabProps) {
   const [groupName, setGroupName] = useState("")
   const [groupDescription, setGroupDescription] = useState("")
   const [perms, setPerms] = useState<GroupPermissions>(DEFAULT_GROUP_PERMISSIONS)
-  const [result, formAction] = useActionState<ActionResult, FormData>(createGroupAction as any, { status: 'idle' })
+  const { mutate: create, isLoading: isSaving, error: errorMsg } = useCreateGroup()
   const [createFormInstance, setCreateFormInstance] = useState(0)
   const [createDidSubmit, setCreateDidSubmit] = useState(false)
   const [editingGroup, setEditingGroup] = useState<Group | null>(null)
   // track by id to avoid object identity issues that close the dialog
   const [editingModelsGroupId, setEditingModelsGroupId] = useState<string | null>(null)
+  const router = useRouter()
 
   useEffect(() => {
-    if (openCreate && createDidSubmit && result?.status === 'success') {
+    if (openCreate && createDidSubmit && !isSaving && !errorMsg) {
       setOpenCreate(false)
       setGroupName("")
       setGroupDescription("")
@@ -42,7 +43,16 @@ export function GroupsTab({ groups, users }: GroupsTabProps) {
       setCreateFormInstance((v) => v + 1)
       setCreateDidSubmit(false)
     }
-  }, [openCreate, createDidSubmit, result])
+  }, [openCreate, createDidSubmit, isSaving, errorMsg])
+
+  async function handleCreateGroup(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    try {
+      await create({ name: groupName, description: groupDescription, permissions: perms })
+      setCreateDidSubmit(true)
+      router.refresh()
+    } catch {}
+  }
 
   const formatDate = (dateString?: string) => {
     if (!dateString) return "Never"
@@ -65,7 +75,7 @@ export function GroupsTab({ groups, users }: GroupsTabProps) {
               <DialogTitle>Create Group</DialogTitle>
               <DialogDescription>Define a group and its permissions.</DialogDescription>
             </DialogHeader>
-            <form key={createFormInstance} action={formAction} className="flex flex-col gap-4" onSubmit={() => setCreateDidSubmit(true)}>
+            <form key={createFormInstance} onSubmit={handleCreateGroup} className="flex flex-col gap-4">
               <div className="grid gap-4">
                 <div className="grid gap-2">
                   <Label htmlFor="name">Name</Label>
@@ -122,13 +132,14 @@ export function GroupsTab({ groups, users }: GroupsTabProps) {
                   </div>
                 </div>
               </div>
-              <input type="hidden" name="permissions" value={JSON.stringify(perms)} />
               <DialogFooter>
-                {result?.status === 'error' && (
-                  <div className="text-sm text-destructive mr-auto">{(result as any).message}</div>
+                {errorMsg && (
+                  <div className="text-sm text-destructive mr-auto">{errorMsg}</div>
                 )}
                 <Button type="button" variant="outline" onClick={() => setOpenCreate(false)}>Cancel</Button>
-                <SaveStatusButton label="Save Group" />
+                <Button type="submit" disabled={isSaving} className="gap-2">
+                  {isSaving ? 'Saving…' : 'Save Group'}
+                </Button>
               </DialogFooter>
             </form>
           </DialogContent>

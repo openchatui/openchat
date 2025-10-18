@@ -1,5 +1,5 @@
 "use client"
-import type { FileEntry } from "@/lib/server/drive"
+import type { FileEntry } from "@/lib/modules/drive"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { FileText, Download, Pencil, Users, Table2 } from "lucide-react"
 import { FaStar, FaRegStar } from "react-icons/fa";

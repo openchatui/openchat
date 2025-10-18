@@ -3,7 +3,7 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { AdminConnections } from "@/components/admin/connections/AdminConnections";
-import { ChatStore } from "@/lib/features/chat";
+import { ChatStore } from "@/lib/modules/chat";
 import { getConnections, getConnectionsConfig } from "@/actions/connections";
 
 export default async function AdminConnectionsPage() {

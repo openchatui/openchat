@@ -1,7 +1,7 @@
 export const runtime = 'nodejs'
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
-import { ApiKeyService } from '@/lib/api'
+import { ApiKeyService } from '@/lib/auth/api-key.service'
 
 /**
  * @swagger

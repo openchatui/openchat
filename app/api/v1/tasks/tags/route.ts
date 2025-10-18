@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth } from "@/lib/auth"
 import db from '@/lib/db'
 import { generateText, type UIMessage } from 'ai'
-import { ProviderService } from '@/lib/features/ai'
-import { MessageUtils } from '@/lib/features/chat'
+import { ProviderService } from '@/lib/modules/ai'
+import { MessageUtils } from '@/lib/modules/chat'
 
 export const maxDuration = 30
 export const runtime = 'nodejs'

@@ -9,9 +9,9 @@ import PromptSuggestions from '@/components/chat/prompt-suggestions'
 import type { Session } from 'next-auth'
 import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
-import type { Model } from '@/lib/features/models/model.types'
+import type { Model } from '@/types/model.types'
 import { updateUserSettings } from '@/actions/chat'
-import { useChatStore } from '@/lib/features/chat/chat.client-store'
+import { useChatStore } from '@/lib/modules/chat/chat.client-store'
 
 interface ChatLandingProps {
   session: Session | null
@@ -114,6 +114,7 @@ export function ChatLanding({
             selectedModelId={selectedModel?.id}
             onModelSelect={handleModelSelect}
             models={initialModels}
+            currentUserId={session?.user?.id || null}
           />
         </div>
 

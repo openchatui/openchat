@@ -4,7 +4,7 @@ import { revalidatePath, revalidateTag } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { z } from 'zod'
 import { auth } from '@/lib/auth'
-import { DocumentDbService } from '@/lib/server/documents/db.service'
+import { DocumentDbService } from '@/lib/modules/documents/db.service'
 import { DOCUMENT_MESSAGES, DOCUMENT_TAGS } from '@/constants/document'
 import type { DocumentRole } from '@/types/document'
 

@@ -5,10 +5,9 @@ import { auth } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { getActiveModelsLight, getUserSettings } from '@/actions/chat'
 import { cookies } from 'next/headers'
-import { getWebSearchEnabled, getImageGenerationAvailable, getAudioConfig } from '@/lib/server'
-import { getEffectivePermissionsForUser } from '@/lib/server'
+import { getWebSearchEnabled, getImageGenerationAvailable, getAudioConfig } from '@/lib'
+import { getEffectivePermissionsForUser } from '@/lib/modules/access-control/permissions.service'
 import { AppConfigProvider } from '@/components/providers/AppConfigProvider'
-
 export default async function ChatPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await auth()
   if (!session?.user?.id) redirect('/login')

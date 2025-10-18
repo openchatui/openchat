@@ -2,13 +2,14 @@
 
 import { createOpenAI } from '@ai-sdk/openai';
 import { streamText, UIMessage, convertToModelMessages, validateUIMessages, createIdGenerator } from 'ai';
-import { auth } from "@/lib/auth";
+import { auth } from '@/lib/auth';
 import { cookies } from 'next/headers';
 import db from '@/lib/db';
-import { getEffectivePermissionsForUser, filterModelsReadableByUser } from '@/lib/server'
-import { ChatStore, type ChatData } from '@/lib/features/chat';
-import type { MessageMetadata } from '@/lib/features/chat/chat.types';
-import type { Model, ModelMeta, ModelsGroupedByOwner, UpdateModelData } from '@/lib/features/models/model.types';
+import { getEffectivePermissionsForUser } from '@/lib/modules/access-control/permissions.service';
+import { filterModelsReadableByUser } from '@/lib/modules/access-control/model-access.service';
+import { ChatStore } from '@/lib/modules/chat';
+import type { MessageMetadata } from '@/lib/modules/chat';
+import type { Model, ModelMeta, ModelsGroupedByOwner, UpdateModelData } from '@/types/model.types';
 import { revalidatePath } from 'next/cache';
 import { getConnectionsConfig as getConnectionsConfigAction } from '@/actions/connections';
 import { cache } from 'react';

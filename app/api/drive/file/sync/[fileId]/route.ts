@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
-import { getGoogleFileModifiedTime, updateGoogleDocPlainText, exportGoogleDriveFile, updateGoogleDocFromHTML } from '@/lib/server/drive/providers/google-drive.service'
+import { getGoogleFileModifiedTime, updateGoogleDocPlainText, exportGoogleDriveFile, updateGoogleDocFromHTML } from '@/lib/modules/drive/providers/google-drive.service'
 
 async function streamToString(stream: NodeJS.ReadableStream): Promise<string> {
   const chunks: Buffer[] = []

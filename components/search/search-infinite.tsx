@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useRef, useState } from "react"
-import type { ChatData } from "@/lib/features/chat"
+import type { ChatData } from "@/lib/modules/chat"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
 import ChatPreview from "@/components/search/chat-preview"

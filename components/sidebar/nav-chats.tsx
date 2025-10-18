@@ -26,7 +26,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { usePathname, useRouter } from "next/navigation"
-import type { ChatData } from "@/lib/features/chat"
+import type { ChatData } from "@/lib/modules/chat"
 import { useChatTitles } from "@/hooks/useChatTitles"
 import { useTags } from "@/hooks/useTags"
 // Using API endpoints for chat mutations

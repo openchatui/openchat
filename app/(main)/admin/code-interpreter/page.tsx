@@ -2,7 +2,7 @@ import { auth } from "@/lib/auth"
 import { redirect } from "next/navigation"
 import { AdminCodeInterpreter } from "@/components/admin/code-interpreter/AdminCodeInterpreter"
 import { getCodeInterpreterConfig } from "@/actions/code-interpreter"
-import { ChatStore } from "@/lib/features/chat"
+import { ChatStore } from "@/lib/modules/chat"
 
 export default async function AdminCodeInterpreterPage() {
   const session = await auth()

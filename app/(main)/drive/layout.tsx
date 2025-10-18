@@ -1,7 +1,7 @@
 import { FilesLeftSidebar } from "@/components/drive/FilesLeftSidebar"
 import { auth } from "@/lib/auth"
 import { redirect } from "next/navigation"
-import { findLocalRootFolderId, getGoogleRootFolderId } from "@/lib/server/drive"
+import { findLocalRootFolderId, getGoogleRootFolderId } from "@/lib/modules/drive"
 
 export default async function DriveLayout({ children }: { children: React.ReactNode }) {
   const session = await auth()

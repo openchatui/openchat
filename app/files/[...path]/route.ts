@@ -1,6 +1,6 @@
 import { readFile, stat } from 'fs/promises'
 import path from 'path'
-import { LOCAL_BASE_DIR } from '@/lib/server/drive/providers/local.service'
+import { LOCAL_BASE_DIR } from '@/lib/modules/drive/providers/local.service'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
