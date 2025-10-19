@@ -1,3 +1,10 @@
+## [0.1.21] - 2025-10-19
+
+### PR: [fix(api): await cookies](https://github.com/openchatui/openchat/pull/60)
+
+### Fixed
+- Fixed an issue where server cookies were not awaited properly in API requests, ensuring correct cookie handling. (https://github.com/openchatui/openchat/commit/bd1ae7d25ce8c4df71836ce9eeedfcf89fe4cc73)
+
 ## [0.1.20] - 2025-10-18
 
 ### PR: [Dev](https://github.com/openchatui/openchat/pull/57)
