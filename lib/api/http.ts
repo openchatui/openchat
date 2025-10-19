@@ -27,12 +27,13 @@ export function absoluteUrl(path: string): string {
   return path
 }
 
-function getServerCookieHeader(): Record<string, string> {
+async function getServerCookieHeader(): Promise<Record<string, string>> {
   try {
     // Lazy import to avoid bundling in client
     // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const { cookies } = require('next/headers') as { cookies: () => { getAll: () => Array<{ name: string; value: string }> } }
-    const all = cookies().getAll()
+    const { cookies } = require('next/headers') as { cookies: () => Promise<{ getAll: () => Array<{ name: string; value: string }> }> }
+    const cookieStore = await cookies()
+    const all = cookieStore.getAll()
     if (!Array.isArray(all) || all.length === 0) return {}
     const cookie = all.map(c => `${c.name}=${c.value}`).join('; ')
     return cookie ? { cookie } : {}
@@ -44,7 +45,7 @@ function getServerCookieHeader(): Record<string, string> {
 export async function httpFetch(input: RequestInfo, init?: RequestInit): Promise<Response> {
   const headers = new Headers(init?.headers)
   if (typeof window === 'undefined') {
-    const serverCookies = getServerCookieHeader()
+    const serverCookies = await getServerCookieHeader()
     if (serverCookies.cookie && !headers.has('cookie')) headers.set('cookie', serverCookies.cookie)
   }
   return await fetch(resolveUrl(input), {
