@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 
 /**
  * @swagger
- * /api/connections/test:
+ * /api/v1/connections/test:
  *   post:
  *     tags: [Connections]
  *     summary: Test a connection to a given URL

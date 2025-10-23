@@ -21,7 +21,7 @@ export async function updateAudioConfig(input: UpdateAudioConfigInput): Promise<
 
 export async function setElevenLabsApiKey(apiKey: string): Promise<void> {
   const payload = { connections: { elevenlabs: { api_keys: [apiKey] } } }
-  const res = await fetch('/api/connections/config/update', {
+  const res = await fetch('/api/v1/connections/config/update', {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),

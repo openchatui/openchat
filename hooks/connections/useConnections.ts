@@ -1,15 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { toast } from 'sonner'
 import { DEFAULT_OPENAI_CONNECTION, DEFAULT_OLLAMA_CONNECTION, TOAST_MESSAGES } from '@/constants/connections'
-import {
-  getConnections,
-  getConnectionsConfig,
-  createConnections,
-  updateConnectionAction,
-  deleteConnectionAction,
-  updateConnectionsConfig,
-  syncModelsAction,
-} from '@/actions/connections'
+import { getConnections, getConnectionsConfig, createConnections, updateConnection as updateConnectionApi, deleteConnection as deleteConnectionApi, updateConnectionsConfig, syncModels as syncModelsApi } from '@/lib/api/connections'
 import type {
   Connection,
   CreateConnectionData,
@@ -79,7 +71,7 @@ export function useConnections(initialConnections: Connection[] = [], initialCon
     apiKey?: string
   ) => {
     try {
-      return await syncModelsAction({ baseUrl: baseUrl.trim(), type, apiKey })
+      return await syncModelsApi({ baseUrl: baseUrl.trim(), type, apiKey })
     } catch (error) {
       console.error('Error syncing models:', error)
       return null
@@ -120,7 +112,7 @@ export function useConnections(initialConnections: Connection[] = [], initialCon
     try {
       setEditState(prev => ({ ...prev, isUpdating: true }))
 
-      await updateConnectionAction(editState.editingConnection.id, {
+      await updateConnectionApi(editState.editingConnection.id, {
         type: editState.editingConnection.type,
         baseUrl: editState.editForm.baseUrl.trim(),
         apiKey: editState.editingConnection.type === 'openai-api' ? editState.editForm.apiKey.trim() : undefined
@@ -149,7 +141,7 @@ export function useConnections(initialConnections: Connection[] = [], initialCon
 
     try {
       setEditState(prev => ({ ...prev, isUpdating: true }))
-      await deleteConnectionAction(editState.editingConnection!.id)
+      await deleteConnectionApi(editState.editingConnection!.id)
       await loadConnections()
 
       // If we deleted an Ollama connection, show the new connection input

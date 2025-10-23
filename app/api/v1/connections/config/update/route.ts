@@ -62,7 +62,7 @@ function filterElevenLabs(input: any) {
   return out
 }
 
-// PUT /api/connections/config/update - upsert connections config
+// PUT /api/v1/connections/config/update - upsert connections config
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json()
@@ -92,7 +92,7 @@ export async function PUT(request: NextRequest) {
 
     return NextResponse.json({ connections: (result.data as any).connections })
   } catch (error) {
-    console.error('PUT /api/connections/config/update error:', error)
+    console.error('PUT /api/v1/connections/config/update error:', error)
     return NextResponse.json({ error: 'Failed to update connections config' }, { status: 500 })
   }
 }

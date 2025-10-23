@@ -11,7 +11,6 @@ import { ChatStore } from '@/lib/modules/chat';
 import type { MessageMetadata } from '@/lib/modules/chat';
 import type { Model, ModelMeta, ModelsGroupedByOwner, UpdateModelData } from '@/types/model.types';
 import { revalidatePath } from 'next/cache';
-import { getConnectionsConfig as getConnectionsConfigAction } from '@/actions/connections';
 import { cache } from 'react';
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -20,9 +19,11 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 
 async function getConnectionsConfig(): Promise<any> {
   try {
-    const { connections } = await getConnectionsConfigAction()
-    const openai = (connections as any)?.openai || {}
-    const ollama = (connections as any)?.ollama || {}
+    const res = await apiFetch('/api/v1/connections/config', { method: 'GET' })
+    if (!res.ok) throw new Error('Failed')
+    const data = await res.json().catch(() => ({}))
+    const openai = (data as any)?.connections?.openai || {}
+    const ollama = (data as any)?.connections?.ollama || {}
     return { openai, ollama }
   } catch {
     return { openai: {}, ollama: {} }

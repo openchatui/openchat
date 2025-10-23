@@ -200,7 +200,7 @@ export async function updateConnectionsConfig(payload: any): Promise<void> {
 
 export async function testConnectionAction(baseUrl: string): Promise<{ success: boolean; status?: number; error?: string }> {
   try {
-    const endpoint = new URL('/api/connections/test', resolveAppBaseUrl()).toString()
+    const endpoint = new URL('/api/v1/connections/test', resolveAppBaseUrl()).toString()
     const cookieStore = await cookies()
     const cookieHeader = cookieStore.getAll().map(({ name, value }) => `${name}=${value}`).join('; ')
     const res = await fetch(endpoint, {

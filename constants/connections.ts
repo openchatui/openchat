@@ -18,7 +18,7 @@ export const PLACEHOLDERS = {
 } as const
 
 export const API_ENDPOINTS = {
-  CONNECTIONS_TEST: '/api/connections/test',
+  CONNECTIONS_TEST: '/api/v1/connections/test',
   MODELS_SYNC: '/api/v1/models/sync'
 } as const
 
