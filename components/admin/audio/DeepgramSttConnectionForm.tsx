@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { setDeepgramApiKey } from "@/actions/connections"
+import { updateConnectionsConfig } from "@/lib/api/connections"
 
 interface DeepgramSttConnectionFormProps {
   initialApiKey?: string
@@ -23,7 +23,7 @@ export function DeepgramSttConnectionForm({ initialApiKey = "" }: DeepgramSttCon
   const onSave = async (keyToSave: string) => {
     setIsSaving(true)
     try {
-      await setDeepgramApiKey(keyToSave)
+      await updateConnectionsConfig({ connections: { deepgram: { api_keys: [String(keyToSave)] } } })
       setSavedOk(true)
     } finally {
       setIsSaving(false)

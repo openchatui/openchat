@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { listConnections } from '@/lib/db/connections'
 import db from '@/lib/db'
 
 function computeProviderFromUrl(rawUrl: string): string | null {
@@ -27,7 +28,7 @@ function uniqueMergeArrays<T>(base: T[] | undefined, adds: T[]): T[] {
 
 /**
  * @swagger
- * /api/connections:
+ * /api/v1/connections:
  *   get:
  *     tags: [Connections]
  *     summary: List all connections
@@ -57,14 +58,10 @@ function uniqueMergeArrays<T>(base: T[] | undefined, adds: T[]): T[] {
  *       500:
  *         description: Failed to create connections
  */
-// GET /api/connections - List all connections
+// GET /api/v1/connections - List all connections
 export async function GET() {
   try {
-    const connections = await db.connection.findMany({
-      orderBy: {
-        createdAt: 'desc'
-      }
-    })
+    const connections = await listConnections()
 
     return NextResponse.json(connections)
   } catch (error) {
@@ -76,7 +73,7 @@ export async function GET() {
   }
 }
 
-// POST /api/connections - Create new connection(s)
+// POST /api/v1/connections - Create new connection(s)
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()

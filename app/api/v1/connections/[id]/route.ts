@@ -23,7 +23,7 @@ function removeValues<T>(base: T[] | undefined, removes: T[]): T[] {
 
 /**
  * @swagger
- * /api/connections/{id}:
+ * /api/v1/connections/{id}:
  *   get:
  *     tags: [Connections]
  *     summary: Get a single connection
@@ -81,7 +81,7 @@ function removeValues<T>(base: T[] | undefined, removes: T[]): T[] {
  *       500:
  *         description: Failed to delete connection
  */
-// GET /api/connections/[id] - Get single connection
+// GET /api/v1/connections/[id] - Get single connection
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params
@@ -108,7 +108,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   }
 }
 
-// PUT /api/connections/[id] - Update connection
+// PUT /api/v1/connections/[id] - Update connection
 export async function PUT(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params
@@ -230,7 +230,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
   }
 }
 
-// DELETE /api/connections/[id] - Delete connection
+// DELETE /api/v1/connections/[id] - Delete connection
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params

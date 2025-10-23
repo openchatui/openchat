@@ -1,6 +1,6 @@
 import 'server-only';
 import crypto from 'crypto';
-import * as ApiKeyRepo from '@/lib/db/api-keys.repository';
+import * as ApiKeyRepo from '@/lib/db/api-keys';
 import type { ApiKeyValidation, ApiKeyCreation, ApiKeyInfo } from './api-auth.types';
 
 // API Key Management Service

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
-import { setOpenAISttCredentials } from "@/actions/connections"
+import { updateConnectionsConfig } from "@/lib/api/connections"
 
 interface OpenAISttConnectionFormProps {
   initialBaseUrl?: string
@@ -24,7 +24,15 @@ export function OpenAISttConnectionForm({ initialBaseUrl = "", initialApiKey = "
   const onSave = async () => {
     setIsSaving(true)
     try {
-      await setOpenAISttCredentials(baseUrl, apiKey)
+      await updateConnectionsConfig({
+        connections: {
+          openai: {
+            api_base_urls: [String(baseUrl)],
+            api_keys: [String(apiKey)],
+            api_configs: { "0": { enable: true } },
+          }
+        }
+      })
     } finally {
       setIsSaving(false)
     }

@@ -27,7 +27,7 @@ export function OpenAIImageConnectionForm() {
     let active = true
     ;(async () => {
       try {
-        const res = await fetch("/api/connections/config", { cache: "no-store" })
+        const res = await fetch("/api/v1/connections/config", { cache: "no-store" })
         if (!res.ok) return
         const data = await res.json()
         const openai = (data?.connections?.openai ?? {}) as any
@@ -60,7 +60,7 @@ export function OpenAIImageConnectionForm() {
     setIsSaving(true)
     try {
       // Load current config to avoid overwriting other entries
-      const currentRes = await fetch("/api/connections/config", { cache: "no-store" })
+      const currentRes = await fetch("/api/v1/connections/config", { cache: "no-store" })
       const currentData = currentRes.ok ? await currentRes.json() : {}
       const openai = (currentData?.connections?.openai ?? {}) as any
       const urls: string[] = Array.isArray(openai.api_base_urls) ? [...openai.api_base_urls] : []
@@ -91,7 +91,7 @@ export function OpenAIImageConnectionForm() {
           },
         },
       }
-      const res = await fetch("/api/connections/config/update", {
+      const res = await fetch("/api/v1/connections/config/update", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
