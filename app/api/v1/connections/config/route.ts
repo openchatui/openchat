@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server'
-import { getConnectionsConfig as getConnectionsConfigFromDb } from '@/lib/db/connections'
+import { getConnectionsConfig } from '@/lib/db/connections'
 
 export async function GET() {
   try {
-    const shaped = await getConnectionsConfigFromDb()
+    const shaped = await getConnectionsConfig()
     return NextResponse.json(shaped)
   } catch (error) {
     console.error('GET /api/v1/connections/config error:', error)

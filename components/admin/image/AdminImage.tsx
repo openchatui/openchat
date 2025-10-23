@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
-import { updateConnectionsConfig } from "@/actions/connections"
+import { updateConnectionsConfig } from "@/lib/api/connections"
 
 import { OpenAIImageConnectionForm } from "@/components/admin/image/OpenAIImageConnectionForm"
 import { updateImageConfigAction } from "@/actions/image"
