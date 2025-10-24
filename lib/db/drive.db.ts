@@ -1,6 +1,6 @@
 import 'server-only'
 import db from '@/lib/db'
-import type { DriveConfig, WorkspaceProvider } from '@/types/drive.types'
+import type { DriveConfig, WorkspaceProvider, UpdateDriveConfigInput } from '@/types/drive.types'
 
 async function ensureConfigRow(): Promise<{ data: Record<string, unknown> }> {
   let row = await db.config.findUnique({ where: { id: 1 } })
@@ -30,7 +30,7 @@ export async function getDriveConfigFromDb(): Promise<DriveConfig> {
   }
 }
 
-export async function updateDriveConfigInDb(partial: Partial<DriveConfig>): Promise<DriveConfig> {
+export async function updateDriveConfigInDb(partial: UpdateDriveConfigInput): Promise<DriveConfig> {
   const { data } = await ensureConfigRow()
   const current = await getDriveConfigFromDb()
   const next: DriveConfig = {

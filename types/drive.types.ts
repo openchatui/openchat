@@ -15,4 +15,10 @@ export interface DriveConfig {
   user: DriveUserConfig
 }
 
+export interface UpdateDriveConfigInput {
+  enabled?: boolean
+  workspace?: { enabled?: boolean; provider?: WorkspaceProvider }
+  user?: { enabled?: boolean }
+}
+
 

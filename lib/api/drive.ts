@@ -1,5 +1,5 @@
 import { absoluteUrl, httpFetch } from './http'
-import type { DriveConfig, WorkspaceProvider } from '@/types/drive.types'
+import type { DriveConfig, UpdateDriveConfigInput } from '@/types/drive.types'
 
 export async function getDriveConfig(): Promise<DriveConfig> {
   const res = await httpFetch(absoluteUrl('/api/v1/drive/config'), { method: 'GET' })
@@ -9,12 +9,6 @@ export async function getDriveConfig(): Promise<DriveConfig> {
   }
   const json = (await res.json()) as { drive: DriveConfig }
   return json.drive
-}
-
-export type UpdateDriveConfigInput = {
-  enabled?: boolean
-  workspace?: { enabled?: boolean; provider?: WorkspaceProvider }
-  user?: { enabled?: boolean }
 }
 
 export async function updateDriveConfig(input: UpdateDriveConfigInput): Promise<void> {
