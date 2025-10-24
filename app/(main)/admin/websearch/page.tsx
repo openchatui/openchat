@@ -2,16 +2,17 @@ import { auth } from "@/lib/auth"
 import { redirect } from "next/navigation"
 import { AdminWebSearch } from "@/components/admin/websearch/AdminWebSearch"
 import { ChatStore } from "@/lib/modules/chat"
-import { getWebSearchConfigAction } from "@/actions/websearch"
+import { getWebSearchConfig } from "@/lib/api/websearch"
 
 export default async function AdminWebSearchPage() {
   const session = await auth()
   if (!session || !session.user?.id) redirect("/login")
 
-  const [chats, ws] = await Promise.all([
+  const [chats, wsResp] = await Promise.all([
     ChatStore.getUserChats(session.user.id),
-    getWebSearchConfigAction(),
+    getWebSearchConfig(),
   ])
+  const ws = wsResp.websearch
 
   return (
     <AdminWebSearch
@@ -19,8 +20,8 @@ export default async function AdminWebSearchPage() {
       initialChats={chats}
       initialEnabled={ws.ENABLED}
       initialProvider={ws.PROVIDER}
-      initialSystemPrompt={ws.SYSTEM_PROMPT}
-      envSystemPrompt={ws.ENV_SYSTEM_PROMPT}
+      initialSystemPrompt={ws.SYSTEM_PROMPT || ''}
+      envSystemPrompt={ws.ENV_SYSTEM_PROMPT || ''}
       initialGooglePse={{
         apiKey: ws.googlepse.apiKey,
         engineId: ws.googlepse.engineId,

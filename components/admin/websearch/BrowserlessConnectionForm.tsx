@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { ApiKeyField } from "@/components/admin/ApiKeyField"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { updateWebSearchConfigAction } from "@/actions/websearch"
+import { updateWebSearchConfig } from "@/lib/api/websearch"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
@@ -68,7 +68,7 @@ export function BrowserlessConnectionForm({
         value={apiKey}
         onChange={setApiKey}
         onSave={async (val) => {
-          await updateWebSearchConfigAction({ websearch: { browserless: { apiKey: val } } })
+          await updateWebSearchConfig({ websearch: { browserless: { apiKey: val } } })
         }}
         isLoading={isLoading}
         placeholder="bl_..."
@@ -115,7 +115,7 @@ export function BrowserlessConnectionForm({
                 </div>
                 <Switch id="bl-stealth" checked={stealth} onCheckedChange={async (v) => {
                   setStealth(Boolean(v))
-                  await updateWebSearchConfigAction({ websearch: { browserless: { stealth: Boolean(v) } } })
+                  await updateWebSearchConfig({ websearch: { browserless: { stealth: Boolean(v) } } })
                 }} />
               </div>
               <div className="flex items-center justify-between gap-2">
@@ -124,7 +124,7 @@ export function BrowserlessConnectionForm({
                 </div>
                 <Switch id="bl-stealth-route" checked={stealthRoute} onCheckedChange={async (v) => {
                   setStealthRoute(Boolean(v))
-                  await updateWebSearchConfigAction({ websearch: { browserless: { stealthRoute: Boolean(v) } } })
+                  await updateWebSearchConfig({ websearch: { browserless: { stealthRoute: Boolean(v) } } })
                 }} />
               </div>
               <div className="flex items-center justify-between gap-2">
@@ -133,7 +133,7 @@ export function BrowserlessConnectionForm({
                 </div>
                 <Switch id="bl-block-ads" checked={blockAds} onCheckedChange={async (v) => {
                   setBlockAds(Boolean(v))
-                  await updateWebSearchConfigAction({ websearch: { browserless: { blockAds: Boolean(v) } } })
+                  await updateWebSearchConfig({ websearch: { browserless: { blockAds: Boolean(v) } } })
                 }} />
               </div>
               <div className="flex items-center justify-between gap-2">
@@ -142,32 +142,32 @@ export function BrowserlessConnectionForm({
                 </div>
                 <Switch id="bl-headless" checked={headless} onCheckedChange={async (v) => {
                   setHeadless(Boolean(v))
-                  await updateWebSearchConfigAction({ websearch: { browserless: { headless: Boolean(v) } } })
+                  await updateWebSearchConfig({ websearch: { browserless: { headless: Boolean(v) } } })
                 }} />
               </div>
 
               <div className="space-y-1">
                 <Label htmlFor="bl-locale">Locale</Label>
                 <Input id="bl-locale" placeholder="en-US" value={locale} onChange={(e) => setLocale(e.target.value)} onBlur={async () => {
-                  await updateWebSearchConfigAction({ websearch: { browserless: { locale: locale || undefined } } })
+                  await updateWebSearchConfig({ websearch: { browserless: { locale: locale || undefined } } })
                 }} />
               </div>
               <div className="space-y-1">
                 <Label htmlFor="bl-timezone">Timezone</Label>
                 <Input id="bl-timezone" placeholder="America/Los_Angeles" value={timezone} onChange={(e) => setTimezone(e.target.value)} onBlur={async () => {
-                  await updateWebSearchConfigAction({ websearch: { browserless: { timezone: timezone || undefined } } })
+                  await updateWebSearchConfig({ websearch: { browserless: { timezone: timezone || undefined } } })
                 }} />
               </div>
               <div className="space-y-1 md:col-span-2">
                 <Label htmlFor="bl-useragent">User-Agent override (optional)</Label>
                 <Input id="bl-useragent" placeholder="Custom UA string" value={userAgent} onChange={(e) => setUserAgent(e.target.value)} onBlur={async () => {
-                  await updateWebSearchConfigAction({ websearch: { browserless: { userAgent: userAgent || undefined } } })
+                  await updateWebSearchConfig({ websearch: { browserless: { userAgent: userAgent || undefined } } })
                 }} />
               </div>
               <div className="space-y-1 md:col-span-2">
                 <Label htmlFor="bl-route">Route override (optional)</Label>
                 <Input id="bl-route" placeholder="chromium or chromium/stealth" value={route} onChange={(e) => setRoute(e.target.value)} onBlur={async () => {
-                  await updateWebSearchConfigAction({ websearch: { browserless: { route: route || undefined } } })
+                  await updateWebSearchConfig({ websearch: { browserless: { route: route || undefined } } })
                 }} />
               </div>
             </div>

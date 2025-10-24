@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { toast } from "sonner"
-import { updateVideoConfigAction } from "@/actions/video"
+import { updateVideoConfig } from "@/lib/api/video"
 
 interface Props {
   initialModel?: string
@@ -28,7 +28,7 @@ export function OpenAIVideoConfigForm({ initialModel = 'sora-2-pro', initialSize
   const onSave = async () => {
     try {
       setIsSaving(true)
-      await updateVideoConfigAction({ provider: 'openai', openai: { model, size, seconds } })
+      await updateVideoConfig({ provider: 'openai', openai: { model, size, seconds } })
       toast.success("OpenAI video settings saved")
     } catch (e: any) {
       toast.error(e?.message || "Failed to save video settings")

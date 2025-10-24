@@ -22,7 +22,7 @@ import type {
   EditState,
   ConnectionType,
   ConnectionsConfig,
-} from "@/types/connections";
+} from "@/types/connections.types";
 
 export function useConnections(
   initialConnections: Connection[] = [],

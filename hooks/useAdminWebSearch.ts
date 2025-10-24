@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
-import { updateWebSearchConfigAction } from "@/actions/websearch"
+import { updateWebSearchConfig } from "@/lib/api/websearch"
 
 interface WebSearchConfigResponse {
   websearch?: {
@@ -65,7 +65,7 @@ export function useAdminWebSearch(initial?: InitialWebSearchState) {
       const payload = provider === 'browserless'
         ? { websearch: { browserless: { systemPrompt } } }
         : { websearch: { googlepse: { systemPrompt } } }
-      await updateWebSearchConfigAction(payload)
+      await updateWebSearchConfig(payload)
     } catch (e: any) {
       setError(e?.message || 'Failed to save prompt')
     } finally {
@@ -77,7 +77,7 @@ export function useAdminWebSearch(initial?: InitialWebSearchState) {
     setIsSaving(true)
     setError(null)
     try {
-      await updateWebSearchConfigAction({ websearch: { ENABLED: enabled } })
+      await updateWebSearchConfig({ websearch: { ENABLED: enabled } })
     } catch (e: any) {
       setError(e?.message || 'Failed to save setting')
     } finally {
@@ -89,7 +89,7 @@ export function useAdminWebSearch(initial?: InitialWebSearchState) {
     setIsSaving(true)
     setError(null)
     try {
-      await updateWebSearchConfigAction({ websearch: { PROVIDER: prov } })
+      await updateWebSearchConfig({ websearch: { PROVIDER: prov } })
     } catch (e: any) {
       setError(e?.message || 'Failed to save provider')
     } finally {
@@ -111,7 +111,7 @@ export function useAdminWebSearch(initial?: InitialWebSearchState) {
           }
         }
       }
-      await updateWebSearchConfigAction(payload)
+      await updateWebSearchConfig(payload)
     } catch (e: any) {
       setError(e?.message || 'Failed to save Google PSE config')
     } finally {

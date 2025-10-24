@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { listConnections } from '@/lib/db/connections'
+import { listConnections } from '@/lib/db/connections.db'
 import db from '@/lib/db'
 
 function computeProviderFromUrl(rawUrl: string): string | null {

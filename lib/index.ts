@@ -3,7 +3,7 @@
 // =============================================================================
 
 // Core DB
-export { default as db } from './db/client'
+export { default as db } from './db/client.db'
 
 // Core security and config
 export * from './auth/authz'

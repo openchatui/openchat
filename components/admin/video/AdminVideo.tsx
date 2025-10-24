@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { toast } from "sonner"
-import { updateVideoConfigAction } from "@/actions/video"
+import { updateVideoConfig } from "@/lib/api/video"
 import { OpenAIVideoConfigForm } from "@/components/admin/video/OpenAIVideoConfigForm"
 
 type VideoProvider = 'openai'
@@ -34,7 +34,7 @@ export function AdminVideo({ session, initialEnabled = false, initialProvider = 
   const persistEnabled = async (next: boolean) => {
     try {
       setIsSaving(true)
-      await updateVideoConfigAction({ enabled: Boolean(next) })
+      await updateVideoConfig({ enabled: Boolean(next) })
       setEnabled(Boolean(next))
       toast.success(Boolean(next) ? "Video enabled" : "Video disabled")
     } catch (e: any) {
@@ -47,7 +47,7 @@ export function AdminVideo({ session, initialEnabled = false, initialProvider = 
   const persistProvider = async (next: VideoProvider) => {
     try {
       setIsSaving(true)
-      await updateVideoConfigAction({ provider: next })
+      await updateVideoConfig({ provider: next })
       setProvider(next)
       toast.success("Video provider updated")
     } catch (e: any) {

@@ -6,7 +6,7 @@ import { ProviderService } from '@/lib/modules/ai';
 import { createBrowserlessTools } from '@/lib/modules/tools';
 import { openaiImageTools } from '@/lib/modules/tools';
 import { openaiVideoTools } from '@/lib/modules/tools';
-import { getWebSearchConfigAction } from '@/actions/websearch';
+import { getWebSearchConfig } from '@/lib/api/websearch';
 import type {
   ChatData,
   SelectedModelInfo,
@@ -608,7 +608,8 @@ export class ToolsService {
 
     let webTools: Record<string, unknown> = {};
     if (enableWebSearch) {
-      const ws = await getWebSearchConfigAction();
+      const wsResp = await getWebSearchConfig();
+      const ws = wsResp.websearch;
       if (ws.PROVIDER === 'googlepse') {
         const { createGooglePseTools } = await import('@/lib/modules/tools/web-browsing/googlepse.tools');
         webTools = await createGooglePseTools() as any;

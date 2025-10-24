@@ -1,5 +1,5 @@
 import { absoluteUrl, httpFetch } from './http'
-import type { Connection, ConnectionsConfig } from '@/types/connections'
+import type { Connection, ConnectionsConfig } from '@/types/connections.types'
 
 export async function getConnections(): Promise<Connection[]> {
   const res = await httpFetch(absoluteUrl('/api/v1/connections'), { method: 'GET' })

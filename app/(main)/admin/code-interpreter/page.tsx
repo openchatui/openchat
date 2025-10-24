@@ -1,7 +1,7 @@
 import { auth } from "@/lib/auth"
 import { redirect } from "next/navigation"
 import { AdminCodeInterpreter } from "@/components/admin/code-interpreter/AdminCodeInterpreter"
-import { getCodeInterpreterConfig } from "@/actions/code-interpreter"
+import { getCodeConfig } from "@/lib/api/code"
 import { ChatStore } from "@/lib/modules/chat"
 
 export default async function AdminCodeInterpreterPage() {
@@ -9,7 +9,7 @@ export default async function AdminCodeInterpreterPage() {
   if (!session || !session.user?.id) redirect("/login")
 
   const [cfg] = await Promise.all([
-    getCodeInterpreterConfig(),
+    getCodeConfig(),
   ])
   return <AdminCodeInterpreter session={session} initialConfig={cfg} />
 }
