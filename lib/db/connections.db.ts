@@ -1,5 +1,5 @@
 import 'server-only'
-import db from '@/lib/db/client'
+import db from '@/lib/db/client.db'
 import { Prisma } from '@prisma/client'
 
 export async function listConnections() {

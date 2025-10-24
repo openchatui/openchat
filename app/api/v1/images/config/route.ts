@@ -1,9 +1,5 @@
 import { NextResponse } from 'next/server'
-import db from '@/lib/db'
-
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
+import { getImageConfigFromDb } from '@/lib/db/image.db'
 
 /**
  * @swagger
@@ -19,31 +15,8 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
  */
 export async function GET() {
   try {
-    let config = await db.config.findUnique({ where: { id: 1 } })
-    if (!config) {
-      config = await db.config.create({ data: { id: 1, data: {} } })
-    }
-
-    const data = (config.data || {}) as any
-    const image = isPlainObject(data.image) ? (data.image as any) : {}
-    const provider = (typeof image.provider === 'string' && ['openai','comfyui','automatic1111'].includes(String(image.provider).toLowerCase()))
-      ? (String(image.provider).toLowerCase())
-      : 'openai'
-    const openai = isPlainObject(image.openai) ? (image.openai as any) : {}
-
-    return NextResponse.json({
-      image: {
-        provider: provider as 'openai' | 'comfyui' | 'automatic1111',
-        openai: {
-          baseUrl: typeof openai.base_url === 'string' ? openai.base_url : '',
-          apiKey: typeof openai.api_key === 'string' ? openai.api_key : '',
-          model: typeof openai.model === 'string' ? openai.model : 'gpt-image-1',
-          size: typeof openai.size === 'string' ? openai.size : '1024x1024',
-          quality: typeof openai.quality === 'string' ? openai.quality : undefined,
-          style: typeof openai.style === 'string' ? openai.style : undefined,
-        },
-      }
-    })
+    const cfg = await getImageConfigFromDb()
+    return NextResponse.json({ image: cfg })
   } catch (error) {
     console.error('GET /api/v1/images/config error:', error)
     return NextResponse.json({ error: 'Failed to fetch image config' }, { status: 500 })

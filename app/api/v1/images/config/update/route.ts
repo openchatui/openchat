@@ -1,23 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import db from '@/lib/db'
+import { updateImageConfigInDb } from '@/lib/db/image.db'
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
-
-function deepMerge(target: any, source: any): any {
-  if (Array.isArray(target) && Array.isArray(source)) return source
-  if (isPlainObject(target) && isPlainObject(source)) {
-    const result: Record<string, unknown> = { ...target }
-    for (const key of Object.keys(source)) {
-      const sVal = (source as any)[key]
-      const tVal = (target as any)[key]
-      result[key] = isPlainObject(tVal) && isPlainObject(sVal) ? deepMerge(tVal, sVal) : sVal
-    }
-    return result
-  }
-  return source
 }
 
 const ImageProvider = z.enum(['openai', 'comfyui', 'automatic1111'])
@@ -86,41 +72,19 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid image payload' }, { status: 400 })
     }
 
-    const incoming = input.data.image
-
-    const existing = await db.config.findUnique({ where: { id: 1 } })
-    const currentData = (existing?.data || {}) as Record<string, unknown>
-    const currentImage = isPlainObject((currentData as any).image) ? (currentData as any).image : {}
-
-    // Translate camelCase openai fields to stored snake_case
-    const normalizedIncoming: any = { ...incoming }
-    if (isPlainObject(incoming.openai)) {
-      const src = incoming.openai as any
-      normalizedIncoming.openai = {
-        ...(isPlainObject((currentImage as any).openai) ? (currentImage as any).openai : {}),
-        ...(typeof src.baseUrl === 'string' ? { base_url: src.baseUrl } : {}),
-        ...(typeof src.apiKey === 'string' ? { api_key: src.apiKey } : {}),
-        ...(typeof src.model === 'string' ? { model: src.model } : {}),
-        ...(typeof src.size === 'string' ? { size: src.size } : {}),
-        ...(typeof src.quality === 'string' ? { quality: src.quality } : {}),
-        ...(typeof src.style === 'string' ? { style: src.style } : {}),
-      }
-    }
-
-    const mergedImage = deepMerge(currentImage, normalizedIncoming)
-    const nextData = { ...currentData, image: mergedImage }
-
-    const result = existing
-      ? await db.config.update({ where: { id: 1 }, data: { data: nextData } })
-      : await db.config.create({ data: { id: 1, data: nextData } })
-
-    const data = result.data as any
-    const image = isPlainObject(data.image) ? (data.image as any) : {}
-    return NextResponse.json({
-      image: {
-        provider: (typeof image.provider === 'string' ? image.provider : 'openai') as 'openai' | 'comfyui' | 'automatic1111',
-      }
+    const incoming = input.data.image as any
+    const next = await updateImageConfigInDb({
+      provider: incoming.provider,
+      openai: isPlainObject(incoming.openai) ? {
+        baseUrl: typeof (incoming.openai as any).baseUrl === 'string' ? (incoming.openai as any).baseUrl : undefined,
+        apiKey: typeof (incoming.openai as any).apiKey === 'string' ? (incoming.openai as any).apiKey : undefined,
+        model: typeof (incoming.openai as any).model === 'string' ? (incoming.openai as any).model : undefined,
+        size: typeof (incoming.openai as any).size === 'string' ? (incoming.openai as any).size : undefined,
+        quality: typeof (incoming.openai as any).quality === 'string' ? (incoming.openai as any).quality : undefined,
+        style: typeof (incoming.openai as any).style === 'string' ? (incoming.openai as any).style : undefined,
+      } : undefined,
     })
+    return NextResponse.json({ image: next })
   } catch (error) {
     console.error('PUT /api/v1/images/config/update error:', error)
     return NextResponse.json({ error: 'Failed to update image config' }, { status: 500 })

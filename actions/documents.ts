@@ -6,7 +6,7 @@ import { z } from 'zod'
 import { auth } from '@/lib/auth'
 import { DocumentDbService } from '@/lib/modules/documents/db.service'
 import { DOCUMENT_MESSAGES, DOCUMENT_TAGS } from '@/constants/document'
-import type { DocumentRole } from '@/types/document'
+import type { DocumentRole } from '@/types/document.types'
 
 export type ActionResult =
   | { status: 'success'; data?: any }

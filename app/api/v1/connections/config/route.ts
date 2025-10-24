@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { getConnectionsConfig } from '@/lib/db/connections'
+import { getConnectionsConfig } from '@/lib/db/connections.db'
 
 export async function GET() {
   try {

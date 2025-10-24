@@ -1,6 +1,6 @@
 import 'server-only'
 import db from '@/lib/db'
-import type { Document, DocumentWithPermissions, DocumentPermission, Comment, DocumentVersion, DocumentRole } from '@/types/document'
+import type { Document, DocumentWithPermissions, DocumentPermission, Comment, DocumentVersion, DocumentRole } from '@/types/document.types'
 
 /**
  * Document Database Service

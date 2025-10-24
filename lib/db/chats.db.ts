@@ -1,5 +1,5 @@
 import 'server-only'
-import db from '@/lib/db/client'
+import db from '@/lib/db/client.db'
 import type { UIMessage } from 'ai'
 
 export async function createChat(params: { id: string; userId: string; messages: UIMessage[] }) {

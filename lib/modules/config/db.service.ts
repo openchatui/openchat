@@ -1,5 +1,5 @@
 import 'server-only';
-import db from '@/lib/db/client';
+import db from '@/lib/db/client.db';
 import type { SystemConfig } from './types';
 
 // Data access layer for system configuration
