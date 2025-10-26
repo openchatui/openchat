@@ -1,14 +1,19 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@/lib/auth'
-import { getGoogleFileModifiedTime, updateGoogleDocPlainText, exportGoogleDriveFile, updateGoogleDocFromHTML } from '@/lib/modules/drive/providers/google-drive.service'
+import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@/lib/auth";
+import {
+  getGoogleFileModifiedTime,
+  updateGoogleDocPlainText,
+  exportGoogleDriveFile,
+  updateGoogleDocFromHTML,
+} from "@/lib/modules/drive/providers/google-drive.service";
 
 async function streamToString(stream: NodeJS.ReadableStream): Promise<string> {
-  const chunks: Buffer[] = []
+  const chunks: Buffer[] = [];
   return await new Promise<string>((resolve, reject) => {
-    stream.on('data', (chunk) => chunks.push(Buffer.from(chunk)))
-    stream.on('error', (err) => reject(err))
-    stream.on('end', () => resolve(Buffer.concat(chunks).toString('utf-8')))
-  })
+    stream.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
+    stream.on("error", (err) => reject(err));
+    stream.on("end", () => resolve(Buffer.concat(chunks).toString("utf-8")));
+  });
 }
 
 export async function GET(
@@ -16,29 +21,43 @@ export async function GET(
   { params }: { params: Promise<{ fileId: string }> }
 ) {
   try {
-    const session = await auth()
-    if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const session = await auth();
+    if (!session?.user?.id)
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const { fileId } = await params
-    if (!fileId) return NextResponse.json({ error: 'File ID required' }, { status: 400 })
+    const { fileId } = await params;
+    if (!fileId)
+      return NextResponse.json({ error: "File ID required" }, { status: 400 });
 
-    const { searchParams } = new URL(req.url)
-    const mode = searchParams.get('mode') || 'meta'
+    const { searchParams } = new URL(req.url);
+    const mode = searchParams.get("mode") || "meta";
 
-    if (mode === 'meta') {
-      const modifiedMs = await getGoogleFileModifiedTime(session.user.id, fileId)
-      return NextResponse.json({ modifiedMs })
+    if (mode === "meta") {
+      const modifiedMs = await getGoogleFileModifiedTime(
+        session.user.id,
+        fileId
+      );
+      return NextResponse.json({ modifiedMs });
     }
 
-    if (mode === 'html') {
-      const { stream } = await exportGoogleDriveFile(session.user.id, fileId, 'text/html')
-      const html = await streamToString(stream)
-      return new NextResponse(html, { headers: { 'Content-Type': 'text/html; charset=utf-8' } })
+    if (mode === "html") {
+      const { stream } = await exportGoogleDriveFile(
+        session.user.id,
+        fileId,
+        "text/html"
+      );
+      const html = await streamToString(stream);
+      return new NextResponse(html, {
+        headers: { "Content-Type": "text/html; charset=utf-8" },
+      });
     }
 
-    return NextResponse.json({ error: 'Unsupported mode' }, { status: 400 })
+    return NextResponse.json({ error: "Unsupported mode" }, { status: 400 });
   } catch (error: any) {
-    return NextResponse.json({ error: error?.message ?? 'Failed to sync (GET)' }, { status: 500 })
+    return NextResponse.json(
+      { error: error?.message ?? "Failed to sync (GET)" },
+      { status: 500 }
+    );
   }
 }
 
@@ -47,24 +66,30 @@ export async function POST(
   { params }: { params: Promise<{ fileId: string }> }
 ) {
   try {
-    const session = await auth()
-    if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const session = await auth();
+    if (!session?.user?.id)
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const { fileId } = await params
-    if (!fileId) return NextResponse.json({ error: 'File ID required' }, { status: 400 })
+    const { fileId } = await params;
+    if (!fileId)
+      return NextResponse.json({ error: "File ID required" }, { status: 400 });
 
-    const body = await req.json().catch(() => null) as { html?: string }
-    if (!body?.html || typeof body.html !== 'string') {
-      return NextResponse.json({ error: 'HTML content required' }, { status: 400 })
+    const body = (await req.json().catch(() => null)) as { html?: string };
+    if (!body?.html || typeof body.html !== "string") {
+      return NextResponse.json(
+        { error: "HTML content required" },
+        { status: 400 }
+      );
     }
 
-    const html = body.html
+    const html = body.html;
     // Preserve basic formatting in Google Docs
-    await updateGoogleDocFromHTML(session.user.id, fileId, html)
-    return NextResponse.json({ ok: true })
+    await updateGoogleDocFromHTML(session.user.id, fileId, html);
+    return NextResponse.json({ ok: true });
   } catch (error: any) {
-    return NextResponse.json({ error: error?.message ?? 'Failed to sync (POST)' }, { status: 500 })
+    return NextResponse.json(
+      { error: error?.message ?? "Failed to sync (POST)" },
+      { status: 500 }
+    );
   }
 }
-
-
