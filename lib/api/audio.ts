@@ -1,3 +1,5 @@
+import { absoluteUrl, httpFetch } from './http'
+
 export type UpdateAudioConfigInput = {
   audio: Partial<{
     ttsEnabled: boolean
@@ -30,6 +32,23 @@ export async function setElevenLabsApiKey(apiKey: string): Promise<void> {
     const data = await res.json().catch(() => ({}))
     throw new Error(data?.error || 'Failed to save ElevenLabs API key')
   }
+}
+
+export type AudioConfig = {
+  ttsEnabled: boolean
+  sttEnabled: boolean
+  tts: { provider: 'openai' | 'elevenlabs' }
+  stt: { provider: 'whisper-web' | 'openai' | 'webapi' | 'deepgram'; whisperWeb: { model: string } }
+}
+
+export async function getAudioConfig(): Promise<AudioConfig> {
+  const res = await httpFetch(absoluteUrl('/api/v1/audio/config'), { method: 'GET' })
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({} as Record<string, unknown>))
+    throw new Error((data as { error?: string }).error || 'Failed to fetch audio config')
+  }
+  const json = (await res.json()) as { audio: AudioConfig }
+  return json.audio
 }
 
 

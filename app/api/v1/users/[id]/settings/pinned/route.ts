@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import db from '@/lib/db'
-import { fetchToken, isOwnerOrAdmin, isSameOrigin } from '@/lib'
+import { fetchToken, isOwnerOrAdmin, isSameOrigin } from '@/lib/auth/authz'
 import { z } from 'zod'
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {

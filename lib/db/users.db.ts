@@ -1,5 +1,5 @@
 import 'server-only'
-import db from '@/lib/db/client.db'
+import db from '@/lib/db'
 
 export interface CreateUserInput {
   email: string

@@ -6,8 +6,11 @@ import { isAuthEnabled } from "@/lib/auth/toggle";
 import { redirect } from "next/navigation";
 import { getActiveModelsLight, getUserSettings } from "@/actions/chat";
 import { cookies } from "next/headers";
-import { getWebSearchEnabled, getImageGenerationAvailable, getAudioConfig } from '@/lib';
-import { getEffectivePermissionsForUser } from '@/lib/modules/access-control/permissions.service';
+import { getWebSearchConfig } from "@api/websearch";
+import { getImageConfig } from "@api/image";
+import { getConnectionsConfig } from "@api/connections";
+import { getAudioConfig as getAudioConfigApi } from "@api/audio";
+import { getEffectivePermissionsForUser } from "@/lib/modules/access-control/permissions.service";
 import { filterModelsReadableByUser } from "@/lib/modules/access-control/model-access.service";
 import db from "@/lib/db";
 import { ensurePublicUser } from "@/lib/auth/public-user";
@@ -24,19 +27,42 @@ export default async function Page() {
   // Load data server-side for better performance (minimize DB and external calls)
   const [models, userSettings] = await Promise.all([
     getActiveModelsLight(),
-    getUserSettings()
+    getUserSettings(),
   ]);
 
-  // Load feature availability and user permissions on the server
-  const [webSearchAvailable, imageAvailable, audioConfig] = await Promise.all([
-    getWebSearchEnabled(),
-    getImageGenerationAvailable(),
-    getAudioConfig(),
-  ])
+  // Load feature availability and user permissions on the server via API helpers
+  const [webCfg, imgCfg, connCfg, audioConfig] = await Promise.all([
+    getWebSearchConfig(),
+    getImageConfig(),
+    getConnectionsConfig(),
+    getAudioConfigApi(),
+  ]);
+
+  const webSearchAvailable = !!(webCfg?.websearch?.ENABLED);
+  const imageAvailable = (() => {
+    const provider = imgCfg?.image?.provider || 'openai';
+    if (provider !== 'openai') return false;
+    const imageKey = (imgCfg?.image?.openai?.apiKey || '').trim();
+    if (imageKey) return true;
+    const keys = Array.isArray((connCfg as any)?.connections?.openai?.api_keys)
+      ? ((connCfg as any).connections.openai.api_keys as unknown[])
+      : [];
+    return keys.some((k) => typeof k === 'string' && (k as string).trim().length > 0);
+  })();
 
   const defaultEff: EffectivePermissions = {
-    workspace: { models: false, knowledge: false, prompts: false, tools: false },
-    sharing: { public_models: false, public_knowledge: false, public_prompts: false, public_tools: false },
+    workspace: {
+      models: false,
+      knowledge: false,
+      prompts: false,
+      tools: false,
+    },
+    sharing: {
+      public_models: false,
+      public_knowledge: false,
+      public_prompts: false,
+      public_tools: false,
+    },
     chat: {
       controls: false,
       valves: false,
@@ -54,53 +80,73 @@ export default async function Page() {
       temporary: false,
       temporary_enforced: false,
     },
-    features: { direct_tool_servers: false, web_search: false, image_generation: false, code_interpreter: false, notes: false },
-  }
+    features: {
+      direct_tool_servers: false,
+      web_search: false,
+      image_generation: false,
+      code_interpreter: false,
+      notes: false,
+    },
+  };
 
   let eff: EffectivePermissions = session?.user?.id
     ? await getEffectivePermissionsForUser(session.user.id)
-    : defaultEff
+    : defaultEff;
 
-  let effectiveModels = models
+  let effectiveModels = models;
   if (!session?.user?.id && !isAuthEnabled()) {
     // Public mode: ensure a public user exists and use its permissions to compute visible models
-    const publicUser = await ensurePublicUser()
-    eff = await getEffectivePermissionsForUser(publicUser.id)
+    const publicUser = await ensurePublicUser();
+    eff = await getEffectivePermissionsForUser(publicUser.id);
     const modelsRaw = await db.model.findMany({
       where: { isActive: true },
-      orderBy: { updatedAt: 'desc' },
-      select: { id: true, name: true, isActive: true, meta: true, userId: true, accessControl: true } as any,
-    })
-    effectiveModels = await filterModelsReadableByUser(publicUser.id, modelsRaw as any)
+      orderBy: { updatedAt: "desc" },
+      select: {
+        id: true,
+        name: true,
+        isActive: true,
+        meta: true,
+        userId: true,
+        accessControl: true,
+      } as any,
+    });
+    effectiveModels = await filterModelsReadableByUser(
+      publicUser.id,
+      modelsRaw as any
+    );
   }
 
   // eff is always non-null here (typed as EffectivePermissions)
 
   // Resolve user timezone from cookie (fallback to UTC for deterministic SSR)
-  const cookieStore = await cookies()
-  const timeZone = cookieStore.get('tz')?.value || 'UTC'
+  const cookieStore = await cookies();
+  const timeZone = cookieStore.get("tz")?.value || "UTC";
 
   // Avoid per-chat message loading here; landing is lightweight
 
   // Build pinned models list from user settings
-  const pinnedIds: string[] = Array.isArray((userSettings as any)?.ui?.pinned_models)
+  const pinnedIds: string[] = Array.isArray(
+    (userSettings as any)?.ui?.pinned_models
+  )
     ? ((userSettings as any).ui.pinned_models as string[])
-    : []
-  const pinnedModels = models.filter(m => pinnedIds.includes(m.id))
+    : [];
+  const pinnedModels = models.filter((m) => pinnedIds.includes(m.id));
 
   return (
     <>
-      <AppConfigProvider initial={{
-        webSearchAvailable,
-        imageAvailable,
-        audio: {
-          ttsEnabled: audioConfig.ttsEnabled,
-          sttEnabled: audioConfig.sttEnabled,
-          ttsProvider: audioConfig.tts.provider,
-          sttProvider: audioConfig.stt.provider as any,
-          whisperWebModel: audioConfig.stt.whisperWeb.model,
-        }
-      }}>
+      <AppConfigProvider
+        initial={{
+          webSearchAvailable,
+          imageAvailable,
+          audio: {
+            ttsEnabled: audioConfig.ttsEnabled,
+            sttEnabled: audioConfig.sttEnabled,
+            ttsProvider: audioConfig.tts.provider,
+            sttProvider: audioConfig.stt.provider as any,
+            whisperWebModel: audioConfig.stt.whisperWeb.model,
+          },
+        }}
+      >
         <ChatLanding
           session={session}
           initialModels={effectiveModels}
@@ -118,5 +164,5 @@ export default async function Page() {
         />
       </AppConfigProvider>
     </>
-  )
+  );
 }

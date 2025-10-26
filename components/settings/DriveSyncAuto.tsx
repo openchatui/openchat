@@ -19,7 +19,7 @@ export function DriveSyncAuto({ isConnected }: DriveSyncAutoProps) {
     const run = async () => {
       try {
         setPending(true)
-        await fetch('/api/drive/sync', { method: 'POST' })
+        await fetch('/api/v1/drive/sync', { method: 'POST' })
       } catch {
         // ignore
       } finally {

@@ -14,7 +14,7 @@ export function DriveStorageInfo() {
   useEffect(() => {
     const fetchStorage = async () => {
       try {
-        const res = await fetch('/api/drive/about')
+        const res = await fetch('/api/v1/drive/about')
         if (res.ok) {
           const data = await res.json()
           setStorage(data)

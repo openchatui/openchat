@@ -1,5 +1,5 @@
 import 'server-only'
-import db from '@/lib/db/client.db'
+import db from '@/lib/db'
 
 export async function findModelById(id: string) {
   return await db.model.findFirst({ where: { id }, select: { id: true, name: true, meta: true, userId: true, params: true } })
