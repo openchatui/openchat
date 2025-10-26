@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import db from '@/lib/db'
 import type { User } from '@/types/user.types'
-import { fetchToken, isAdminToken, isSameOrigin } from '@/lib'
+import { fetchToken, isAdminToken, isSameOrigin } from '@/lib/auth/authz'
 import { z } from 'zod'
 
 // Role mapping between database enum and frontend types

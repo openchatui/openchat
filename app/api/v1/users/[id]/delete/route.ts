@@ -29,7 +29,7 @@ import { z } from 'zod'
  *       500:
  *         description: Failed to delete user
  */
-// authz helpers in '@/lib'
+// authz helpers in '@/lib/auth/authz'
 
 export async function DELETE(
   request: NextRequest,

@@ -68,7 +68,7 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
  *       500:
  *         description: Failed to update pinned models
  */
-// authz helpers are imported from '@/lib'
+// authz helpers are imported from '@/lib/auth/authz'
 
 export async function GET(
   request: NextRequest,

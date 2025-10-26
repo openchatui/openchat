@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import db from '@/lib/db'
-import { fetchToken, isAdminToken, isSameOrigin } from '@/lib'
+import { fetchToken, isAdminToken, isSameOrigin } from '@/lib/auth/authz'
 import { z } from 'zod'
 
 const reverseRoleMap = {
