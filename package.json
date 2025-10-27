@@ -159,6 +159,7 @@
     "@types/react-syntax-highlighter": "^15.5.13",
     "dotenv-cli": "^7.4.4",
     "tailwindcss": "^4",
+    "prisma": "^6.15.0",
     "tsx": "^4.20.5",
     "tw-animate-css": "^1.3.5",
     "typescript": "^5"

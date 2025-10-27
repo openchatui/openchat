@@ -4,7 +4,7 @@ import { create } from 'zustand'
 import type { UIMessage } from 'ai'
 import type { Model } from '@/types/model.types'
 import type { MessageMetadata } from '@/lib/modules/chat/chat.types'
-import { createInitialChat } from '@/actions/chat'
+import { createInitialChat } from '@/lib/api/chats'
 
 interface ChatState {
   currentChatId: string | null
@@ -44,8 +44,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set({ currentChatId: tempId, messages: [userMessage], isInitialState: false })
 
     try {
-      // Persist the chat with the initial message on the server
-      const result = await createInitialChat(firstMessage, model.id)
+      const result = await createInitialChat({
+        message: firstMessage,
+        model: {
+          id: model.id,
+          name: model.name,
+          profile_image_url: (model as any)?.meta?.profile_image_url || null,
+        },
+      })
       const chatId: string = result.chatId
       set({ currentChatId: chatId })
       return chatId

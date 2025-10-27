@@ -4,7 +4,8 @@ import { ChatLanding } from "@/components/chat/chat-landing";
 import { auth, AuthService } from "@/lib/auth";
 import { isAuthEnabled } from "@/lib/auth/toggle";
 import { redirect } from "next/navigation";
-import { getActiveModelsLight, getUserSettings } from "@/actions/chat";
+import { listActiveModelsLight } from "@/lib/api/models";
+import { getUserSettings } from "@/lib/api/userSettings";
 import { cookies } from "next/headers";
 import { getWebSearchConfig } from "@api/websearch";
 import { getImageConfig } from "@api/image";
@@ -26,8 +27,8 @@ export default async function Page() {
 
   // Load data server-side for better performance (minimize DB and external calls)
   const [models, userSettings] = await Promise.all([
-    getActiveModelsLight(),
-    getUserSettings(),
+    listActiveModelsLight(),
+    session?.user?.id ? getUserSettings(session.user.id) : Promise.resolve({} as any),
   ]);
 
   // Load feature availability and user permissions on the server via API helpers

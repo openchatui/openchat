@@ -1,5 +1,6 @@
 import 'server-only'
 import db from '@/lib/db'
+import type { Prisma } from '@prisma/client'
 
 export interface CreateUserInput {
   email: string
@@ -48,6 +49,16 @@ export async function updateUserRole(userId: string, role: 'ADMIN' | 'USER') {
 
 export async function getUserCount() {
   return await db.user.count()
+}
+
+export async function getUserSettingsFromDb(userId: string): Promise<Record<string, unknown>> {
+  const user = await db.user.findUnique({ where: { id: userId }, select: { settings: true } })
+  return (user?.settings || {}) as Record<string, unknown>
+}
+
+export async function updateUserSettingsInDb(userId: string, settings: Record<string, unknown>): Promise<{ settings: Record<string, unknown>; updatedAt: string }> {
+  const updated = await db.user.update({ where: { id: userId }, data: { settings: settings as unknown as Prisma.InputJsonValue }, select: { settings: true, updatedAt: true } })
+  return { settings: (updated.settings || {}) as Record<string, unknown>, updatedAt: updated.updatedAt.toISOString() }
 }
 
 

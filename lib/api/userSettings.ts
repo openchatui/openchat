@@ -1,20 +1,23 @@
 import { z } from "zod"
 import { getJson, putJson } from "./http"
+import { absoluteUrl, httpFetch } from './http'
 
 const UserSettingsSchema = z.object({
   ui: z.object({
     pinned_models: z.array(z.string()).optional(),
+    models: z.array(z.string()).optional(),
   }).optional(),
 }).passthrough() // Allow other settings fields we don't care about here
 
 export type NormalizedUserSettings = {
-  ui: { pinned_models: string[] }
+  ui: { pinned_models: string[]; models: string[] }
 }
 
 // Normalizes settings response to a consistent shape
 function normalizeSettings(s: z.infer<typeof UserSettingsSchema>): NormalizedUserSettings {
-  const list = (s.ui?.pinned_models ?? []).filter((v): v is string => typeof v === "string")
-  return { ui: { pinned_models: list } }
+  const pinned = (s.ui?.pinned_models ?? []).filter((v): v is string => typeof v === "string")
+  const models = (s.ui?.models ?? []).filter((v): v is string => typeof v === "string")
+  return { ui: { pinned_models: pinned, models } }
 }
 
 // Gets user settings with pinned models
@@ -50,4 +53,18 @@ export async function unpinModels(userId: string, modelIdsToRemove: string[]): P
     },
   }
   await updateUserSettings(userId, next)
+}
+
+// Updates arbitrary settings object (server-side convenience)
+export async function updateUserSettingsRaw(userId: string, settings: Record<string, unknown>): Promise<{ settings: Record<string, unknown>; updatedAt: string }> {
+  const res = await httpFetch(absoluteUrl(`/api/v1/users/${encodeURIComponent(userId)}/settings`), {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(settings),
+  })
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}))
+    throw new Error((data as any)?.error || 'Failed to update settings')
+  }
+  return await res.json().catch(() => ({ settings: {}, updatedAt: new Date().toISOString() }))
 }
