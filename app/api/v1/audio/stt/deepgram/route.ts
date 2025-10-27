@@ -3,6 +3,37 @@ import db from '@/lib/db'
 import { auth } from '@/lib/auth'
 import { getEffectivePermissionsForUser } from '@/lib/modules/access-control/permissions.service';
 
+/**
+ * @swagger
+ * /api/v1/audio/stt/deepgram:
+ *   post:
+ *     tags: [Audio]
+ *     summary: Speech-to-Text using Deepgram (proxy)
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               file:
+ *                 type: string
+ *                 format: binary
+ *               model:
+ *                 type: string
+ *                 default: nova-2
+ *     responses:
+ *       200:
+ *         description: Transcription result
+ *       400:
+ *         description: Missing file or Deepgram not configured
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: STT not enabled
+ *       500:
+ *         description: Failed to transcribe audio
+ */
 export async function POST(request: NextRequest) {
   try {
     const session = await auth()

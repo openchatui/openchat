@@ -11,7 +11,7 @@ const ParamsSchema = z.object({ id: z.string().min(1) })
  * @swagger
  * /api/v1/drive/file/{id}/trash:
  *   patch:
- *     tags: [Tools]
+ *     tags: [Drive]
  *     summary: Move a file to Trash
  *     security:
  *       - BearerAuth: []

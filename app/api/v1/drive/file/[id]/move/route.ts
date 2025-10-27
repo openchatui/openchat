@@ -12,7 +12,7 @@ const BodySchema = z.object({
  * @swagger
  * /api/v1/drive/file/{id}/move:
  *   patch:
- *     tags: [Tools]
+ *     tags: [Drive]
  *     summary: Move a file to a new parent
  *     security:
  *       - BearerAuth: []

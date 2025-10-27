@@ -4,6 +4,34 @@ import { getGoogleDriveFileStream } from '@/lib/modules/drive/providers/google-d
 import { Readable } from 'stream'
 import db from '@/lib/db'
 
+/**
+ * @swagger
+ * /api/v1/drive/file/{id}/download:
+ *   get:
+ *     tags: [Drive]
+ *     summary: Download a Google Drive file
+ *     description: Returns file bytes as an attachment. If the file is shared and not directly downloadable, returns a Drive link with 403.
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: File bytes
+ *         content:
+ *           application/octet-stream:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Shared file requires Drive link
+ *       500:
+ *         description: Failed to download file
+ */
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ fileId: string }> }

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import db from '@/lib/db'
+import { getVideoConfigData, updateVideoConfigData } from '@/lib/db/video.db'
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -82,18 +82,13 @@ export async function PUT(req: NextRequest) {
 
     const incoming = input.data.video
 
-    const existing = await db.config.findUnique({ where: { id: 1 } })
-    const currentData = (existing?.data || {}) as Record<string, unknown>
+    const currentData = (await getVideoConfigData()) as Record<string, unknown>
     const currentVideo = isPlainObject((currentData as any).video) ? (currentData as any).video : {}
 
     const mergedVideo = deepMerge(currentVideo, incoming)
     const nextData = { ...currentData, video: mergedVideo }
 
-    const result = existing
-      ? await db.config.update({ where: { id: 1 }, data: { data: nextData } })
-      : await db.config.create({ data: { id: 1, data: nextData } })
-
-    const data = result.data as any
+    const data = (await updateVideoConfigData(nextData)) as any
     const video = isPlainObject(data.video) ? (data.video as any) : {}
     return NextResponse.json({
       video: {

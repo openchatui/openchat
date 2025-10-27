@@ -62,6 +62,38 @@ function filterElevenLabs(input: any) {
   return out
 }
 
+/**
+ * @swagger
+ * /api/v1/connections/config/update:
+ *   put:
+ *     tags: [Connections]
+ *     summary: Upsert connections configuration
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               connections:
+ *                 type: object
+ *                 properties:
+ *                   openai:
+ *                     type: object
+ *                   ollama:
+ *                     type: object
+ *                   deepgram:
+ *                     type: object
+ *                   elevenlabs:
+ *                     type: object
+ *     responses:
+ *       200:
+ *         description: Updated connections config
+ *       400:
+ *         description: Validation error
+ *       500:
+ *         description: Failed to update connections config
+ */
 // PUT /api/v1/connections/config/update - upsert connections config
 export async function PUT(request: NextRequest) {
   try {

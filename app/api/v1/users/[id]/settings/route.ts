@@ -9,7 +9,7 @@ export const runtime = 'nodejs'
  * @swagger
  * /api/v1/users/{id}/settings:
  *   get:
- *     tags: [Authentication]
+ *     tags: [Users]
  *     summary: Get user settings
  *     security:
  *       - BearerAuth: []
@@ -29,7 +29,7 @@ export const runtime = 'nodejs'
  *       500:
  *         description: Internal server error
  *   put:
- *     tags: [Authentication]
+ *     tags: [Users]
  *     summary: Update user settings
  *     security:
  *       - BearerAuth: []

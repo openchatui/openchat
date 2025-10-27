@@ -12,7 +12,7 @@ const ParamsSchema = z.object({ id: z.string().min(1) })
  * @swagger
  * /api/v1/drive/folder/{id}/restore:
  *   patch:
- *     tags: [Tools]
+ *     tags: [Drive]
  *     summary: Restore a folder from Trash
  *     security:
  *       - BearerAuth: []

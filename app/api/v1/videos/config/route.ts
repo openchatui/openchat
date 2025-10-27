@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import db from '@/lib/db'
+import { getVideoConfigData } from '@/lib/db/video.db'
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -14,17 +14,31 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
  *     responses:
  *       200:
  *         description: Current video configuration
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 video:
+ *                   type: object
+ *                   properties:
+ *                     enabled:
+ *                       type: boolean
+ *                     provider:
+ *                       type: string
+ *                       enum: [openai]
+ *                     openai:
+ *                       type: object
+ *                       properties:
+ *                         model: { type: string }
+ *                         size: { type: string }
+ *                         seconds: { type: integer }
  *       500:
  *         description: Failed to fetch video config
  */
 export async function GET() {
   try {
-    let config = await db.config.findUnique({ where: { id: 1 } })
-    if (!config) {
-      config = await db.config.create({ data: { id: 1, data: {} } })
-    }
-
-    const data = (config.data || {}) as any
+    const data = (await getVideoConfigData()) as any
     const video = isPlainObject(data.video) ? (data.video as any) : {}
 
     const enabled = Boolean(video.enabled)

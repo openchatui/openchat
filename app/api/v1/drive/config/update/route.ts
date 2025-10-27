@@ -20,7 +20,7 @@ const BodySchema = z.object({
  * @swagger
  * /api/v1/drive/config/update:
  *   put:
- *     tags: [Admin]
+ *     tags: [Drive]
  *     summary: Update drive configuration
  *     requestBody:
  *       required: true

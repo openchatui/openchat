@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import db from '@/lib/db'
+import { findUserByEmail, findUserById, createUserWithIdAdmin } from '@/lib/db/users.db'
 import { fetchToken, isAdminToken, isSameOrigin } from '@/lib/auth/authz'
 import { z } from 'zod'
 
@@ -11,9 +11,9 @@ const reverseRoleMap = {
 
 /**
  * @swagger
- * /api/users/{id}/new:
+ * /api/v1/users/{id}/new:
  *   post:
- *     tags: [Admin]
+ *     tags: [Users]
  *     summary: Create a new user with a specific ID
  *     security:
  *       - BearerAuth: []
@@ -84,12 +84,12 @@ export async function POST(
     const { id } = Params.parse(await params)
     const { name, email, password, role = 'user' } = Body.parse(await request.json())
 
-    const existingById = await db.user.findUnique({ where: { id } })
+    const existingById = await findUserById(id)
     if (existingById) {
       return NextResponse.json({ error: 'User with this id already exists' }, { status: 409 })
     }
 
-    const existingByEmail = await db.user.findUnique({ where: { email } })
+    const existingByEmail = await findUserByEmail(email)
     if (existingByEmail) {
       return NextResponse.json({ error: 'User with this email already exists' }, { status: 409 })
     }
@@ -100,23 +100,12 @@ export async function POST(
       hashedPassword = await bcrypt.hash(password, 12)
     }
 
-    const created = await db.user.create({
-      data: {
-        id,
-        name,
-        email,
-        hashedPassword,
-        role: reverseRoleMap[role as keyof typeof reverseRoleMap] || 'USER'
-      },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        image: true,
-        createdAt: true,
-        updatedAt: true
-      }
+    const created = await createUserWithIdAdmin({
+      id,
+      name,
+      email,
+      hashedPassword,
+      role: reverseRoleMap[role as keyof typeof reverseRoleMap] || 'USER'
     })
 
     return NextResponse.json({

@@ -1,19 +1,65 @@
 import { NextResponse } from 'next/server'
-import db from '@/lib/db'
+import { getWebsearchConfigData } from '@/lib/db/websearch.db'
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
+/**
+ * @swagger
+ * /api/v1/websearch/config:
+ *   get:
+ *     tags: [Admin]
+ *     summary: Get websearch configuration
+ *     responses:
+ *       200:
+ *         description: Current websearch configuration
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 websearch:
+ *                   type: object
+ *                   properties:
+ *                     ENABLED:
+ *                       type: boolean
+ *                     ENABLED_BY_DEFAULT:
+ *                       type: boolean
+ *                     SYSTEM_PROMPT:
+ *                       type: string
+ *                       nullable: true
+ *                     PROVIDER:
+ *                       type: string
+ *                       enum: [browserless, googlepse]
+ *                     googlepse:
+ *                       type: object
+ *                       properties:
+ *                         apiKey:
+ *                           type: string
+ *                         engineId:
+ *                           type: string
+ *                         resultCount:
+ *                           type: integer
+ *                         domainFilters:
+ *                           type: array
+ *                           items:
+ *                             type: string
+ *                     browserless:
+ *                       type: object
+ *                       properties:
+ *                         apiKey:
+ *                           type: string
+ *                     ENV_SYSTEM_PROMPT:
+ *                       type: string
+ *                       nullable: true
+ *       500:
+ *         description: Failed to fetch websearch config
+ */
 // GET /api/v1/websearch/config - returns websearch config
 export async function GET() {
   try {
-    let config = await db.config.findUnique({ where: { id: 1 } })
-    if (!config) {
-      config = await db.config.create({ data: { id: 1, data: {} } })
-    }
-
-    const data = (config.data || {}) as any
+    const data = (await getWebsearchConfigData()) as any
     const websearch = isPlainObject(data.websearch) ? (data.websearch as any) : {}
     const ENABLED = Boolean(websearch.ENABLED)
     const ENABLED_BY_DEFAULT = Boolean(websearch.ENABLED_BY_DEFAULT)

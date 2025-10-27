@@ -19,6 +19,36 @@ function deepMerge(target: any, source: any): any {
   return source
 }
 
+/**
+ * @swagger
+ * /api/v1/tasks/config/update:
+ *   put:
+ *     tags: [Tools]
+ *     summary: Update tasks configuration
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               tasks:
+ *                 type: object
+ *                 properties:
+ *                   TASK_MODEL:
+ *                     type: string
+ *                   TITLE_PROMPT:
+ *                     type: string
+ *                   TAGS_PROMPT:
+ *                     type: string
+ *     responses:
+ *       200:
+ *         description: Updated subset of tasks config
+ *       400:
+ *         description: Invalid payload
+ *       500:
+ *         description: Failed to update tasks config
+ */
 // PUT /api/v1/tasks/config/update - upsert tasks config
 export async function PUT(request: NextRequest) {
   try {

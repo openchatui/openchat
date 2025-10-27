@@ -19,6 +19,29 @@ function deepMerge(target: any, source: any): any {
   return source
 }
 
+/**
+ * @swagger
+ * /api/v1/audio/config/update:
+ *   put:
+ *     tags: [Audio]
+ *     summary: Update audio configuration
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               audio:
+ *                 type: object
+ *     responses:
+ *       200:
+ *         description: Updated audio config subset
+ *       400:
+ *         description: Invalid payload
+ *       500:
+ *         description: Failed to update audio config
+ */
 // PUT /api/v1/audio/config/update - upsert audio config
 export async function PUT(request: NextRequest) {
   try {

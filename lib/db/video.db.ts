@@ -1,51 +1,58 @@
 import 'server-only'
 import db from '@/lib/db'
-import type { VideoConfig, VideoProvider, OpenAIVideoConfig } from '@/types/video.types'
+import type { Prisma } from '@prisma/client'
 
-async function ensureConfigRow(): Promise<{ data: Record<string, unknown> }> {
-  let row = await db.config.findUnique({ where: { id: 1 } })
-  if (!row) row = await db.config.create({ data: { id: 1, data: {} } })
-  return { data: (row.data || {}) as Record<string, unknown> }
-}
-
-export async function getVideoConfigFromDb(): Promise<VideoConfig> {
-  const { data } = await ensureConfigRow()
-  const raw = (data.video || {}) as Record<string, unknown>
-  const enabled = typeof raw.enabled === 'boolean' ? (raw.enabled as boolean) : false
-  const provider: VideoProvider = raw.provider === 'openai' ? 'openai' : 'openai'
-  const o = (raw.openai || {}) as Record<string, unknown>
-  const openai: OpenAIVideoConfig = {
-    model: typeof o.model === 'string' ? (o.model as string) : 'sora-2-pro',
-    size: typeof o.size === 'string' ? (o.size as string) : '1280x720',
-    seconds: Number.isFinite(o.seconds as number) ? Number(o.seconds as number) : 4,
+export async function getVideoConfigData(): Promise<Record<string, unknown>> {
+  let config = await db.config.findUnique({ where: { id: 1 } })
+  if (!config) {
+    config = await db.config.create({ data: { id: 1, data: {} } })
   }
-  return { enabled, provider, openai }
+  return (config.data || {}) as Record<string, unknown>
 }
 
-export async function updateVideoConfigInDb(partial: Partial<VideoConfig>): Promise<VideoConfig> {
-  const { data } = await ensureConfigRow()
-  const current = await getVideoConfigFromDb()
+export async function updateVideoConfigData(nextData: Record<string, unknown>): Promise<Record<string, unknown>> {
+  const json: Prisma.InputJsonValue = JSON.parse(JSON.stringify(nextData)) as Prisma.InputJsonValue
+  const existing = await db.config.findUnique({ where: { id: 1 } })
+  const result = existing
+    ? await db.config.update({ where: { id: 1 }, data: { data: json } })
+    : await db.config.create({ data: { id: 1, data: json } })
+  return (result.data || {}) as Record<string, unknown>
+}
 
-  const next: VideoConfig = {
-    enabled: typeof partial.enabled === 'boolean' ? partial.enabled : current.enabled,
-    provider: (partial.provider || current.provider || 'openai') as VideoProvider,
-    openai: {
-      model: partial.openai?.model ?? current.openai.model,
-      size: partial.openai?.size ?? current.openai.size,
-      seconds: typeof partial.openai?.seconds === 'number' ? partial.openai.seconds : current.openai.seconds,
+export interface CreateUserFileInput {
+  id: string
+  userId: string
+  parentId: string
+  filename: string
+  dbPath: string
+  createdAt: number
+  updatedAt: number
+  hash?: string | null
+  meta?: Record<string, unknown>
+  data?: unknown
+}
+
+export async function createUserFileRecord(input: CreateUserFileInput): Promise<void> {
+  const metaJson: Prisma.InputJsonValue | undefined = input.meta !== undefined
+    ? (JSON.parse(JSON.stringify(input.meta)) as Prisma.InputJsonValue)
+    : undefined
+  const dataJson: Prisma.InputJsonValue | undefined = input.data !== undefined
+    ? (JSON.parse(JSON.stringify(input.data)) as Prisma.InputJsonValue)
+    : undefined
+
+  await db.file.create({
+    data: {
+      id: input.id,
+      userId: input.userId,
+      parentId: input.parentId,
+      filename: input.filename,
+      meta: metaJson,
+      createdAt: input.createdAt,
+      updatedAt: input.updatedAt,
+      hash: input.hash ?? null,
+      data: dataJson,
+      path: input.dbPath,
     },
-  }
-
-  const nextData: Record<string, unknown> = {
-    ...data,
-    video: {
-      enabled: next.enabled,
-      provider: next.provider,
-      openai: { model: next.openai.model, size: next.openai.size, seconds: next.openai.seconds },
-    },
-  }
-  await db.config.update({ where: { id: 1 }, data: { data: nextData as any } })
-  return next
+  })
 }
-
 

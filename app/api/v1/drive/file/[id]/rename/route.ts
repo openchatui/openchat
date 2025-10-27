@@ -10,7 +10,7 @@ const BodySchema = z.object({ filename: z.string().min(1).max(255) })
  * @swagger
  * /api/v1/drive/file/{id}/rename:
  *   patch:
- *     tags: [Tools]
+ *     tags: [Drive]
  *     summary: Rename a file
  *     security:
  *       - BearerAuth: []

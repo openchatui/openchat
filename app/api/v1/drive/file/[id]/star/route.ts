@@ -10,7 +10,7 @@ const BodySchema = z.object({ starred: z.boolean() })
  * @swagger
  * /api/v1/drive/file/{id}/star:
  *   patch:
- *     tags: [Tools]
+ *     tags: [Drive]
  *     summary: Star or unstar a file
  *     security:
  *       - BearerAuth: []

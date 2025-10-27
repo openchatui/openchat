@@ -274,7 +274,7 @@ export function CollaborativeEditor({ documentId, user, token, className, chrome
       pushTimer = setTimeout(async () => {
         try {
           const html = editor.getHTML()
-          const res = await fetch(`/api/v1/drive/file/sync/${encodeURIComponent(documentId)}`, {
+          const res = await fetch(`/api/v1/drive/file/${encodeURIComponent(documentId)}/sync`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ html }),
@@ -290,10 +290,10 @@ export function CollaborativeEditor({ documentId, user, token, className, chrome
     const poll = async () => {
       if (cancelled) return
       try {
-        const meta = await fetch(`/api/v1/drive/file/sync/${encodeURIComponent(documentId)}?mode=meta`).then(r => r.json()).catch(() => null) as any
+        const meta = await fetch(`/api/v1/drive/file/${encodeURIComponent(documentId)}/sync?mode=meta`).then(r => r.json()).catch(() => null) as any
         const modifiedMs = meta && typeof meta.modifiedMs === 'number' ? meta.modifiedMs : null
         if (modifiedMs && modifiedMs > lastPushMs + 1500) {
-          const html = await fetch(`/api/v1/drive/file/sync/${encodeURIComponent(documentId)}?mode=html`).then(r => r.text()).catch(() => '')
+          const html = await fetch(`/api/v1/drive/file/${encodeURIComponent(documentId)}/sync?mode=html`).then(r => r.text()).catch(() => '')
           if (html && html.length > 0) {
             const now = Date.now()
             const recentEdit = now - lastEditMs < 3000

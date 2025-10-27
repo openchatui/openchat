@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import db from '@/lib/db'
+import { getPinnedModels, setPinnedModels } from '@/lib/db/users.db'
 import { fetchToken, isOwnerOrAdmin, isSameOrigin } from '@/lib/auth/authz'
 import { z } from 'zod'
 
@@ -9,7 +9,7 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 
 /**
  * @swagger
- * /api/users/{id}/settings/pinned:
+ * /api/v1/users/{id}/settings/pinned:
  *   get:
  *     tags: [Users]
  *     summary: Get a user's pinned model ids
@@ -85,16 +85,10 @@ export async function GET(
     if (!isOwnerOrAdmin(token, id)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
-    const user = await db.user.findUnique({ where: { id }, select: { settings: true } })
-    if (!user) {
+    const pinned = await getPinnedModels(id).catch(() => null)
+    if (!pinned) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
-    const settings = (user.settings || {}) as Record<string, unknown>
-    const uiRaw = isPlainObject(settings.ui) ? (settings.ui as Record<string, unknown>) : {}
-    const pinnedRaw = (uiRaw as Record<string, unknown>)['pinned_models']
-    const pinned = Array.isArray(pinnedRaw)
-      ? pinnedRaw.filter((v): v is string => typeof v === 'string')
-      : []
     return NextResponse.json({ ui: { pinned_models: pinned } })
   } catch (error) {
     console.error('GET /api/users/[id]/settings/pinned error:', error)
@@ -122,10 +116,6 @@ export async function PUT(
     if (!isOwnerOrAdmin(token, id)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
-    const user = await db.user.findUnique({ where: { id }, select: { settings: true } })
-    if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 })
-    }
 
     const Body = z.object({
       modelIds: z.array(z.string()).max(200).optional(),
@@ -144,28 +134,9 @@ export async function PUT(
       return NextResponse.json({ error: 'modelIds must be an array of strings' }, { status: 400 })
     }
 
-    const currentSettings = (user?.settings || {}) as Record<string, unknown>
-    const currentUi = isPlainObject(currentSettings.ui) ? (currentSettings.ui as Record<string, unknown>) : {}
-
-    const existingPinnedRaw = (currentUi as Record<string, unknown>)['pinned_models']
-    const existingPinned = Array.isArray(existingPinnedRaw)
-      ? existingPinnedRaw.filter((v): v is string => typeof v === 'string')
-      : []
-    const merged = Array.from(new Set([...
-      existingPinned,
-      ...modelIds
-    ]))
-
-    const nextSettings = {
-      ...currentSettings,
-      ui: {
-        ...currentUi,
-        pinned_models: merged,
-      },
-    }
-
-    await db.user.update({ where: { id }, data: { settings: nextSettings } })
-
+    const existingPinned = await getPinnedModels(id)
+    const merged = Array.from(new Set([...existingPinned, ...modelIds]))
+    await setPinnedModels(id, merged)
     return NextResponse.json({ ui: { pinned_models: merged } })
   } catch (error) {
     console.error('PUT /api/users/[id]/settings/pinned error:', error)

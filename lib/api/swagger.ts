@@ -44,13 +44,16 @@ export async function getApiDocs(): Promise<OpenAPISpec> {
         },
       ],
       tags: [
-        { name: 'Authentication', description: 'User authentication and session management' },
         { name: 'API Keys', description: 'API key management for programmatic access' },
         { name: 'Chats', description: 'Chat creation, messaging, and management' },
         { name: 'Models', description: 'AI model management and configuration' },
         { name: 'Tools', description: 'Tool integration and execution' },
         { name: 'Admin', description: 'Administrative functions and system management' },
         { name: 'Connections', description: 'Provider connections and configuration' },
+        { name: 'Users', description: 'User management and profile operations' },
+        { name: 'Drive', description: 'Drive features: files, folders, sync, downloads' },
+        { name: 'Ollama', description: 'Local model management and operations via Ollama' },
+        { name: 'Audio', description: 'Audio TTS/STT and configuration' },
       ],
       components: {
         securitySchemes: {

@@ -48,8 +48,8 @@ export function MoveItemDialog({
     setError(null);
     try {
       const url = parent
-        ? `/api/v1/drive/folder/list?parent=${encodeURIComponent(parent)}`
-        : `/api/v1/drive/folder/list`;
+        ? `/api/v1/drive/folder?parent=${encodeURIComponent(parent)}`
+        : `/api/v1/drive/folder`;
       const res = await fetch(url, { cache: "no-store" });
       if (!res.ok) throw new Error("Failed to load");
       const data = await res.json();

@@ -14,7 +14,7 @@ const BodySchema = z.object({
  * @swagger
  * /api/v1/drive/folder/move-bulk:
  *   post:
- *     tags: [Tools]
+ *     tags: [Drive]
  *     summary: Bulk move folders and files to a new parent
  *     security:
  *       - BearerAuth: []

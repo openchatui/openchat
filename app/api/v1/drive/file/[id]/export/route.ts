@@ -8,6 +8,35 @@ import {
 import { Readable } from 'stream'
 import db from '@/lib/db'
 
+/**
+ * @swagger
+ * /api/v1/drive/file/{id}/export:
+ *   get:
+ *     tags: [Drive]
+ *     summary: Export a Google Workspace file to a downloadable format
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Exported file stream
+ *         content:
+ *           application/octet-stream:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *       400:
+ *         description: Invalid file type for export
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: File not found
+ *       500:
+ *         description: Failed to export file
+ */
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ fileId: string }> }

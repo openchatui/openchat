@@ -1,13 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
-import db from '@/lib/db'
 import { ProviderService } from '@/lib/modules/ai/providers/provider.service'
 import OpenAI from 'openai'
-import { getRootFolderId } from '@/lib/modules/drive'
-import { LOCAL_BASE_DIR } from '@/lib/modules/drive/providers/local.service'
-import { mkdir, writeFile, rename } from 'fs/promises'
-import path from 'path'
-import { randomUUID, createHash } from 'crypto'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'

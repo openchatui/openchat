@@ -11,6 +11,34 @@ import { PassThrough, Readable } from 'stream'
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
+/**
+ * @swagger
+ * /api/v1/drive/folder/download:
+ *   get:
+ *     tags: [Drive]
+ *     summary: Download a folder (and subfolders) as a ZIP archive
+ *     parameters:
+ *       - in: query
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Folder ID to download
+ *     responses:
+ *       200:
+ *         description: ZIP archive of the requested folder
+ *         content:
+ *           application/zip:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *       400:
+ *         description: Missing or invalid id
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Failed to create zip
+ */
 async function pathExists(filePath: string): Promise<boolean> {
   try {
     const s = await stat(filePath)

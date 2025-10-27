@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import db from '@/lib/db'
+import { listUsersForAdmin, createUserAdmin, findUserByEmail } from '@/lib/db/users.db'
 import type { User } from '@/types/user.types'
 import { fetchToken, isAdminToken, isSameOrigin } from '@/lib/auth/authz'
 import { z } from 'zod'
@@ -18,9 +18,9 @@ const reverseRoleMap = {
 
 /**
  * @swagger
- * /api/users:
+ * /api/v1/users:
  *   get:
- *     tags: [Admin]
+ *     tags: [Users]
  *     summary: List all users
  *     security:
  *       - BearerAuth: []
@@ -34,7 +34,7 @@ const reverseRoleMap = {
  *       500:
  *         description: Failed to fetch users
  *   post:
- *     tags: [Admin]
+ *     tags: [Users]
  *     summary: Create a new user
  *     security:
  *       - BearerAuth: []
@@ -81,35 +81,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
     // Fetch all users with their accounts (for OAuth ID)
-    const dbUsers = await db.user.findMany({
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        image: true,
-        createdAt: true,
-        updatedAt: true,
-        accounts: {
-          select: {
-            providerAccountId: true,
-            provider: true
-          }
-        },
-        sessions: {
-          select: {
-            expires: true
-          },
-          orderBy: {
-            expires: 'desc'
-          },
-          take: 1
-        }
-      },
-      orderBy: {
-        createdAt: 'desc'
-      }
-    })
+    const dbUsers = await listUsersForAdmin()
 
     // Transform the data to match our frontend User interface
     const users: User[] = dbUsers.map(dbUser => {
@@ -174,9 +146,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const { name, email, password, role = 'user', userGroup = 'default' } = Body.parse(await request.json())
 
     // Check if user already exists
-    const existingUser = await db.user.findUnique({
-      where: { email }
-    })
+    const existingUser = await findUserByEmail(email)
 
     if (existingUser) {
       return NextResponse.json(
@@ -193,27 +163,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     // Create user
-    const newUser = await db.user.create({
-      data: {
-        name,
-        email,
-        hashedPassword,
-        role: reverseRoleMap[role as keyof typeof reverseRoleMap] || 'USER'
-      },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        image: true,
-        createdAt: true,
-        updatedAt: true,
-        accounts: {
-          select: {
-            providerAccountId: true
-          }
-        }
-      }
+    const newUser = await createUserAdmin({
+      name,
+      email,
+      hashedPassword,
+      role: reverseRoleMap[role as keyof typeof reverseRoleMap] || 'USER'
     })
 
     // Transform response to match frontend format

@@ -5,7 +5,7 @@ import { getDriveConfigFromDb } from '@/lib/db/drive.db'
  * @swagger
  * /api/v1/drive/config:
  *   get:
- *     tags: [Admin]
+ *     tags: [Drive]
  *     summary: Get drive configuration
  *     responses:
  *       200:

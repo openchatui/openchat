@@ -16,6 +16,62 @@ async function streamToString(stream: NodeJS.ReadableStream): Promise<string> {
   });
 }
 
+/**
+ * @swagger
+ * /api/v1/drive/file/{id}/sync:
+ *   get:
+ *     tags: [Drive]
+ *     summary: Get Google Drive file metadata or HTML export
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: mode
+ *         required: false
+ *         schema:
+ *           type: string
+ *           enum: [meta, html]
+ *         description: meta returns modifiedMs JSON; html returns text/html body
+ *     responses:
+ *       200:
+ *         description: Metadata JSON or HTML content
+ *       400:
+ *         description: Invalid parameters
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Failed to sync
+ *   post:
+ *     tags: [Drive]
+ *     summary: Update a Google Doc from provided HTML
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               html:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Update accepted
+ *       400:
+ *         description: Validation error
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Failed to sync
+ */
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ fileId: string }> }

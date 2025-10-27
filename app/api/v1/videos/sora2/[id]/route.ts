@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { ProviderService } from '@/lib/modules/ai/providers/provider.service'
 import OpenAI from 'openai'
-import db from '@/lib/db'
+import { createUserFileRecord } from '@/lib/db/video.db'
 import { getRootFolderId } from '@/lib/modules/drive'
 import { LOCAL_BASE_DIR } from '@/lib/modules/drive/providers/local.service'
 import { mkdir, writeFile, rename } from 'fs/promises'
@@ -153,19 +153,17 @@ export async function POST(_req: NextRequest, context: { params: Promise<{ id?: 
     const nowSec = Math.floor(Date.now() / 1000)
     const dbPath = `/data/files/${effectiveParentId}/${videoId}`
 
-    await db.file.create({
-      data: {
-        id,
-        userId,
-        parentId: effectiveParentId,
-        filename,
-        meta: { provider: 'openai', jobId: videoId },
-        createdAt: nowSec,
-        updatedAt: nowSec,
-        hash: sha,
-        data: {},
-        path: dbPath,
-      },
+    await createUserFileRecord({
+      id,
+      userId,
+      parentId: effectiveParentId,
+      filename,
+      dbPath,
+      createdAt: nowSec,
+      updatedAt: nowSec,
+      hash: sha,
+      meta: { provider: 'openai', jobId: videoId } as Record<string, unknown>,
+      data: {},
     })
 
     const url = `/files/${effectiveParentId}/${videoId}/${filename}`

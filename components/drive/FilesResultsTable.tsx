@@ -221,7 +221,7 @@ function getDownloadUrl(item: FileEntry): string {
     if (item.ownedByMe === false && item.webViewLink) {
       return item.webViewLink;
     }
-    return `/api/v1/drive/file/download/${encodeURIComponent(item.id)}`;
+    return `/api/v1/drive/file/${encodeURIComponent(item.id)}/download`;
   }
 
   // For local files, use the same URL as getFileUrl

@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import db from '@/lib/db'
 import { ApiAuthService } from '@/lib/auth/api-auth.service'
-import { getEffectivePermissionsForUser } from '@/lib/modules/access-control/permissions.service'
-import { filterModelsReadableByUser } from '@/lib/modules/access-control/model-access.service'
+import { listModelsReadableByUser } from '@/lib/db/models.db'
 
 /**
  * @swagger
@@ -26,16 +24,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const eff = await getEffectivePermissionsForUser(userId)
-    if (!eff.workspace.models) {
-      return NextResponse.json({ error: 'Models access disabled' }, { status: 403 })
-    }
-
-    // Load recent models and filter by access control
-    const modelsRaw = await db.model.findMany({
-      orderBy: { updatedAt: 'desc' },
-    })
-    const models = await filterModelsReadableByUser(userId, modelsRaw)
+    const models = await listModelsReadableByUser(userId)
 
     return NextResponse.json({
       models: models,

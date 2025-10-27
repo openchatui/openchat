@@ -72,7 +72,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
 /**
  * @swagger
- * /api/users/profile-image:
+ * /api/v1/users/profile-image:
  *   post:
  *     tags: [Users]
  *     summary: Upload a profile image for the current user

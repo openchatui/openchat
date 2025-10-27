@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { revalidatePath, revalidateTag } from 'next/cache'
-import db from '@/lib/db'
+import { updateUserGroups } from '@/lib/db/users.db'
 import { z } from 'zod'
 import { fetchToken, isAdminToken, isSameOrigin } from '@/lib/auth/authz'
 
@@ -28,7 +28,7 @@ function extractUserIds(value: unknown): string[] {
  * @swagger
  * /api/v1/users/{id}/groups:
  *   put:
- *     tags: [Admin]
+ *     tags: [Users]
  *     summary: Update a user's group memberships
  *     security:
  *       - BearerAuth: []
@@ -83,22 +83,7 @@ export async function PUT(
 
     const selectedGroupIds = Array.from(new Set(groupIds))
 
-    const groups = await db.group.findMany({ select: { id: true, userIds: true } })
-
-    await Promise.all(
-      groups.map(async (g) => {
-        const current = extractUserIds(g.userIds)
-        const shouldHave = selectedGroupIds.includes(g.id)
-        const hasNow = current.includes(userId)
-        let next = current
-        if (shouldHave && !hasNow) next = Array.from(new Set([...current, userId]))
-        if (!shouldHave && hasNow) next = current.filter((x) => x !== userId)
-        const changed = next.length !== current.length || next.some((v, i) => v !== current[i])
-        if (changed) {
-          await db.group.update({ where: { id: g.id }, data: { userIds: next } })
-        }
-      })
-    )
+    await updateUserGroups(userId, selectedGroupIds)
 
     revalidatePath('/admin/users')
     revalidateTag('admin-users')

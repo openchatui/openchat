@@ -82,7 +82,7 @@ export function PreviewDialog({ open, onOpenChange, name, url, mimeType, fileId 
   
   const previewUrl = useMemo(() => {
     if (kind === "google-workspace" && fileId) {
-      return `/api/v1/drive/file/export/${encodeURIComponent(fileId)}`
+      return `/api/v1/drive/file/${encodeURIComponent(fileId)}/export`
     }
     return url
   }, [kind, fileId, url])
