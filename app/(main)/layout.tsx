@@ -8,7 +8,7 @@ import { AppSidebar } from "@/components/sidebar/app-sidebar"
 import { SidebarProvider } from "@/components/ui/sidebar"
 import { getInitialChats } from "@/lib/api/chats"
 import { listActiveModelsLight } from "@/lib/api/models"
-import { getUserSettings } from "@/lib/api/userSettings"
+import { getUserSettings, getUserSettingsRaw } from "@/lib/api/userSettings"
 import { IntegrationsProvider } from "@/components/providers/IntegrationsProvider"
 
 export default async function MainLayout({
@@ -36,10 +36,11 @@ export default async function MainLayout({
 
   // Load all sidebar data upfront - this ensures sidebar renders immediately without Suspense
   const userId = session?.user?.id
-  const [initialChats, models, userSettings] = await Promise.all([
+  const [initialChats, models, userSettings, rawSettings] = await Promise.all([
     getInitialChats(),
     listActiveModelsLight(),
     userId ? getUserSettings(userId).catch(() => ({} as Record<string, any>)) : Promise.resolve({} as Record<string, any>),
+    userId ? getUserSettingsRaw(userId).catch(() => ({} as Record<string, any>)) : Promise.resolve({} as Record<string, any>),
   ])
 
   const pinnedIds: string[] = Array.isArray((userSettings as any)?.ui?.pinned_models)
@@ -56,7 +57,7 @@ export default async function MainLayout({
         pinnedModels={pinnedModels} 
         timeZone={timeZone} 
       />
-      <IntegrationsProvider initial={{ integrations: (userSettings as any)?.integrations }}>
+      <IntegrationsProvider initial={{ integrations: (rawSettings as any)?.integrations }}>
         {children}
       </IntegrationsProvider>
     </SidebarProvider>

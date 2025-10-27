@@ -9,10 +9,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  renameFileSubmitAction,
-  renameFolderSubmitAction,
-} from "@/actions/files";
+import { renameFolder, renameFile } from "@/lib/api/drive";
 
 interface RenameItemDialogProps {
   open: boolean;
@@ -40,9 +37,9 @@ export function RenameItemDialog({
 
   async function onConfirm(formData: FormData) {
     if (itemType === "folder") {
-      await renameFolderSubmitAction(formData);
+      await renameFolder({ id: itemId, name });
     } else {
-      await renameFileSubmitAction(formData);
+      await renameFile({ id: itemId, filename: name });
     }
     onOpenChange(false);
   }

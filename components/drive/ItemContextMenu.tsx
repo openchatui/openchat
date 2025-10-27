@@ -19,10 +19,7 @@ import {
   MoreVertical,
 } from "lucide-react";
 import { TrashButton } from "./TrashButton";
-import {
-  moveFolderToTrashSubmitAction,
-  moveFileToTrashSubmitAction,
-} from "@/actions/files";
+import { moveFolderToTrash, moveFileToTrash } from "@/lib/api/drive";
 import { Button } from "@/components/ui/button";
 
 interface ItemContextMenuProps {
@@ -56,7 +53,7 @@ export function ItemContextMenu({
     if (onDownload) return onDownload();
     try {
       if (itemType === "folder") {
-        const url = `/api/folders/download?id=${encodeURIComponent(itemId)}`;
+        const url = `/api/v1/drive/folder/download?id=${encodeURIComponent(itemId)}`;
         const a = document.createElement("a");
         a.href = url;
         a.download = "";
@@ -172,14 +169,18 @@ export function ItemContextMenu({
         {itemType === "folder" ? (
           <TrashButton
             asMenuItem
-            formAction={moveFolderToTrashSubmitAction}
-            hiddenFields={{ folderId: itemId }}
+            onConfirm={async () => {
+              await moveFolderToTrash({ id: itemId })
+              onTrash?.()
+            }}
           />
         ) : (
           <TrashButton
             asMenuItem
-            formAction={moveFileToTrashSubmitAction}
-            hiddenFields={{ fileId: itemId }}
+            onConfirm={async () => {
+              await moveFileToTrash({ id: itemId })
+              onTrash?.()
+            }}
           />
         )}
       </ContextMenuContent>

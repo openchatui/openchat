@@ -10,11 +10,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import {
-  moveFileSubmitAction,
-  moveFolderSubmitAction,
-  moveItemsSubmitAction,
-} from "@/actions/files";
+import { moveFile, moveFolder, moveItemsBulk } from "@/lib/api/drive";
 import { ArrowLeft, ChevronRight } from "lucide-react";
 
 interface MoveItemDialogProps {
@@ -52,8 +48,8 @@ export function MoveItemDialog({
     setError(null);
     try {
       const url = parent
-        ? `/api/folders/list?parent=${encodeURIComponent(parent)}`
-        : `/api/folders/list`;
+        ? `/api/v1/drive/folder/list?parent=${encodeURIComponent(parent)}`
+        : `/api/v1/drive/folder/list`;
       const res = await fetch(url, { cache: "no-store" });
       if (!res.ok) throw new Error("Failed to load");
       const data = await res.json();
@@ -98,23 +94,19 @@ export function MoveItemDialog({
     // Bulk move when bulkItems provided
     if (bulkItems && bulkItems.length > 0) {
       const targetParentId = String(formData.get("targetParentId") ?? "");
-      const fd = new FormData();
-      fd.set("targetParentId", targetParentId);
-      for (const it of bulkItems) {
-        if (it.isDirectory) fd.append("folderIds", it.id);
-        else fd.append("fileIds", it.id);
-      }
-      await moveItemsSubmitAction(fd);
+      const folderIds = bulkItems.filter(it => it.isDirectory).map(it => it.id)
+      const fileIds = bulkItems.filter(it => !it.isDirectory).map(it => it.id)
+      await moveItemsBulk({ targetParentId, folderIds, fileIds })
       onOpenChange(false);
       router.refresh();
       return;
     }
-    if (itemType === "folder") {
-      await moveFolderSubmitAction(formData);
-    } else {
-      await moveFileSubmitAction(formData);
-    }
+    const targetParentId = String(formData.get("targetParentId") ?? "");
+    const id = String(formData.get(idFieldName) ?? "");
+    if (itemType === "folder") await moveFolder({ id, targetParentId });
+    else await moveFile({ id, targetParentId });
     onOpenChange(false);
+    router.refresh();
   }
 
   const displayName = itemName || (itemType === "folder" ? "Folder" : "File");

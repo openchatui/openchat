@@ -68,3 +68,19 @@ export async function updateUserSettingsRaw(userId: string, settings: Record<str
   }
   return await res.json().catch(() => ({ settings: {}, updatedAt: new Date().toISOString() }))
 }
+
+// Gets the raw user settings object (including integrations)
+export async function getUserSettingsRaw(userId: string): Promise<Record<string, unknown>> {
+  const res = await httpFetch(absoluteUrl(`/api/v1/users/${encodeURIComponent(userId)}/settings`), {
+    method: 'GET',
+    headers: { 'Accept': 'application/json' },
+  })
+  if (!res.ok) {
+    return {}
+  }
+  try {
+    return await res.json()
+  } catch {
+    return {}
+  }
+}

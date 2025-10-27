@@ -44,14 +44,14 @@ const RenameItemDialog = dynamic(() =>
   import("./RenameItemDialog").then((m) => m.RenameItemDialog)
 );
 import {
-  restoreFolderFromTrashSubmitAction,
-  moveFolderToTrashSubmitAction,
-  moveFileToTrashSubmitAction,
-  restoreFileFromTrashSubmitAction,
-  moveItemsSubmitAction,
-  setFileStarredSubmitAction,
-  setFolderStarredSubmitAction,
-} from "@/actions/files";
+  moveItemsBulk,
+  moveFolderToTrash,
+  moveFileToTrash,
+  restoreFolder,
+  restoreFile,
+  setFileStarred,
+  setFolderStarred,
+} from "@/lib/api/drive";
 import { Breadcrumbs } from "./Breadcrumbs";
 import {
   DndContext,
@@ -461,11 +461,7 @@ export function FilesResultsTable({
         else fileIds.push(id);
       }
       if (folderIds.length === 0 && fileIds.length === 0) return;
-      const form = new FormData();
-      form.set("targetParentId", targetParentId);
-      for (const id of folderIds) form.append("folderIds", id);
-      for (const id of fileIds) form.append("fileIds", id);
-      await moveItemsSubmitAction(form);
+      await moveItemsBulk({ targetParentId, folderIds, fileIds });
       router.refresh();
     } finally {
       setActiveId(null);
@@ -479,7 +475,7 @@ export function FilesResultsTable({
       disabled={parentName === "Trash"}
     >
       <div
-        className="w-full flex flex-col border p-4 rounded-2xl h-[90vh]"
+        className="flex flex-col border p-4 rounded-2xl h-[90vh] w-full"
         onClick={handleBackgroundClick}
       >
         {breadcrumb && breadcrumb.length > 0 && (
@@ -501,7 +497,7 @@ export function FilesResultsTable({
                 if (it.isDirectory) {
                   try {
                     const a = document.createElement("a");
-                    a.href = `/api/folders/download?id=${encodeURIComponent(
+                    a.href = `/api/v1/drive/folder/download?id=${encodeURIComponent(
                       it.id
                     )}`;
                     a.download = "";
@@ -547,14 +543,8 @@ export function FilesResultsTable({
               for (const id of ids) {
                 const it = idToItem.get(id);
                 if (!it) continue;
-                const fd = new FormData();
-                if (it.isDirectory) {
-                  fd.set("folderId", it.id);
-                  await moveFolderToTrashSubmitAction(fd);
-                } else {
-                  fd.set("fileId", it.id);
-                  await moveFileToTrashSubmitAction(fd);
-                }
+                if (it.isDirectory) await moveFolderToTrash({ id: it.id });
+                else await moveFileToTrash({ id: it.id });
               }
               router.refresh();
             }}
@@ -565,14 +555,8 @@ export function FilesResultsTable({
                     for (const id of ids) {
                       const it = idToItem.get(id);
                       if (!it) continue;
-                      const fd = new FormData();
-                      if (it.isDirectory) {
-                        fd.set("folderId", it.id);
-                        await restoreFolderFromTrashSubmitAction(fd);
-                      } else {
-                        fd.set("fileId", it.id);
-                        await restoreFileFromTrashSubmitAction(fd);
-                      }
+                      if (it.isDirectory) await restoreFolder({ id: it.id });
+                      else await restoreFile({ id: it.id });
                     }
                     router.refresh();
                   }
@@ -582,7 +566,7 @@ export function FilesResultsTable({
         ) : (
           <FiltersBar />
         )}
-        <Table className="table-fixed w-full">
+        <Table className="table-fixed w-full ">
           <colgroup>
             <col style={{ width: "45%" }} />
             <col style={{ width: "15%" }} />
@@ -658,19 +642,13 @@ export function FilesResultsTable({
                         return m;
                       });
                       try {
-                        if (item.isDirectory) {
-                          const fd = new FormData();
-                          fd.set("folderId", item.id);
-                          fd.set("starred", String(next));
-                          if (parentId) fd.set("currentFolderId", parentId);
-                          await setFolderStarredSubmitAction(fd);
-                        } else {
-                          const fd = new FormData();
-                          fd.set("fileId", item.id);
-                          fd.set("starred", String(next));
-                          if (parentId) fd.set("currentFolderId", parentId);
-                          await setFileStarredSubmitAction(fd);
-                        }
+                        if (item.isDirectory)
+                          await setFolderStarred({
+                            id: item.id,
+                            starred: next,
+                          });
+                        else
+                          await setFileStarred({ id: item.id, starred: next });
                       } catch {
                         // Revert on error
                         setStarredOverrides((prev) => {
@@ -702,14 +680,25 @@ export function FilesResultsTable({
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <form action={restoreFolderFromTrashSubmitAction} method="post">
-                <input
-                  type="hidden"
-                  name="folderId"
-                  value={restoreFolderId ?? ""}
-                />
-                <Button type="submit">Restore</Button>
-              </form>
+              <Button
+                onClick={async () => {
+                  if (!restoreFolderId) return;
+                  try {
+                    const { parentId } = await restoreFolder({
+                      id: restoreFolderId,
+                    });
+                    setRestoreFolderId(null);
+                    if (parentId)
+                      router.push(
+                        `/drive/folder/${encodeURIComponent(parentId)}`
+                      );
+                    else router.push(`/drive`);
+                    router.refresh();
+                  } catch {}
+                }}
+              >
+                Restore
+              </Button>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
@@ -934,7 +923,7 @@ function RowItem({
                 if (item.isDirectory) {
                   try {
                     const a = document.createElement("a");
-                    a.href = `/api/folders/download?id=${encodeURIComponent(
+                    a.href = `/api/v1/drive/folder/download?id=${encodeURIComponent(
                       item.id
                     )}`;
                     a.download = "";

@@ -25,7 +25,13 @@ export default async function FolderPage({ params }: PageProps) {
   return (
     <div className="space-y-6">
       <FilesSearchBar />
-      <FilesResultsTable entries={entries} parentName={parentName ?? undefined} parentId={folderId} breadcrumb={breadcrumb} isGoogleDriveFolder={isDrive} />
+        <FilesResultsTable
+          entries={entries}
+          parentName={parentName ?? undefined}
+          parentId={folderId}
+          breadcrumb={breadcrumb}
+          isGoogleDriveFolder={isDrive}
+        />
     </div>
   );
 }

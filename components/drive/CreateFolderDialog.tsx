@@ -10,7 +10,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { SaveStatusButton } from "@/components/ui/save-button";
-import { createFolderSubmitAction } from "@/actions/files";
+import { createFolder } from "@/lib/api/drive";
 import { useRouter } from "next/navigation";
 
 interface CreateFolderDialogProps {
@@ -27,7 +27,10 @@ export function CreateFolderDialog({
   const router = useRouter();
 
   async function onSubmit(formData: FormData) {
-    await createFolderSubmitAction(formData);
+    await createFolder({
+      name: String(formData.get("name") ?? ""),
+      parent: String(formData.get("parent") ?? ""),
+    });
     onOpenChange(false);
     router.refresh();
   }
