@@ -28,7 +28,7 @@ export const fetchCache = 'force-no-store';
  * @swagger
  * /api/v1/chat:
  *   post:
- *     tags: [Chats]
+ *     tags: [Chat]
  *     summary: Send a chat message and stream assistant response
  *     description: Accepts either a full messages array or a single message with chatId, and streams a response.
  *     requestBody:

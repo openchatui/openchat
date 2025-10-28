@@ -74,8 +74,8 @@ export function useChatStreaming({ chatId, initialModels, selectedModel }: UseCh
       const currentMessages = state.messages
 
       const body = isAutoSend
-        ? { messages: currentMessages, chatId, modelId: providerModelId, enableWebSearch: options.webSearch, enableImage: options.image, enableVideo: Boolean(options.video) }
-        : { message: userMessage, chatId, modelId: providerModelId, enableWebSearch: options.webSearch, enableImage: options.image, enableVideo: Boolean(options.video) }
+        ? { messages: currentMessages, chatId, modelId: modelToUse.id, enableWebSearch: options.webSearch, enableImage: options.image, enableVideo: Boolean(options.video) }
+        : { message: userMessage, chatId, modelId: modelToUse.id, enableWebSearch: options.webSearch, enableImage: options.image, enableVideo: Boolean(options.video) }
 
       const response = await fetch('/api/v1/chat', {
         method: 'POST',

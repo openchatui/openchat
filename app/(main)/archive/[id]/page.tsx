@@ -3,7 +3,7 @@
 import { auth } from "@/lib/auth"
 import { redirect } from "next/navigation"
 import db from "@/lib/db"
-import { loadChatMessages } from "@/actions/chat"
+import { getChatMessages } from "@/lib/api/chats"
 import ChatMessages from "@/components/chat/chat-messages"
 
 interface ArchiveChatPageProps {
@@ -19,7 +19,7 @@ export default async function ArchiveChatPage({ params }: ArchiveChatPageProps) 
   const chatRow = await db.chat.findFirst({ where: { id: chatId, userId }, select: { id: true, title: true } })
   if (!chatRow) redirect('/')
 
-  const messages = await loadChatMessages(chatId)
+  const messages = await getChatMessages(chatId)
 
   // Compute assistant display info from messages (fallbacks)
   let assistantDisplayName = 'AI Assistant'

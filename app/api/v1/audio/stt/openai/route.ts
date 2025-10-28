@@ -21,6 +21,37 @@ function pickOpenAIConnection(connections: any): { baseUrl: string; apiKey: stri
   return { baseUrl, apiKey }
 }
 
+/**
+ * @swagger
+ * /api/v1/audio/stt/openai:
+ *   post:
+ *     tags: [Audio]
+ *     summary: Speech-to-Text using OpenAI whisper endpoint (proxy)
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               file:
+ *                 type: string
+ *                 format: binary
+ *               model:
+ *                 type: string
+ *                 default: whisper-1
+ *     responses:
+ *       200:
+ *         description: Transcription result
+ *       400:
+ *         description: Missing file or OpenAI not configured
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: STT not enabled
+ *       500:
+ *         description: Failed to transcribe audio
+ */
 export async function POST(request: NextRequest) {
   try {
     const session = await auth()

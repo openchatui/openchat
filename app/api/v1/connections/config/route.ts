@@ -1,6 +1,18 @@
 import { NextResponse } from 'next/server'
-import { getConnectionsConfig } from '@/lib/db/connections'
+import { getConnectionsConfig } from '@/lib/db/connections.db'
 
+/**
+ * @swagger
+ * /api/v1/connections/config:
+ *   get:
+ *     tags: [Connections]
+ *     summary: Get connections configuration
+ *     responses:
+ *       200:
+ *         description: Connections config
+ *       500:
+ *         description: Failed to fetch connections config
+ */
 export async function GET() {
   try {
     const shaped = await getConnectionsConfig()

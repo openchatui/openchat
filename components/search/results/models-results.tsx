@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { searchUserModels } from "@/lib/modules/search"
-import { getModels } from "@/actions/chat"
+import { listModels } from "@/lib/api/models"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 
@@ -17,7 +17,7 @@ export default async function ModelsResults({ userId, query, mentions }: ModelsR
   if (query && query.trim()) {
     models = await searchUserModels(userId, { query, mentions })
   } else {
-    models = await getModels()
+    models = await listModels()
   }
 
   return (

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import { MESSAGES, PLACEHOLDERS } from "@/constants/connections"
-import type { NewOllamaConnection, Connection } from "@/types/connections"
+import type { NewOllamaConnection, Connection } from "@/types/connections.types"
 
 interface OllamaConnectionFormProps {
   newOllamaConnections: NewOllamaConnection[]

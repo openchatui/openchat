@@ -7,7 +7,7 @@ import { AdminSidebar } from "../AdminSidebar"
 import { Card, CardContent } from "@/components/ui/card"
 import { AnimatedLoader } from "@/components/ui/loader"
 import { ModelsByOwner } from "./models-by-owner"
-import { adminToggleModelActive, adminUpdateModelsVisibility, updateModel } from "@/actions/chat"
+import { toggleModelActive as adminToggleModelActive, updateModelsVisibilityBatch as adminUpdateModelsVisibility, updateModel } from "@/lib/api/models"
 import { useState, useCallback } from "react"
 import { toast } from "sonner"
 import type { Model } from '@/types/model.types'

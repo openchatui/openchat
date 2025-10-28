@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import db from '@/lib/db'
 import { auth } from "@/lib/auth"
 import fs from 'fs/promises'
 import path from 'path'
+import { upsertModelForUser } from '@/lib/db/models.db'
 
 /**
  * @swagger
@@ -258,30 +258,15 @@ export async function POST(request: NextRequest) {
 
       const namespacedId = `${namespace}/${m.id}`
 
-      return db.model.upsert({
-        where: { id: namespacedId },
-        update: {
-          name: m.name,
-          meta: enhancedMeta,
-          params: m.params,
-          updatedAt: now,
-          isActive: true,
-          providerId: m.id,
-          provider: ownedBy,
-          userId: userId,
-        },
-        create: {
-          id: namespacedId,
-          userId: userId,
-          providerId: m.id,
-          provider: ownedBy,
-          name: m.name,
-          meta: enhancedMeta,
-          params: m.params,
-          createdAt: now,
-          updatedAt: now,
-          isActive: true,
-        },
+      return upsertModelForUser(userId, namespacedId, {
+        name: m.name,
+        meta: enhancedMeta,
+        params: m.params,
+        providerId: m.id,
+        provider: ownedBy,
+        isActive: true,
+        createdAt: now,
+        updatedAt: now,
       })
     }))
 

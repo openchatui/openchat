@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import db from '@/lib/db'
-import { fetchToken, getUserIdFromToken } from '@/lib'
+import { getBasicUserById } from '@/lib/db/users.db'
+import { fetchToken, getUserIdFromToken } from '@/lib/auth/authz'
 
 /**
  * @swagger
- * /api/users/me:
+ * /api/v1/users/me:
  *   get:
  *     tags: [Users]
  *     summary: Get the current authenticated user
@@ -26,10 +26,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const user = await db.user.findUnique({
-      where: { id: userId },
-      select: { id: true, email: true, name: true }
-    })
+    const user = await getBasicUserById(userId)
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })

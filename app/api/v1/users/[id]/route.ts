@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import db from '@/lib/db'
-import { fetchToken, isAdminToken, isSameOrigin } from '@/lib'
+import { findUserWithDetailsById, updateUserBasic, findUserById, updateUserGroups, findUserByEmail } from '@/lib/db/users.db'
+import { fetchToken, isAdminToken, isSameOrigin } from '@/lib/auth/authz'
 import { z } from 'zod'
 
 // Role mapping between database enum and frontend types
@@ -11,9 +11,9 @@ const roleMap = {
 
 /**
  * @swagger
- * /api/users/{id}:
+ * /api/v1/users/{id}:
  *   get:
- *     tags: [Admin]
+ *     tags: [Users]
  *     summary: Get a user by ID
  *     security:
  *       - BearerAuth: []
@@ -53,26 +53,7 @@ export async function GET(
     const Params = z.object({ id: z.string().min(1) })
     const { id } = Params.parse(await params)
 
-    const dbUser = await db.user.findUnique({
-      where: { id },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        image: true,
-        createdAt: true,
-        updatedAt: true,
-        accounts: {
-          select: { providerAccountId: true, provider: true }
-        },
-        sessions: {
-          select: { expires: true },
-          orderBy: { expires: 'desc' },
-          take: 1
-        }
-      }
-    })
+    const dbUser = await findUserWithDetailsById(id)
 
     if (!dbUser) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
@@ -111,9 +92,9 @@ const reverseRoleMap = {
 
 /**
  * @swagger
- * /api/users/{id}:
+ * /api/v1/users/{id}:
  *   put:
- *     tags: [Admin]
+ *     tags: [Users]
  *     summary: Update a user's profile (name, email, role, password) and optional group memberships
  *     security:
  *       - BearerAuth: []
@@ -190,48 +171,31 @@ export async function PUT(
     })
     const { name, email, role, password, groupIds } = Body.parse(await request.json())
 
-    const existing = await db.user.findUnique({ where: { id } })
+    const existing = await findUserById(id)
     if (!existing) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
     if (email && email !== existing.email) {
-      const emailExists = await db.user.findUnique({ where: { email } })
+      const emailExists = await findUserByEmail(email)
       if (emailExists) {
         return NextResponse.json({ error: 'Email already in use' }, { status: 409 })
       }
     }
 
-    const updateData: Record<string, unknown> = {
+    const updateData: { name: string; email: string; role: 'USER'|'ADMIN'; hashedPassword?: string } = {
       name,
       email,
-      role: reverseRoleMap[role as keyof typeof reverseRoleMap] || 'USER',
+      role: (reverseRoleMap[role as keyof typeof reverseRoleMap] || 'USER') as 'USER'|'ADMIN',
     }
-
     if (password && password.trim()) {
       const bcrypt = await import('bcryptjs')
       updateData.hashedPassword = await bcrypt.hash(password, 12)
     }
-
-    await db.user.update({ where: { id }, data: updateData })
+    await updateUserBasic(id, updateData)
 
     if (Array.isArray(groupIds)) {
-      const groups = await db.group.findMany({ select: { id: true, userIds: true } })
-      await Promise.all(groups.map(async (g) => {
-        const currentRaw = g.userIds
-        const current: string[] = Array.isArray(currentRaw)
-          ? currentRaw.filter((v): v is string => typeof v === 'string')
-          : []
-        const shouldHave = groupIds.includes(g.id)
-        const hasNow = current.includes(id)
-        let next = current
-        if (shouldHave && !hasNow) next = Array.from(new Set([...current, id]))
-        if (!shouldHave && hasNow) next = current.filter((x) => x !== id)
-        const changed = next.length !== current.length || next.some((v, i) => v !== current[i])
-        if (changed) {
-          await db.group.update({ where: { id: g.id }, data: { userIds: next } })
-        }
-      }))
+      await updateUserGroups(id, groupIds)
     }
 
     return NextResponse.json({ ok: true })

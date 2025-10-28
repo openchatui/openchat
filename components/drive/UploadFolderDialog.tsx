@@ -15,7 +15,7 @@ export function UploadFolderDialog({ open, onOpenChange, parent = "" }: UploadFo
   const router = useRouter()
 
   async function onSubmit(formData: FormData) {
-    await fetch('/api/files/upload', { method: 'POST', body: formData })
+    await fetch('/api/v1/drive/file/upload', { method: 'POST', body: formData })
     onOpenChange(false)
     router.refresh()
   }

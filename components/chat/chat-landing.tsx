@@ -10,7 +10,7 @@ import type { Session } from 'next-auth'
 import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
 import type { Model } from '@/types/model.types'
-import { updateUserSettings } from '@/actions/chat'
+import { updateUserSettingsRaw } from '@/lib/api/userSettings'
 import { useChatStore } from '@/lib/modules/chat/chat.client-store'
 
 interface ChatLandingProps {
@@ -38,21 +38,46 @@ export function ChatLanding({
   permissions
 }: ChatLandingProps) {
   const router = useRouter()
-  const [selectedModel, setSelectedModel] = useState<Model | null>(null)
+  const [selectedModel, setSelectedModel] = useState<Model | null>(() => {
+    const activeModels = initialModels.filter(m => m.isActive && !(m as any).meta?.hidden)
+    const saved = (initialUserSettings as any)?.ui?.models?.[0]
+    if (saved && activeModels.length > 0) {
+      const normalize = (v: string) => v.trim().toLowerCase()
+      const savedNorm = normalize(saved)
+      const preferred = activeModels.find((m) => {
+        const idMatch = normalize(m.id) === savedNorm
+        const providerId = (m as any).providerId as string | undefined
+        const providerMatch = providerId ? normalize(providerId) === savedNorm : false
+        const providerSuffixMatch = providerId ? normalize((providerId.split('/').pop() || providerId)) === savedNorm : false
+        const nameMatch = normalize(m.name) === savedNorm
+        return idMatch || providerMatch || providerSuffixMatch || nameMatch
+      })
+      if (preferred) return preferred
+    }
+    return activeModels.length > 0 ? activeModels[0] : null
+  })
   const { resetChat, startNewChat } = useChatStore()
 
   useEffect(() => {
-    // Default model: from settings, else first active visible
-    if (!selectedModel && initialModels.length > 0) {
-      const savedModelId = (initialUserSettings as any)?.ui?.models?.[0]
-      if (savedModelId) {
-        const preferred = initialModels.find(m => m.id === savedModelId || (m as any).providerId === savedModelId)
-        if (preferred) { setSelectedModel(preferred); return }
-      }
-      const activeModels = initialModels.filter(m => m.isActive && !(m as any).meta?.hidden)
-      if (activeModels.length > 0) setSelectedModel(activeModels[0])
+    // Initialize from saved/default only when nothing is selected yet
+    if (selectedModel) return
+    const activeModels = initialModels.filter(m => m.isActive && !(m as any).meta?.hidden)
+    const saved = (initialUserSettings as any)?.ui?.models?.[0]
+    if (saved && activeModels.length > 0) {
+      const normalize = (v: string) => v.trim().toLowerCase()
+      const savedNorm = normalize(saved)
+      const preferred = activeModels.find((m) => {
+        const idMatch = normalize(m.id) === savedNorm
+        const providerId = (m as any).providerId as string | undefined
+        const providerMatch = providerId ? normalize(providerId) === savedNorm : false
+        const providerSuffixMatch = providerId ? normalize((providerId.split('/').pop() || providerId)) === savedNorm : false
+        const nameMatch = normalize(m.name) === savedNorm
+        return idMatch || providerMatch || providerSuffixMatch || nameMatch
+      })
+      if (preferred) { setSelectedModel(preferred); return }
     }
-  }, [selectedModel, initialModels, initialUserSettings])
+    if (activeModels.length > 0) setSelectedModel(activeModels[0])
+  }, [initialModels, initialUserSettings, selectedModel])
 
   const handleModelSelect = async (model: Model) => {
     setSelectedModel(model)
@@ -64,7 +89,9 @@ export function ChatLanding({
           models: [(((model as any).providerId) || model.id)]
         }
       }
-      await updateUserSettings(updatedSettings)
+      if (session?.user?.id) {
+        await updateUserSettingsRaw(session.user.id, updatedSettings)
+      }
     } catch (error) {
       console.error('Failed to save model selection:', error)
     }

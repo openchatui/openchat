@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import db from '@/lib/db'
 import { auth } from "@/lib/auth"
+import { getModelOwnedByUser, updateModelForUser } from '@/lib/db/models.db'
 
 /**
  * @swagger
@@ -77,40 +77,13 @@ export async function PUT(
     const { isActive, meta } = body
 
     // First check if the model exists and belongs to the user
-    const existingModel = await db.model.findFirst({
-      where: {
-        id: id,
-        userId: userId,
-      },
-    })
+    const existingModel = await getModelOwnedByUser(userId, id)
 
     if (!existingModel) {
       return NextResponse.json({ error: 'Model not found' }, { status: 404 })
     }
 
-    // Prepare update data
-    const updateData: any = {
-      updatedAt: Math.floor(Date.now() / 1000),
-    }
-
-    if (isActive !== undefined) {
-      updateData.isActive = isActive
-    }
-
-    if (meta !== undefined) {
-      updateData.meta = {
-        ...(typeof existingModel.meta === 'object' && existingModel.meta !== null ? existingModel.meta : {}),
-        ...meta,
-      }
-    }
-
-    // Update the model
-    const updatedModel = await db.model.update({
-      where: {
-        id: id,
-      },
-      data: updateData,
-    })
+    const updatedModel = await updateModelForUser(userId, id, { isActive, meta })
 
     return NextResponse.json(updatedModel)
   } catch (error: any) {
@@ -138,12 +111,7 @@ export async function GET(
     // Decode the URL-encoded model ID
     const id = decodeURIComponent(rawId)
 
-    const model = await db.model.findFirst({
-      where: {
-        id: id,
-        userId: userId,
-      },
-    })
+    const model = await getModelOwnedByUser(userId, id)
 
     if (!model) {
       return NextResponse.json({ error: 'Model not found' }, { status: 404 })

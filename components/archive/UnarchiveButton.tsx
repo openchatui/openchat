@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button"
 import { ArchiveRestore } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { unarchiveChatAction } from "@/actions/chat"
+import { unarchiveChat } from "@/lib/api/chats"
 
 interface UnarchiveButtonProps {
   chatId: string
@@ -16,7 +16,7 @@ export default function UnarchiveButton({ chatId }: UnarchiveButtonProps) {
     e.preventDefault()
     e.stopPropagation()
     try {
-      await unarchiveChatAction(chatId)
+      await unarchiveChat(chatId)
       try {
         const bc = new BroadcastChannel('chats')
         bc.postMessage({ type: 'unarchived', id: chatId })

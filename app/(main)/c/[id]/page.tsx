@@ -3,9 +3,13 @@
 import { ChatStandard } from '@/components/chat/chat-standard'
 import { auth } from '@/lib/auth'
 import { redirect } from 'next/navigation'
-import { getActiveModelsLight, getUserSettings } from '@/actions/chat'
+import { listActiveModelsLight } from '@/lib/api/models'
+import { getUserSettings } from '@/lib/api/userSettings'
 import { cookies } from 'next/headers'
-import { getWebSearchEnabled, getImageGenerationAvailable, getAudioConfig } from '@/lib'
+import { getWebSearchConfig } from '@api/websearch'
+import { getImageConfig } from '@api/image'
+import { getConnectionsConfig } from '@api/connections'
+import { getAudioConfig as getAudioConfigApi } from '@api/audio'
 import { getEffectivePermissionsForUser } from '@/lib/modules/access-control/permissions.service'
 import { AppConfigProvider } from '@/components/providers/AppConfigProvider'
 export default async function ChatPage({ params }: { params: Promise<{ id: string }> }) {
@@ -14,17 +18,31 @@ export default async function ChatPage({ params }: { params: Promise<{ id: strin
 
   const { id: chatId } = await params
 
+  const userId = session.user.id
   const [models, userSettings] = await Promise.all([
-    getActiveModelsLight(),
-    getUserSettings()
+    listActiveModelsLight(),
+    userId ? getUserSettings(userId) : Promise.resolve({} as any)
   ])
 
-  const [webSearchAvailable, imageAvailable, audioConfig, eff] = await Promise.all([
-    getWebSearchEnabled(),
-    getImageGenerationAvailable(),
-    getAudioConfig(),
+  const [webCfg, imgCfg, connCfg, audioConfig, eff] = await Promise.all([
+    getWebSearchConfig(),
+    getImageConfig(),
+    getConnectionsConfig(),
+    getAudioConfigApi(),
     getEffectivePermissionsForUser(session.user.id),
   ])
+
+  const webSearchAvailable = !!(webCfg?.websearch?.ENABLED)
+  const imageAvailable = (() => {
+    const provider = imgCfg?.image?.provider || 'openai'
+    if (provider !== 'openai') return false
+    const imageKey = (imgCfg?.image?.openai?.apiKey || '').trim()
+    if (imageKey) return true
+    const keys = Array.isArray((connCfg as any)?.connections?.openai?.api_keys)
+      ? ((connCfg as any).connections.openai.api_keys as unknown[])
+      : []
+    return keys.some((k) => typeof k === 'string' && (k as string).trim().length > 0)
+  })()
 
   const cookieStore = await cookies()
   const timeZone = cookieStore.get('tz')?.value || 'UTC'

@@ -4,19 +4,35 @@ import { AdminAudio } from "@/components/admin/audio/AdminAudio"
 import { ChatStore } from "@/lib/modules/chat"
 import { AppConfigProvider } from "@/components/providers/AppConfigProvider"
 import db from "@/lib/db"
-import { getWebSearchEnabled, getImageGenerationAvailable, getAudioConfig } from "@/lib"
+import { getWebSearchConfig } from "@api/websearch"
+import { getImageConfig } from "@api/image"
+import { getConnectionsConfig } from "@api/connections"
+import { getAudioConfig as getAudioConfigApi } from "@api/audio"
 
 
 export default async function AdminAudioPage() {
   const session = await auth()
   if (!session || !session.user?.id) redirect("/login")
 
-  const [chats, webSearchAvailable, imageAvailable, audioConfig] = await Promise.all([
+  const [chats, webCfg, imgCfg, connCfg, audioConfig] = await Promise.all([
     ChatStore.getUserChats(session.user.id),
-    getWebSearchEnabled(),
-    getImageGenerationAvailable(),
-    getAudioConfig(),
+    getWebSearchConfig(),
+    getImageConfig(),
+    getConnectionsConfig(),
+    getAudioConfigApi(),
   ])
+
+  const webSearchAvailable = !!(webCfg?.websearch?.ENABLED)
+  const imageAvailable = (() => {
+    const provider = imgCfg?.image?.provider || 'openai'
+    if (provider !== 'openai') return false
+    const imageKey = (imgCfg?.image?.openai?.apiKey || '').trim()
+    if (imageKey) return true
+    const keys = Array.isArray((connCfg as any)?.connections?.openai?.api_keys)
+      ? ((connCfg as any).connections.openai.api_keys as unknown[])
+      : []
+    return keys.some((k) => typeof k === 'string' && (k as string).trim().length > 0)
+  })()
 
   // Load connection keys for audio providers from server config
   const cfgRow = await db.config.findUnique({ where: { id: 1 } })

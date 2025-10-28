@@ -5,6 +5,36 @@ import { auth, AuthService } from '@/lib/auth'
 
 export const runtime = 'nodejs'
 
+/**
+ * @swagger
+ * /api/v1/activity/heartbeat:
+ *   post:
+ *     tags: [Activity]
+ *     summary: Record a user heartbeat from a browser tab
+ *     description: Records the latest activity for a user's tab. May return 204 when unauthenticated or in first-time setup.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               tabId:
+ *                 type: string
+ *               path:
+ *                 type: string
+ *               userAgent:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Heartbeat recorded
+ *       204:
+ *         description: No content (unauthenticated or ignored)
+ *       400:
+ *         description: Missing tabId
+ *       500:
+ *         description: Internal error
+ */
 export async function POST(req: NextRequest) {
   try {
     // If no users exist yet (first-time setup), no-op to keep logs clean

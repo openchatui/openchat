@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
-import db from '@/lib/db'
-import { fetchToken, isAdminToken, isSameOrigin } from '@/lib'
+import { deleteUserById, findUserById } from '@/lib/db/users.db'
+import { fetchToken, isAdminToken, isSameOrigin } from '@/lib/auth/authz'
 import { z } from 'zod'
 
 /**
  * @swagger
- * /api/users/{id}/delete:
+ * /api/v1/users/{id}/delete:
  *   delete:
- *     tags: [Admin]
+ *     tags: [Users]
  *     summary: Delete a user by ID
  *     security:
  *       - BearerAuth: []
@@ -29,7 +29,7 @@ import { z } from 'zod'
  *       500:
  *         description: Failed to delete user
  */
-// authz helpers in '@/lib'
+// authz helpers in '@/lib/auth/authz'
 
 export async function DELETE(
   request: NextRequest,
@@ -54,16 +54,14 @@ export async function DELETE(
     const Params = z.object({ id: z.string().min(1) })
     const { id } = Params.parse(await params)
 
-    const existingUser = await db.user.findUnique({
-      where: { id },
-      select: { id: true, email: true, name: true }
-    })
+    const existing = await findUserById(id)
+    const existingUser = existing ? { id: existing.id, email: existing.email, name: existing.name || null } : null
 
     if (!existingUser) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
-    await db.user.delete({ where: { id } })
+    await deleteUserById(id)
 
     return NextResponse.json({
       message: 'User deleted successfully',

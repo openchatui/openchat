@@ -62,10 +62,44 @@ function toDisplayName(name: string): string {
 }
 
 /**
- * POST /api/v1/tasks/tags
- * Body: { chatId?: string, messages?: UIMessage[] }
- * - Uses last 5 messages (chatId wins if provided) to generate 5 keyword tags
- * - Saves tags to Chats.meta.tags for the authenticated user
+ * @swagger
+ * /api/v1/tasks/tags:
+ *   post:
+ *     tags: [Tasks]
+ *     summary: Generate up to 5 keyword tags from recent messages
+ *     description: If chatId is provided (auth required), uses the last 5 messages from the chat and persists tags to chat meta. Otherwise uses provided messages array without DB write.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               chatId:
+ *                 type: string
+ *               messages:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                 description: UIMessage[] shape; used when chatId is not provided
+ *     responses:
+ *       200:
+ *         description: Tags generated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 tags:
+ *                   type: array
+ *                   items:
+ *                     type: string
+ *       400:
+ *         description: Validation error or insufficient context
+ *       401:
+ *         description: Unauthorized when chatId is provided
+ *       500:
+ *         description: Failed to generate tags
  */
 export async function POST(req: NextRequest) {
   try {

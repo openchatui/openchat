@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
-import db from '@/lib/db'
+import { createUserFileRecord } from '@/lib/db/video.db'
+import type { Prisma } from '@prisma/client'
 import { ProviderService } from '@/lib/modules/ai/providers/provider.service'
 import { getRootFolderId } from '@/lib/modules/drive'
 import { LOCAL_BASE_DIR } from '@/lib/modules/drive/providers/local.service'
@@ -67,7 +68,7 @@ async function getOpenAIConnection(): Promise<{ baseUrl: string; apiKey: string 
  * @swagger
  * /api/v1/videos/sora2:
  *   post:
- *     tags: [Tools]
+ *     tags: [Video Tool]
  *     summary: Generate a video using Sora 2 (OpenAI Videos API)
  *     description: Proxies to OpenAI Videos API (model sora-2-pro), downloads the resulting video, saves it locally, and inserts a record into the file table.
  *     requestBody:
@@ -206,19 +207,17 @@ export async function POST(request: NextRequest) {
     const filename = path.basename(finalPath)
     const dbPath = `/data/files/${effectiveParentId}/${filename}`
 
-    await db.file.create({
-      data: {
-        id,
-        userId,
-        parentId: effectiveParentId,
-        filename,
-        meta: { provider: 'openai', model: 'sora-2-pro', prompt, size, seconds, sourceUrl: videoUrl },
-        createdAt: nowSec,
-        updatedAt: nowSec,
-        hash: sha,
-        data: json,
-        path: dbPath,
-      },
+    await createUserFileRecord({
+      id,
+      userId,
+      parentId: effectiveParentId,
+      filename,
+      dbPath,
+      createdAt: nowSec,
+      updatedAt: nowSec,
+      hash: sha,
+      meta: { provider: 'openai', model: 'sora-2-pro', prompt, size, seconds, sourceUrl: videoUrl } as Record<string, unknown>,
+      data: json as unknown,
     })
 
     const url = `/files/${effectiveParentId}/${filename}`
