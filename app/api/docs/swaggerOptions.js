@@ -14,7 +14,8 @@ export const swaggerOptions = {
     tags: [
       { name: 'API Keys', description: 'API key management for programmatic access' },
       { name: 'Ollama', description: 'Local model management and operations via Ollama' },
-      { name: 'Chats', description: 'Chat creation, messaging, and management' },
+      { name: 'Chat', description: 'Real-time AI chat generation and streaming responses' },
+      { name: 'Chats', description: 'Chat history management, including listing, creating, updating, and retrieving past conversations' },
       { name: 'Models', description: 'AI model management and configuration' },
       { name: 'Connections', description: 'Provider connections and configuration' },
       { name: 'Drive', description: 'Drive features: files, folders, sync, downloads' },
