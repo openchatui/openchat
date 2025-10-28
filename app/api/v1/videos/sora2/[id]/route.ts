@@ -31,7 +31,7 @@ async function getOpenAIClient(): Promise<OpenAI | null> {
  * @swagger
  * /api/v1/videos/sora2/{id}:
  *   get:
- *     tags: [Tools]
+ *     tags: [Video Tool]
  *     summary: Download Sora 2 video bytes (proxy)
  *     parameters:
  *       - in: path
@@ -91,7 +91,7 @@ export async function GET(_req: NextRequest, context: { params: Promise<{ id?: s
  * @swagger
  * /api/v1/videos/sora2/{id}:
  *   post:
- *     tags: [Tools]
+ *     tags: [Video Tool]
  *     summary: Finalize Sora 2 video by downloading and saving locally
  *     parameters:
  *       - in: path
@@ -177,7 +177,7 @@ export async function POST(_req: NextRequest, context: { params: Promise<{ id?: 
  * @swagger
  * /api/v1/videos/sora2/{id}:
  *   delete:
- *     tags: [Tools]
+ *     tags: [Video Tool]
  *     summary: Delete Sora 2 video remotely
  *     parameters:
  *       - in: path

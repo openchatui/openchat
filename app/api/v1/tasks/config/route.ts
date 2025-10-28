@@ -23,7 +23,7 @@ function deepMerge(target: any, source: any): any {
  * @swagger
  * /api/v1/tasks/config:
  *   get:
- *     tags: [Tools]
+ *     tags: [Tasks]
  *     summary: Get tasks configuration
  *     responses:
  *       200:

@@ -26,7 +26,7 @@ const BodySchema = z.object({
  * @swagger
  * /api/v1/images/config/update:
  *   put:
- *     tags: [Admin]
+ *     tags: [Image Tool]
  *     summary: Update image configuration
  *     requestBody:
  *       required: true

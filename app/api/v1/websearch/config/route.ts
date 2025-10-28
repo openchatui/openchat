@@ -9,7 +9,7 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
  * @swagger
  * /api/v1/websearch/config:
  *   get:
- *     tags: [Admin]
+ *     tags: [Web Tool]
  *     summary: Get websearch configuration
  *     responses:
  *       200:

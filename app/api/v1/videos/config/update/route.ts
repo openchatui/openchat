@@ -38,7 +38,7 @@ const BodySchema = z.object({
  * @swagger
  * /api/v1/videos/config/update:
  *   put:
- *     tags: [Admin]
+ *     tags: [Video Tool]
  *     summary: Update video configuration
  *     requestBody:
  *       required: true

@@ -9,7 +9,7 @@ export const runtime = 'nodejs'
  * @swagger
  * /api/v1/activity/active-users:
  *   get:
- *     tags: [Admin]
+ *     tags: [Activity]
  *     summary: List currently active users (last 30s)
  *     description: Returns PII in authenticated mode; in public mode without auth, returns an array of nulls equal to the count.
  *     responses:

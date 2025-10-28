@@ -12,7 +12,7 @@ export const runtime = 'nodejs'
  * @swagger
  * /api/v1/tasks/title:
  *   post:
- *     tags: [Tools]
+ *     tags: [Tasks]
  *     summary: Generate a chat title from recent messages or provided text
  *     description: If chatId is provided, requires auth; generates a title from the latest user message and persists it. Otherwise, cleans up the provided title string and returns it without writing to DB.
  *     requestBody:

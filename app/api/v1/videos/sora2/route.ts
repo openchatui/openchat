@@ -68,7 +68,7 @@ async function getOpenAIConnection(): Promise<{ baseUrl: string; apiKey: string 
  * @swagger
  * /api/v1/videos/sora2:
  *   post:
- *     tags: [Tools]
+ *     tags: [Video Tool]
  *     summary: Generate a video using Sora 2 (OpenAI Videos API)
  *     description: Proxies to OpenAI Videos API (model sora-2-pro), downloads the resulting video, saves it locally, and inserts a record into the file table.
  *     requestBody:

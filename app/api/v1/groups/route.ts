@@ -64,7 +64,7 @@ const CreateBody = z.object({
  * @swagger
  * /api/v1/groups:
  *   post:
- *     tags: [Admin]
+ *     tags: [Groups]
  *     summary: Create a new group
  *     security:
  *       - BearerAuth: []
@@ -150,7 +150,7 @@ export async function POST(request: NextRequest) {
  * @swagger
  * /api/v1/groups:
  *   get:
- *     tags: [Admin]
+ *     tags: [Groups]
  *     summary: List all groups
  *     security:
  *       - BearerAuth: []

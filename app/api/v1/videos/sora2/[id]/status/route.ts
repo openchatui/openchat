@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic'
  * @swagger
  * /api/v1/videos/sora2/{id}/status:
  *   get:
- *     tags: [Tools]
+ *     tags: [Video Tool]
  *     summary: Get Sora 2 video job status
  *     parameters:
  *       - in: path

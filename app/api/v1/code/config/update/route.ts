@@ -11,7 +11,7 @@ const CodeInterpreterSchema = z.object({
  * @swagger
  * /api/v1/code/config/update:
  *   put:
- *     tags: [Admin]
+ *     tags: [Code Tool]
  *     summary: Update code interpreter configuration
  *     requestBody:
  *       required: true

@@ -65,7 +65,7 @@ async function getOpenAIClient(): Promise<OpenAI | null> {
  * @swagger
  * /api/v1/videos/sora2/{id}/remix:
  *   post:
- *     tags: [Tools]
+ *     tags: [Video Tool]
  *     summary: Remix an existing OpenAI video by id using Sora 2
  *     parameters:
  *       - in: path

@@ -9,7 +9,7 @@ export const runtime = 'nodejs'
  * @swagger
  * /api/v1/activity/heartbeat:
  *   post:
- *     tags: [Admin]
+ *     tags: [Activity]
  *     summary: Record a user heartbeat from a browser tab
  *     description: Records the latest activity for a user's tab. May return 204 when unauthenticated or in first-time setup.
  *     requestBody:

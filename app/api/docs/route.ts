@@ -1,4 +1,4 @@
-import { swaggerSpec } from '@/app/lib/swaggerSpec'
+import { swaggerSpec } from './swaggerSpec'
 
 export function GET() {
   return new Response(JSON.stringify(swaggerSpec), {

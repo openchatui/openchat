@@ -98,7 +98,7 @@ function ensureOut(list: string[], idToRemove: string): string[] {
  * @swagger
  * /api/v1/groups/{id}:
  *   put:
- *     tags: [Admin]
+ *     tags: [Groups]
  *     summary: Update a group and its model access control
  *     security:
  *       - BearerAuth: []

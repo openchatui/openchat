@@ -23,7 +23,7 @@ function deepMerge(target: any, source: any): any {
  * @swagger
  * /api/v1/websearch/config/update:
  *   put:
- *     tags: [Admin]
+ *     tags: [Web Tool]
  *     summary: Update websearch configuration
  *     requestBody:
  *       required: true

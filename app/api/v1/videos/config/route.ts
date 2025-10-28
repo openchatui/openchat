@@ -9,7 +9,7 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
  * @swagger
  * /api/v1/videos/config:
  *   get:
- *     tags: [Admin]
+ *     tags: [Video Tool]
  *     summary: Get video configuration
  *     responses:
  *       200:

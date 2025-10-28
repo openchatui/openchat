@@ -5,7 +5,7 @@ import { getImageConfigFromDb } from '@/lib/db/image.db'
  * @swagger
  * /api/v1/images/config:
  *   get:
- *     tags: [Admin]
+ *     tags: [Image Tool]
  *     summary: Get image configuration
  *     responses:
  *       200:

@@ -5,7 +5,7 @@ import { getCodeConfigFromDb } from '@/lib/db/code.db'
  * @swagger
  * /api/v1/code/config:
  *   get:
- *     tags: [Admin]
+ *     tags: [Code Tool]
  *     summary: Get code interpreter configuration
  *     responses:
  *       200:

@@ -65,7 +65,7 @@ function toDisplayName(name: string): string {
  * @swagger
  * /api/v1/tasks/tags:
  *   post:
- *     tags: [Tools]
+ *     tags: [Tasks]
  *     summary: Generate up to 5 keyword tags from recent messages
  *     description: If chatId is provided (auth required), uses the last 5 messages from the chat and persists tags to chat meta. Otherwise uses provided messages array without DB write.
  *     requestBody:

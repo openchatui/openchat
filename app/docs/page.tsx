@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 import SwaggerUI from 'swagger-ui-dist/swagger-ui-es-bundle'
-import 'swagger-ui-dist/swagger-ui.css'
+import './swagger-ui.css'
 import './swagger-dark.css'
 
 export default function SwaggerDocsPage() {
