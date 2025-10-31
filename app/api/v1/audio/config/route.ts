@@ -6,21 +6,47 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
-function ensureAudioConfigShape(data: any): { audio: Record<string, unknown> } {
-  const audio = isPlainObject(data?.audio) ? (data.audio as any) : {}
+function ensureAudioConfigShape(data: unknown): { audio: Record<string, unknown> } {
+  const audio = isPlainObject((data as Record<string, unknown>)?.audio) 
+    ? ((data as Record<string, unknown>).audio as Record<string, unknown>) 
+    : {}
   const shaped: Record<string, unknown> = { ...audio }
   if (typeof shaped.ttsEnabled !== 'boolean') shaped.ttsEnabled = false
   if (typeof shaped.sttEnabled !== 'boolean') shaped.sttEnabled = false
-  if (isPlainObject((audio as any).tts)) {
-    const tts = (audio as any).tts as any
-    const out: any = {}
+  
+  // Ensure tts field
+  if (isPlainObject((audio as Record<string, unknown>).tts)) {
+    const tts = (audio as Record<string, unknown>).tts as Record<string, unknown>
+    const out: Record<string, unknown> = {}
     if (typeof tts.provider === 'string') out.provider = tts.provider
     if (typeof tts.voiceId === 'string') out.voiceId = tts.voiceId
     if (typeof tts.modelId === 'string') out.modelId = tts.modelId
     shaped.tts = out
   } else if (shaped.tts === undefined) {
-    shaped.tts = {}
+    shaped.tts = { provider: 'openai' }
   }
+  
+  // Ensure stt field with proper defaults
+  if (isPlainObject((audio as Record<string, unknown>).stt)) {
+    const stt = (audio as Record<string, unknown>).stt as Record<string, unknown>
+    const out: Record<string, unknown> = {}
+    if (typeof stt.provider === 'string') out.provider = stt.provider
+    if (isPlainObject(stt.whisperWeb)) {
+      const whisperWeb = stt.whisperWeb as Record<string, unknown>
+      const wOut: Record<string, unknown> = {}
+      if (typeof whisperWeb.model === 'string') wOut.model = whisperWeb.model
+      out.whisperWeb = wOut
+    } else {
+      out.whisperWeb = { model: 'Xenova/whisper-small' }
+    }
+    shaped.stt = out
+  } else {
+    shaped.stt = { 
+      provider: 'whisper-web',
+      whisperWeb: { model: 'Xenova/whisper-small' }
+    }
+  }
+  
   return { audio: shaped }
 }
 
@@ -41,7 +67,17 @@ export async function GET() {
   try {
     let config = await db.config.findUnique({ where: { id: 1 } })
     if (!config) {
-      const defaults = { audio: { ttsEnabled: false, sttEnabled: false } }
+      const defaults = { 
+        audio: { 
+          ttsEnabled: false, 
+          sttEnabled: false,
+          tts: { provider: 'openai' },
+          stt: { 
+            provider: 'whisper-web',
+            whisperWeb: { model: 'Xenova/whisper-small' }
+          }
+        } 
+      }
       config = await db.config.create({ data: { id: 1, data: defaults as unknown as Prisma.InputJsonValue } })
       return NextResponse.json(defaults)
     }

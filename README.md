@@ -54,7 +54,7 @@ docker pull ghcr.io/openchatui/openchatui:latest
 docker run --name openchat \
   -p 3000:3000 \
   -e NEXTAUTH_URL="http://localhost:3000" \
-  -e NEXTAUTH_SECRET="$(openssl rand -base64 32)" \
+  -e AUTH_SECRET="$(openssl rand -base64 32)" \
   -v "$(pwd)/data/prisma:/prisma" \
   --restart unless-stopped \
   ghcr.io/openchatui/openchatui:latest
@@ -63,7 +63,7 @@ docker run --name openchat \
 > [!TIP]
 > - Change the host port by editing the `-p` flag (e.g., `-p 3001:3001` together with `-e PORT=3001`).
 > - If you prefer PostgreSQL, add `-e DB=postgres -e DATABASE_URL=postgresql://user:pass@host:5432/dbname`.
-> - The container will generate a `NEXTAUTH_SECRET` if not provided; set it for persistence across restarts.
+> - The container will generate a `AUTH_SECRET` if not provided; set it for persistence across restarts.
 
 ##### Optional: Public landing (disable auth)
 
@@ -75,7 +75,7 @@ Examples:
 docker run \
   -p 3000:3000 \
   -e NEXTAUTH_URL="http://localhost:3000" \
-  -e NEXTAUTH_SECRET="$(openssl rand -base64 32)" \
+  -e AUTH_SECRET="$(openssl rand -base64 32)" \
   -e AUTH=false \
   -v "$(pwd)/data/prisma:/prisma" \
   --restart unless-stopped \

@@ -1,4 +1,3 @@
-import 'server-only'
 import db from '@/lib/db'
 import type { UIMessage } from 'ai'
 

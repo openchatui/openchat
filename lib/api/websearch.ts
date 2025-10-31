@@ -59,6 +59,30 @@ export type UpdateWebSearchPayload = {
 }
 
 export async function getWebSearchConfig(): Promise<WebSearchConfigResponse> {
+  // Server-side optimization: call DB directly
+  if (typeof window === 'undefined') {
+    try {
+      const { getWebsearchConfigData } = await import('@/lib/db/websearch.db')
+      const data = (await getWebsearchConfigData()) as any
+      const websearch = data?.websearch && typeof data.websearch === 'object' ? data.websearch : {}
+      return {
+        websearch: {
+          ENABLED: Boolean(websearch.ENABLED),
+          ENABLED_BY_DEFAULT: Boolean(websearch.ENABLED_BY_DEFAULT),
+          SYSTEM_PROMPT: typeof websearch.SYSTEM_PROMPT === 'string' ? websearch.SYSTEM_PROMPT : null,
+          PROVIDER: (['browserless', 'googlepse'].includes(String(websearch.PROVIDER).toLowerCase()) ? String(websearch.PROVIDER).toLowerCase() : 'browserless') as WebSearchProvider,
+          browserless: websearch.browserless || {},
+          googlepse: websearch.googlepse || { apiKey: '', engineId: '', resultCount: 5, domainFilters: [] },
+          ENV_SYSTEM_PROMPT: typeof process.env.BROWSERLESS_SYSTEM_PROMPT === 'string' ? process.env.BROWSERLESS_SYSTEM_PROMPT : null,
+        }
+      }
+    } catch (err) {
+      console.error('[getWebSearchConfig] Direct DB call failed:', err)
+      // Fall through to HTTP
+    }
+  }
+  
+  // Client-side or fallback: use HTTP
   const res = await httpFetch(absoluteUrl('/api/v1/websearch/config'), { method: 'GET' })
   if (!res.ok) {
     const data = await res.json().catch(() => ({} as Record<string, unknown>))

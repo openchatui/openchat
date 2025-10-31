@@ -1,4 +1,4 @@
-import 'server-only';
+
 import db from '@/lib/db';
 import { ProviderService } from '@/lib/modules/ai/providers/provider.service';
 import OpenAI from 'openai';

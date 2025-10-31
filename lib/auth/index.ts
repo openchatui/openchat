@@ -41,8 +41,6 @@ export {
     SignUpSchema,
   } from './validation/auth.validation';
   
-  // Providers: Do NOT re-export server-only providers here to avoid Edge bundling
-  
   // Legacy compatibility exports
   export { signUp } from './core/auth.actions';
   import { loginSchema } from './validation/auth.validation';

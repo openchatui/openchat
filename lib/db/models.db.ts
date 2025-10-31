@@ -1,4 +1,3 @@
-import 'server-only'
 import db from '@/lib/db'
 import { getEffectivePermissionsForUser } from '@/lib/modules/access-control/permissions.service'
 import { filterModelsReadableByUser } from '@/lib/modules/access-control/model-access.service'

@@ -1,4 +1,4 @@
-import 'server-only';
+
 import { z } from 'zod';
 import { WebBrowsingService } from './web.service';
 

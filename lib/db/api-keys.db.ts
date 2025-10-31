@@ -1,4 +1,3 @@
-import 'server-only'
 import db from '@/lib/db'
 
 export async function createApiKey(userId: string, keyName: string, hashedKey: string) {

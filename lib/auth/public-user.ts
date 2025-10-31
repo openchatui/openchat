@@ -1,4 +1,3 @@
-import 'server-only';
 import db from '@/lib/db';
 
 const PUBLIC_USER_EMAIL = 'public@openchat.local';

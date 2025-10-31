@@ -2,6 +2,7 @@ import { z } from "zod"
 import { getJson } from "./http"
 import type { Model, UpdateModelData } from "@/types/model.types"
 import { absoluteUrl, httpFetch } from './http'
+import { auth } from "@/lib/auth"
 
 const ModelMetaSchema = z.object({
   profile_image_url: z.string().nullable().optional(),
@@ -46,6 +47,21 @@ export async function getModel(modelId: string): Promise<Model | null> {
 }
 
 export async function listActiveModelsLight(): Promise<Model[]> {
+  // Server-side optimization: call DB directly to avoid HTTP round-trip and auth issues
+  if (typeof window === 'undefined') {
+    try {
+      const session = await auth()
+      if (session?.user?.id) {
+        const { listActiveModelsLightReadableByUser } = await import('@/lib/db/models.db')
+        return await listActiveModelsLightReadableByUser(session.user.id)
+      }
+    } catch (err) {
+      console.error('[listActiveModelsLight] Direct DB call failed:', err)
+      // Fall through to HTTP call
+    }
+  }
+  
+  // Client-side or fallback: use HTTP
   const schema = z.object({ models: z.array(ModelSchema).default([]) })
   const data = await getJson(`/api/v1/models/active`, { credentials: 'include' }, schema)
   return data.models

@@ -1,4 +1,3 @@
-import 'server-only'
 import db from '@/lib/db'
 import type { ImageProvider, OpenAIImageConfig, ImageConfig } from '@/types/image.types'
 

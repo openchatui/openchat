@@ -1,10 +1,10 @@
-import 'server-only'
 import type { NextRequest } from 'next/server'
 import { getToken } from 'next-auth/jwt'
 import type { JWT } from 'next-auth/jwt'
 
 export async function fetchToken(request: NextRequest): Promise<JWT | null> {
-  return getToken({ req: request, secret: process.env.NEXTAUTH_SECRET })
+  const secret = process.env.AUTH_SECRET
+  return getToken({ req: request, secret })
 }
 
 export function readStringField(obj: unknown, key: string): string | undefined {
@@ -20,7 +20,7 @@ export function getUserIdFromToken(token: JWT | null): string | undefined {
 
 export function isAdminToken(token: JWT | null): boolean {
   const role = readStringField(token, 'role')
-  return role === 'ADMIN'
+  return role?.toLowerCase() === 'admin'
 }
 
 export function isOwnerOrAdmin(token: JWT | null, userId: string): boolean {

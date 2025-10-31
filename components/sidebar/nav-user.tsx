@@ -149,7 +149,7 @@ export function NavUser({
                 Archive
               </Link>
             </DropdownMenuItem>
-              {user.role === 'ADMIN' && (
+              {user.role?.toLowerCase() === 'admin' && (
                 <DropdownMenuItem asChild>
                   <Link prefetch href="/admin/users">
                     <CgProfile />

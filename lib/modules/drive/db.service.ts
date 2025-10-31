@@ -1,4 +1,4 @@
-import 'server-only'
+
 import db from '@/lib/db'
 import type { FileEntry } from '@/lib/modules/drive/types'
 
