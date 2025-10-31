@@ -180,7 +180,7 @@ jobs:
             --arg user "$CONTEXT" \
             --argjson temperature 0.2 \
             --argjson max_tokens 800 \
-            '{model:$model, messages:[{role:"system", content:$system},{role:"user", content:$user}], temperature:$temperature, max_tokens:$max_tokens}' > payload.json
+            '{model:$model, response_format:{type:"json_object"}, messages:[{role:"system", content:$system},{role:"user", content:$user}], temperature:$temperature, max_tokens:$max_tokens}' > payload.json
           # Call OpenAI Chat Completions API
           http_status=$(curl -sS -o response.json -w "%{http_code}" \
             -X POST "https://api.openai.com/v1/chat/completions" \
@@ -199,8 +199,12 @@ jobs:
             cat response.json >&2
             exit 1
           fi
-          echo "$TEXT" > changelog.json
-          # Validate JSON
+          # If model returned fenced code block, strip leading/trailing ``` (with optional language tag)
+          if printf '%s' "$TEXT" | head -n1 | grep -Eq '^```([A-Za-z]+)?\s*$'; then
+            TEXT=$(printf '%s' "$TEXT" | sed -E '1s/^```[A-Za-z]*[[:space:]]*//; $s/[[:space:]]*```$//')
+          fi
+          # Save and validate JSON
+          printf '%s' "$TEXT" > changelog.json
           jq . changelog.json > /dev/null
 
       - name: Render CHANGELOG entry and update file
