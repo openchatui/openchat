@@ -80,6 +80,7 @@ export function AdminUsers({ session, initialChats = [], initialUsers = [], init
     togglePasswordVisibility,
     setEditState,
     updateUserImage,
+    applyUpdatedUser,
   } = useUsers(initialUsers);
 
   // Filter users based on search term
@@ -149,6 +150,14 @@ export function AdminUsers({ session, initialChats = [], initialUsers = [], init
             onCloseEditUser={() => setEditState((prev: EditUserState) => ({ ...prev, editingUser: null }))}
             onUpdateForm={updateEditForm}
             onTogglePasswordVisibility={togglePasswordVisibility}
+            onUpdateUser={(u) => {
+              applyUpdatedUser(u)
+              if (session?.user?.id === u.id) {
+                try {
+                  window.dispatchEvent(new CustomEvent('nav-user:update', { detail: { name: u.name, email: u.email, image: u.image || u.profilePicture } }))
+                } catch {}
+              }
+            }}
             onProfileImageUploaded={(url) => { if (url) updateUserImage(url) }}
             groups={initialGroups}
           />

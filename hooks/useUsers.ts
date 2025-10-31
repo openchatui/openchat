@@ -74,7 +74,7 @@ export function useUsers(initialUsers?: User[]) {
         ...(editState.editForm.password && { password: editState.editForm.password })
       }
 
-      const response = await fetch(API_ENDPOINTS.USER_UPDATE, {
+      const response = await fetch(API_ENDPOINTS.USER_UPDATE(editState.editingUser.id), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json'
@@ -108,6 +108,18 @@ export function useUsers(initialUsers?: User[]) {
     }
   }, [editState.editingUser, editState.editForm])
 
+  // Apply an updated user object into local state (used by child dialogs)
+  const applyUpdatedUser = useCallback((user: User) => {
+    setUsersState(prev => ({
+      ...prev,
+      users: prev.users.map(u => u.id === user.id ? user : u)
+    }))
+    setEditState(prev => prev.editingUser && prev.editingUser.id === user.id ? ({
+      ...prev,
+      editingUser: { ...user },
+    }) : prev)
+  }, [])
+
   // Save only profile image URL
   const updateUserImage = useCallback(async (url: string) => {
     if (!editState.editingUser) return
@@ -121,7 +133,7 @@ export function useUsers(initialUsers?: User[]) {
     }) : prev)
 
     try {
-      const response = await fetch(API_ENDPOINTS.USER_UPDATE, {
+      const response = await fetch(API_ENDPOINTS.USER_UPDATE(userId), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: userId, image: url } satisfies UpdateUserData)
@@ -159,7 +171,7 @@ export function useUsers(initialUsers?: User[]) {
         deletingIds: new Set([...prev.deletingIds, userId])
       }))
 
-      const response = await fetch(`${API_ENDPOINTS.USER_DELETE}/${userId}`, {
+      const response = await fetch(API_ENDPOINTS.USER_DELETE(userId), {
         method: 'DELETE'
       })
 
@@ -213,6 +225,7 @@ export function useUsers(initialUsers?: User[]) {
     updateUserImage,
     deleteUser,
     togglePasswordVisibility,
+    applyUpdatedUser,
     setEditState
   }
 }

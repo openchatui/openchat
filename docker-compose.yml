@@ -1,6 +1,9 @@
 services:
   openchat:
-    image: ghcr.io/openchatui/openchatui:latest
+    #image: ghcr.io/openchatui/openchatui:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
     ports:
       - "3000:3000"
     #environment:
@@ -15,9 +18,12 @@ services:
     #  HOSTNAME: "0.0.0.0"                              # Default: 0.0.0.0
     #  OPENAI_API_KEY: "sk-..."
     #  ANTHROPIC_API_KEY: "sk-ant-..."
+    #  OLLAMA_URL: "http://localhost:11434"
     #  DRIVE_CLIENT_ID: "your-google-client-id"
     #  DRIVE_CLIENT_SECRET: "your-google-client-secret"
     #  AUTH: "true"                                     # Toggle auth globally; set to "false" for public landing
     volumes:
       - ./prisma:/prisma
+      - ./data:/app/data
+      - ./public/profiles:/app/public/profiles
     restart: unless-stopped

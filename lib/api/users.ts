@@ -1,4 +1,5 @@
 import { absoluteUrl, httpFetch, postFormData } from './http'
+import type { User } from '@/types/user.types'
 
 export type UpdateUserInput = {
   id: string
@@ -9,7 +10,7 @@ export type UpdateUserInput = {
   groupIds?: string[]
 }
 
-export async function updateUser(input: UpdateUserInput): Promise<void> {
+export async function updateUser(input: UpdateUserInput): Promise<User> {
   const { id, ...body } = input
   const res = await httpFetch(absoluteUrl(`/api/v1/users/${id}`), {
     method: 'PUT',
@@ -20,6 +21,8 @@ export async function updateUser(input: UpdateUserInput): Promise<void> {
     const data = await res.json().catch(() => ({}))
     throw new Error(data?.error || 'Failed to update user')
   }
+  const updated: User = await res.json()
+  return updated
 }
 
 export async function deleteUser(id: string): Promise<void> {

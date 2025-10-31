@@ -84,10 +84,13 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const dbUsers = await listUsersForAdmin()
 
     // Transform the data to match our frontend User interface
+    const MAX_AGE_DAYS = 30
+    const MAX_AGE_MS = MAX_AGE_DAYS * 24 * 60 * 60 * 1000
     const users: User[] = dbUsers.map(dbUser => {
-      // Find the most recent session expiration as lastActive
+      // NextAuth stores `expires` in the future; infer last activity as (expires - maxAge)
       const lastSession = dbUser.sessions[0]
-      const lastActive = lastSession ? new Date(lastSession.expires) : undefined
+      const expiresAt = lastSession ? new Date(lastSession.expires) : undefined
+      const inferredLastActive = expiresAt ? new Date(expiresAt.getTime() - MAX_AGE_MS) : undefined
 
       // Get OAuth ID from accounts (prefer OAuth providers)
       const oauthAccount = dbUser.accounts.find(account =>
@@ -101,7 +104,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         role: roleMap[dbUser.role as keyof typeof roleMap] || 'user',
         userGroup: 'default', // Default for now, can be extended later
         profilePicture: dbUser.image || undefined,
-        lastActive: lastActive?.toISOString(),
+        lastActive: inferredLastActive?.toISOString(),
         createdAt: dbUser.createdAt.toISOString(),
         oauthId: oauthAccount?.providerAccountId,
         updatedAt: dbUser.updatedAt.toISOString()

@@ -48,18 +48,33 @@ export function NavUser({
 
   const [displayName, setDisplayName] = useState<string>(user.name)
   const [displayEmail, setDisplayEmail] = useState<string>(user.email)
+  const [displayAvatar, setDisplayAvatar] = useState<string | undefined>(user.image ?? user.avatar)
   // Keep local display state in sync with incoming props (no extra fetch)
   useEffect(() => {
     setDisplayName(user.name)
     setDisplayEmail(user.email)
+    setDisplayAvatar(user.image ?? user.avatar)
   }, [user.name, user.email])
+
+  // Listen for global updates (e.g., after profile edit) to update without full reload
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<{ name?: string; email?: string; image?: string; avatar?: string }>).detail || {}
+      if (typeof detail.name === 'string') setDisplayName(detail.name)
+      if (typeof detail.email === 'string') setDisplayEmail(detail.email)
+      const img = typeof detail.image === 'string' ? detail.image : (typeof detail.avatar === 'string' ? detail.avatar : undefined)
+      if (img !== undefined) setDisplayAvatar(img)
+    }
+    window.addEventListener('nav-user:update', handler as EventListener)
+    return () => window.removeEventListener('nav-user:update', handler as EventListener)
+  }, [])
 
 
   const handleSignOut = async () => {
     await signOut({ callbackUrl: "/login" });
   };
 
-  const avatarSrc = user.image ?? user.avatar
+  const avatarSrc = displayAvatar
   const [activeUsers, setActiveUsers] = useState<number | null>(null)
 
   useEffect(() => {
