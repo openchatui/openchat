@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { findUserWithDetailsById, updateUserBasic, findUserById, updateUserGroups, findUserByEmail } from '@/lib/db/users.db'
+import { findUserWithDetailsById, updateUserBasic, findUserById, updateUserGroups, findUserByEmail, updateUserImage } from '@/lib/db/users.db'
 import { fetchToken, isAdminToken, isSameOrigin } from '@/lib/auth/authz'
 import { z } from 'zod'
 
@@ -59,8 +59,11 @@ export async function GET(
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
+    const MAX_AGE_DAYS = 30
+    const MAX_AGE_MS = MAX_AGE_DAYS * 24 * 60 * 60 * 1000
     const lastSession = dbUser.sessions[0]
-    const lastActive = lastSession ? new Date(lastSession.expires) : undefined
+    const expiresAt = lastSession ? new Date(lastSession.expires) : undefined
+    const lastActive = expiresAt ? new Date(expiresAt.getTime() - MAX_AGE_MS) : undefined
     const oauthAccount = dbUser.accounts.find(a => a.provider !== 'credentials')
 
     const user = {
@@ -126,6 +129,9 @@ const reverseRoleMap = {
  *                 type: array
  *                 items:
  *                   type: string
+ *               image:
+ *                 type: string
+ *                 description: Optional profile image URL. When provided alone, only the image is updated.
  *     responses:
  *       200:
  *         description: User updated
@@ -162,43 +168,101 @@ export async function PUT(
     const Params = z.object({ id: z.string().min(1) })
     const { id } = Params.parse(await params)
 
-    const Body = z.object({
+    const BodyBasic = z.object({
       name: z.string().min(1),
       email: z.string().email(),
       role: z.enum(['user', 'admin', 'moderator']).default('user'),
       password: z.string().min(8).optional().or(z.literal('')),
       groupIds: z.array(z.string()).optional(),
     })
-    const { name, email, role, password, groupIds } = Body.parse(await request.json())
+    const BodyImage = z.object({
+      image: z.string().min(1),
+    })
+    const raw = await request.json()
+    const basicParsed = BodyBasic.safeParse(raw)
+    const imageParsed = BodyImage.safeParse(raw)
 
     const existing = await findUserById(id)
     if (!existing) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
-    if (email && email !== existing.email) {
-      const emailExists = await findUserByEmail(email)
+    if (basicParsed.success && basicParsed.data.email && basicParsed.data.email !== existing.email) {
+      const emailExists = await findUserByEmail(basicParsed.data.email)
       if (emailExists) {
         return NextResponse.json({ error: 'Email already in use' }, { status: 409 })
       }
     }
 
-    const updateData: { name: string; email: string; role: 'USER'|'ADMIN'; hashedPassword?: string } = {
-      name,
-      email,
-      role: (reverseRoleMap[role as keyof typeof reverseRoleMap] || 'USER') as 'USER'|'ADMIN',
+    // If only image is being updated
+    if (imageParsed.success && !basicParsed.success) {
+      await updateUserImage(id, imageParsed.data.image)
+      const refreshed = await findUserWithDetailsById(id)
+      if (!refreshed) return NextResponse.json({ error: 'User not found' }, { status: 404 })
+      const MAX_AGE_DAYS = 30
+      const MAX_AGE_MS = MAX_AGE_DAYS * 24 * 60 * 60 * 1000
+      const lastSession = refreshed.sessions[0]
+      const expiresAt = lastSession ? new Date(lastSession.expires) : undefined
+      const lastActive = expiresAt ? new Date(expiresAt.getTime() - MAX_AGE_MS) : undefined
+      const oauthAccount = refreshed.accounts.find(a => a.provider !== 'credentials')
+      const user = {
+        id: refreshed.id,
+        name: refreshed.name || 'Unknown User',
+        email: refreshed.email,
+        role: roleMap[refreshed.role as keyof typeof roleMap] || 'user',
+        userGroup: 'default',
+        profilePicture: refreshed.image || undefined,
+        lastActive: lastActive?.toISOString(),
+        createdAt: refreshed.createdAt.toISOString(),
+        oauthId: oauthAccount?.providerAccountId,
+        updatedAt: refreshed.updatedAt.toISOString()
+      }
+      return NextResponse.json(user)
     }
-    if (password && password.trim()) {
-      const bcrypt = await import('bcryptjs')
-      updateData.hashedPassword = await bcrypt.hash(password, 12)
-    }
-    await updateUserBasic(id, updateData)
 
-    if (Array.isArray(groupIds)) {
-      await updateUserGroups(id, groupIds)
+    // Full/basic update flow
+    if (basicParsed.success) {
+      const { name, email, role, password, groupIds } = basicParsed.data
+      const updateData: { name: string; email: string; role: 'USER'|'ADMIN'; hashedPassword?: string } = {
+        name,
+        email,
+        role: (reverseRoleMap[role as keyof typeof reverseRoleMap] || 'USER') as 'USER'|'ADMIN',
+      }
+      if (password && password.trim()) {
+        const bcrypt = await import('bcryptjs')
+        updateData.hashedPassword = await bcrypt.hash(password, 12)
+      }
+      await updateUserBasic(id, updateData)
+
+      if (Array.isArray(groupIds)) {
+        await updateUserGroups(id, groupIds)
+      }
+
+      const refreshed = await findUserWithDetailsById(id)
+      if (!refreshed) return NextResponse.json({ error: 'User not found' }, { status: 404 })
+      const MAX_AGE_DAYS = 30
+      const MAX_AGE_MS = MAX_AGE_DAYS * 24 * 60 * 60 * 1000
+      const lastSession = refreshed.sessions[0]
+      const expiresAt = lastSession ? new Date(lastSession.expires) : undefined
+      const lastActive = expiresAt ? new Date(expiresAt.getTime() - MAX_AGE_MS) : undefined
+      const oauthAccount = refreshed.accounts.find(a => a.provider !== 'credentials')
+      const user = {
+        id: refreshed.id,
+        name: refreshed.name || 'Unknown User',
+        email: refreshed.email,
+        role: roleMap[refreshed.role as keyof typeof roleMap] || 'user',
+        userGroup: 'default',
+        profilePicture: refreshed.image || undefined,
+        lastActive: lastActive?.toISOString(),
+        createdAt: refreshed.createdAt.toISOString(),
+        oauthId: oauthAccount?.providerAccountId,
+        updatedAt: refreshed.updatedAt.toISOString()
+      }
+      return NextResponse.json(user)
     }
 
-    return NextResponse.json({ ok: true })
+    // Neither schema matched
+    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
   } catch (error) {
     console.error('Error updating user:', error)
     return NextResponse.json({ error: 'Failed to update user' }, { status: 500 })

@@ -33,11 +33,12 @@ interface UsersTabProps {
   onCloseEditUser: () => void
   onUpdateForm: (field: keyof EditUserForm, value: string) => void
   onTogglePasswordVisibility: () => void
+  onUpdateUser?: (user: User) => void
   onProfileImageUploaded?: (url: string) => void
   groups?: Group[]
 }
 
-export function UsersTab({ users, searchTerm, onSearchTermChange, onViewChats, onEditUser, editingUser, editForm, showPassword, onCloseEditUser, onUpdateForm, onTogglePasswordVisibility, onProfileImageUploaded, groups = [] }: UsersTabProps) {
+export function UsersTab({ users, searchTerm, onSearchTermChange, onViewChats, onEditUser, editingUser, editForm, showPassword, onCloseEditUser, onUpdateForm, onTogglePasswordVisibility, onUpdateUser, onProfileImageUploaded, groups = [] }: UsersTabProps) {
   const [confirmDeleteUserId, setConfirmDeleteUserId] = useState<string | null>(null)
   const { mutate: removeUser, isLoading: isDeleting } = useDeleteUser()
   const [removedUserIds, setRemovedUserIds] = useState<Set<string>>(new Set())
@@ -120,8 +121,8 @@ export function UsersTab({ users, searchTerm, onSearchTermChange, onViewChats, o
                 </TableCell>
               </TableRow>
             ) : (
-              filteredUsers.map((user) => (
-                <TableRow key={user.id}>
+            filteredUsers.map((user, idx) => (
+                <TableRow key={user.id || `${user.email || 'user'}_${idx}`}>
                   <TableCell>
                     <Badge variant={getRoleBadgeVariant(user.role)}>
                       {user.role}
@@ -176,7 +177,7 @@ export function UsersTab({ users, searchTerm, onSearchTermChange, onViewChats, o
         onClose={onCloseEditUser}
         onUpdateForm={onUpdateForm}
         onTogglePasswordVisibility={onTogglePasswordVisibility}
-        onUpdateUser={() => {}}
+        onUpdateUser={(u) => { if (u) onUpdateUser?.(u) }}
         onDeleteUser={() => {}}
         onProfileImageUploaded={(url) => { if (url) onProfileImageUploaded?.(url) }}
         groups={groups}
