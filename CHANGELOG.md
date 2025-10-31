@@ -1,3 +1,13 @@
+## [0.1.24] - 2025-10-31
+
+### PR: [Merge dev to main: fixed reverse proxy support and docker deployment auth](https://github.com/openchatui/openchat/pull/84)
+
+### Fixed
+- Resolved authentication issues when deploying behind a reverse proxy and improved Docker deployment auth reliability. (https://github.com/openchatui/openchat/pull/84)
+
+### Changed
+- Simplified authentication middleware logic and restricted it to admin routes; updated API base URL handling for better proxy compatibility. (https://github.com/openchatui/openchat/commit/0e76a8833b3568661649ab138dc9e40aebc5ebf6)
+
 ## [0.1.23] - 2025-10-31
 
 ### PR: [chore: update docker-compose environment variables and enhance middle…](https://github.com/openchatui/openchat/pull/82)
