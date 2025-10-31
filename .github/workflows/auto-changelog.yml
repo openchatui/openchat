@@ -35,18 +35,32 @@ jobs:
           token: ${{ steps.app-token.outputs.token }}
           ref: ${{ github.event.pull_request.head.ref }}
 
+      - name: Check if last commit was by bot
+        id: bot-check
+        run: |
+          LAST_COMMIT_AUTHOR=$(git log -1 --format='%an')
+          if [ "$LAST_COMMIT_AUTHOR" = "github-actions[bot]" ]; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "Last commit was by bot, skipping workflow"
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Ensure jq is available
+        if: steps.bot-check.outputs.skip != 'true'
         run: |
           sudo apt-get update -y
           sudo apt-get install -y jq
 
       - name: Set base/head SHAs
+        if: steps.bot-check.outputs.skip != 'true'
         id: shas
         run: |
           echo "base=${{ github.event.pull_request.base.sha }}" >> $GITHUB_OUTPUT
           echo "head=${{ github.event.pull_request.head.sha }}" >> $GITHUB_OUTPUT
 
       - name: Detect user-provided CHANGELOG version
+        if: steps.bot-check.outputs.skip != 'true'
         id: changelog
         run: |
           set -euo pipefail
@@ -67,6 +81,7 @@ jobs:
           fi
 
       - name: Compute next version and update package.json
+        if: steps.bot-check.outputs.skip != 'true'
         id: version
         run: |
           set -euo pipefail
@@ -112,7 +127,7 @@ jobs:
           echo "should_generate_changelog=$SHOULD_GENERATE" >> $GITHUB_OUTPUT
 
       - name: Collect PR commits metadata
-        if: steps.version.outputs.should_generate_changelog == 'true'
+        if: steps.bot-check.outputs.skip != 'true' && steps.version.outputs.should_generate_changelog == 'true'
         id: commits
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
@@ -128,7 +143,7 @@ jobs:
           echo "count=$(jq 'length' commits_compact.json)" >> $GITHUB_OUTPUT
 
       - name: Collect PR files (overview)
-        if: steps.version.outputs.should_generate_changelog == 'true'
+        if: steps.bot-check.outputs.skip != 'true' && steps.version.outputs.should_generate_changelog == 'true'
         id: files
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
@@ -139,7 +154,7 @@ jobs:
           jq '[.[] | {filename, status, additions, deletions, changes, patch: ((.patch//"") | split("\n")[0:40] | join("\n") | .[:4000])}]' files.json > files_compact.json
 
       - name: Prepare model input
-        if: steps.version.outputs.should_generate_changelog == 'true'
+        if: steps.bot-check.outputs.skip != 'true' && steps.version.outputs.should_generate_changelog == 'true'
         run: |
           set -euo pipefail
           VERSION="${{ steps.version.outputs.new_version }}"
@@ -154,7 +169,7 @@ jobs:
                 '{version:$version,date:$date,pr:{title:$pr_title,url:$pr_url},commits:$commits[0],files:$files[0]}' > model_context.json
 
       - name: Generate categorized changelog via OpenAI
-        if: steps.version.outputs.should_generate_changelog == 'true'
+        if: steps.bot-check.outputs.skip != 'true' && steps.version.outputs.should_generate_changelog == 'true'
         id: ai
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
@@ -175,12 +190,11 @@ jobs:
           CONTEXT=$(cat model_context.json)
           # Build OpenAI Chat Completions payload
           jq -n \
-            --arg model "gpt-4.1" \
+            --arg model "gpt-5" \
             --arg system "$INSTRUCTIONS" \
             --arg user "$CONTEXT" \
-            --argjson temperature 0.2 \
-            --argjson max_tokens 800 \
-            '{model:$model, response_format:{type:"json_object"}, messages:[{role:"system", content:$system},{role:"user", content:$user}], temperature:$temperature, max_tokens:$max_tokens}' > payload.json
+            --argjson max_completion_tokens 4000 \
+            '{model:$model, response_format:{type:"json_object"}, messages:[{role:"system", content:$system},{role:"user", content:$user}], max_completion_tokens:$max_completion_tokens}' > payload.json
           # Call OpenAI Chat Completions API
           http_status=$(curl -sS -o response.json -w "%{http_code}" \
             -X POST "https://api.openai.com/v1/chat/completions" \
@@ -208,7 +222,7 @@ jobs:
           jq . changelog.json > /dev/null
 
       - name: Render CHANGELOG entry and update file
-        if: steps.version.outputs.should_generate_changelog == 'true'
+        if: steps.bot-check.outputs.skip != 'true' && steps.version.outputs.should_generate_changelog == 'true'
         run: |
           set -euo pipefail
           VERSION="${{ steps.version.outputs.new_version }}"
@@ -250,6 +264,7 @@ jobs:
           cat "$md" "$existing" > "$tmp" && mv "$tmp" CHANGELOG.md
 
       - name: Commit and push changes to PR branch
+        if: steps.bot-check.outputs.skip != 'true'
         env:
           GIT_AUTHOR_NAME: github-actions[bot]
           GIT_AUTHOR_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
