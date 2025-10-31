@@ -74,6 +74,11 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
     // Re-derive identity and enforce admin role
     const token = await fetchToken(request)
+    console.log('[API /api/v1/users] Token check:', {
+      hasToken: !!token,
+      isAdmin: token ? isAdminToken(token) : false,
+      role: token ? (token as Record<string, unknown>).role : undefined,
+    })
     if (!token) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }

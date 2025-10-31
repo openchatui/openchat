@@ -29,6 +29,19 @@ export interface UpdateImageConfigInput {
 }
 
 export async function getImageConfig(): Promise<ImageConfigResponse> {
+  // Server-side optimization: call DB directly
+  if (typeof window === 'undefined') {
+    try {
+      const { getImageConfigFromDb } = await import('@/lib/db/image.db')
+      const cfg = await getImageConfigFromDb()
+      return { image: cfg }
+    } catch (err) {
+      console.error('[getImageConfig] Direct DB call failed:', err)
+      // Fall through to HTTP
+    }
+  }
+  
+  // Client-side or fallback: use HTTP
   const res = await httpFetch(absoluteUrl('/api/v1/images/config'), { method: 'GET' })
   if (!res.ok) {
     const data = await res.json().catch(() => ({} as Record<string, unknown>))

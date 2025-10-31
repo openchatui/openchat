@@ -1,4 +1,4 @@
-import 'server-only'
+
 
 import db from '@/lib/db'
 import type { AppUIMessage, ChatData } from '@/lib/modules/chat/chat.types'

@@ -142,9 +142,9 @@ export default async function Page() {
           audio: {
             ttsEnabled: audioConfig.ttsEnabled,
             sttEnabled: audioConfig.sttEnabled,
-            ttsProvider: audioConfig.tts.provider,
-            sttProvider: audioConfig.stt.provider as any,
-            whisperWebModel: audioConfig.stt.whisperWeb.model,
+            ttsProvider: audioConfig.tts?.provider || 'openai',
+            sttProvider: (audioConfig.stt?.provider || 'whisper-web') as 'whisper-web' | 'openai' | 'webapi' | 'deepgram',
+            whisperWebModel: audioConfig.stt?.whisperWeb?.model || 'Xenova/whisper-small',
           },
         }}
       >

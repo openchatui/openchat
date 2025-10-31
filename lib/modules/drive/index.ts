@@ -1,4 +1,4 @@
-import 'server-only'
+
 export * from './types'
 export * from './service'
 export * as LocalProvider from './providers/local.service'

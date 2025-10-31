@@ -21,6 +21,11 @@ RUN pnpm exec prisma generate --schema prisma/schema.sqlite.prisma
 FROM base AS builder
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+# Set build-time env vars so Next.js static generation doesn't fail
+ENV DB=sqlite
+ENV SQLITE_URL=file:./dev.db
+ENV AUTH_SECRET=build-time-secret-will-be-overridden
+ENV AUTH_URL=http://localhost:3000
 # Build Next.js
 RUN pnpm run build
 
@@ -30,10 +35,10 @@ ENV NODE_ENV=production
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
 ENV DB=sqlite
-ENV SQLITE_URL=file:/prisma/dev.db
+ENV SQLITE_URL=file:./dev.db
 ENV AUTH_TRUST_HOST=true
-ENV NEXTAUTH_URL=http://localhost:${PORT}
-ENV AUTH=false
+ENV AUTH_URL=http://localhost:3000
+ENV AUTH=true
 
 # Copy runtime assets
 COPY --from=builder /app/public ./public
@@ -48,10 +53,14 @@ RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists
 
 EXPOSE 3000
 
-# Generate NEXTAUTH_SECRET if not provided, run migrations, and start the app
-CMD sh -c 'export NEXTAUTH_SECRET="${NEXTAUTH_SECRET:-$(openssl rand -base64 32)}"; \
+# Generate AUTH_SECRET if not provided, run migrations, and start the app
+CMD sh -c '\
+  if [ -z "$AUTH_SECRET" ]; then \
+    export AUTH_SECRET="$(openssl rand -base64 32)"; \
+    echo "⚠️  AUTH_SECRET was not provided - generated temporary secret"; \
+    echo "⚠️  Set AUTH_SECRET env var for persistence across restarts"; \
+  fi; \
   echo "Starting OpenChat..."; \
-  [ -z "$NEXTAUTH_SECRET_PROVIDED" ] && echo "⚠️  NEXTAUTH_SECRET generated (set it for persistence across restarts)"; \
   pnpm run migrate:deploy || pnpm run db:push; \
   pnpm start'
 

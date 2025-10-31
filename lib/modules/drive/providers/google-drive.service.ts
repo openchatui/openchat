@@ -1,4 +1,4 @@
-import 'server-only'
+
 import db from '@/lib/db'
 import { google, drive_v3, docs_v1 } from 'googleapis'
 import { auth } from '@/lib/auth'

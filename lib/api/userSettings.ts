@@ -1,6 +1,7 @@
 import { z } from "zod"
 import { getJson, putJson } from "./http"
 import { absoluteUrl, httpFetch } from './http'
+import { auth } from "@/lib/auth"
 
 const UserSettingsSchema = z.object({
   ui: z.object({
@@ -22,6 +23,26 @@ function normalizeSettings(s: z.infer<typeof UserSettingsSchema>): NormalizedUse
 
 // Gets user settings with pinned models
 export async function getUserSettings(userId: string): Promise<NormalizedUserSettings> {
+  // Server-side optimization: call DB directly to avoid HTTP round-trip and auth issues
+  if (typeof window === 'undefined') {
+    try {
+      const session = await auth()
+      // Only bypass HTTP if the requesting user matches or is admin
+      const sessionUser = session?.user as { id?: string; role?: string } | undefined
+      const role = sessionUser?.role
+      const isAdmin = typeof role === 'string' && role.toLowerCase() === 'admin'
+      if (sessionUser?.id === userId || isAdmin) {
+        const { getUserSettingsFromDb } = await import('@/lib/db/users.db')
+        const data = await getUserSettingsFromDb(userId)
+        return normalizeSettings(data)
+      }
+    } catch (err) {
+      console.error('[getUserSettings] Direct DB call failed:', err)
+      // Fall through to HTTP call
+    }
+  }
+  
+  // Client-side or fallback: use HTTP
   const data = await getJson(
     `/api/v1/users/${userId}/settings`,
     { credentials: "include" },

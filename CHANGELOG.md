@@ -1,3 +1,21 @@
+## [0.1.25] - 2025-10-31
+
+### PR: [Dev to Main: Reverse Proxy and Auth Fixes](https://github.com/openchatui/openchat/pull/86)
+
+### Added
+- Optimized server-side API functions to call the database directly for config and user data, reducing HTTP round-trips and improving performance in Docker and reverse proxy environments. (https://github.com/openchatui/openchat/commit/c41de5cb5bf8755c7edfba60b50df7659d8f98f8)
+
+### Fixed
+- Fixed authentication issues behind a reverse proxy by forwarding cookies and external host headers, and by renaming NEXTAUTH_SECRET to AUTH_SECRET throughout the codebase. (https://github.com/openchatui/openchat/commit/c41de5cb5bf8755c7edfba60b50df7659d8f98f8)
+- Resolved admin role checks and user listing in the admin panel to avoid failures with secure cookies on localhost. (https://github.com/openchatui/openchat/commit/c41de5cb5bf8755c7edfba60b50df7659d8f98f8)
+- Improved audio config defaults and error handling to prevent crashes when config fields are missing. (https://github.com/openchatui/openchat/commit/c41de5cb5bf8755c7edfba60b50df7659d8f98f8)
+
+### Changed
+- Refactored environment variable usage, replacing NEXTAUTH_SECRET with AUTH_SECRET in all relevant files and documentation. (https://github.com/openchatui/openchat/commit/c41de5cb5bf8755c7edfba60b50df7659d8f98f8)
+- Updated Dockerfile and docker-compose.yml to support new authentication environment variables and improve compatibility with reverse proxy setups. (https://github.com/openchatui/openchat/commit/c41de5cb5bf8755c7edfba60b50df7659d8f98f8)
+- Enabled trustHost and debug options in Auth.js configuration for better logging and proxy support. (https://github.com/openchatui/openchat/commit/c41de5cb5bf8755c7edfba60b50df7659d8f98f8)
+- Improved role checks to be case-insensitive and updated admin UI navigation logic. (https://github.com/openchatui/openchat/commit/c41de5cb5bf8755c7edfba60b50df7659d8f98f8)
+
 ## [0.1.24] - 2025-10-31
 
 ### PR: [Merge dev to main: fixed reverse proxy support and docker deployment auth](https://github.com/openchatui/openchat/pull/84)

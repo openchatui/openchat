@@ -1,4 +1,3 @@
-import 'server-only';
 import { auth } from "@/lib/auth";
 import { ApiKeyService } from './api-key.service';
 import type { AuthenticationResult } from './api-auth.types';

@@ -1,4 +1,4 @@
-import 'server-only'
+
 import path from 'path'
 import { mkdir, readdir, stat, writeFile } from 'fs/promises'
 import type { FileEntry } from '@/lib/modules/drive/types'

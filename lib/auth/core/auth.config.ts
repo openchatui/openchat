@@ -60,6 +60,8 @@ const adapter = PrismaAdapter(db);
 export const authOptions = {
   adapter,
   session: { strategy: "jwt" as const },
+  trustHost: true, // Required for Docker and reverse proxy deployments
+  debug: process.env.NODE_ENV !== 'production', // Enable debug logging in dev
   providers: [
     GoogleProvider({
       id: "google-drive",

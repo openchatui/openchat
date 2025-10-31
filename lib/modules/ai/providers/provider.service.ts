@@ -1,4 +1,4 @@
-import 'server-only';
+
 import * as ConnectionsRepo from '@/lib/db/connections.db';
 import * as ModelsRepo from '@/lib/db/models.db';
 import { createOpenAI } from '@ai-sdk/openai';

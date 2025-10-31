@@ -1,4 +1,4 @@
-import 'server-only';
+
 import type { ToolResult } from '../core/tool.types';
 import { ToolConfigService } from '../core/tool.service';
 import type { PyodideRunInput, PyodideRunResultDetails } from './pyodide.types';
