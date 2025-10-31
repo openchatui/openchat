@@ -1,3 +1,10 @@
+## [0.1.23] - 2025-10-31
+
+### PR: [chore: update docker-compose environment variables and enhance middle…](https://github.com/openchatui/openchat/pull/82)
+
+### Changed
+- Updated docker-compose environment variables for improved configuration and enhanced middleware authentication logic for better route protection. (https://github.com/openchatui/openchat/commit/a61fe7b591e2adb1ad7da27f7a4b9e9810966d04)
+
 ## [0.1.22] - 2025-10-31
 
 ### PR: [Dev to Main ](https://github.com/openchatui/openchat/pull/79)
