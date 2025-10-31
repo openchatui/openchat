@@ -193,7 +193,7 @@ jobs:
             --arg model "gpt-5" \
             --arg system "$INSTRUCTIONS" \
             --arg user "$CONTEXT" \
-            --argjson max_completion_tokens 800 \
+            --argjson max_completion_tokens 4000 \
             '{model:$model, response_format:{type:"json_object"}, messages:[{role:"system", content:$system},{role:"user", content:$user}], max_completion_tokens:$max_completion_tokens}' > payload.json
           # Call OpenAI Chat Completions API
           http_status=$(curl -sS -o response.json -w "%{http_code}" \
