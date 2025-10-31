@@ -53,9 +53,10 @@ Pull and run with defaults (port 3000 inside the container):
 docker pull ghcr.io/openchatui/openchatui:latest
 docker run --name openchat \
   -p 3000:3000 \
+  -e PORT=3000 \
   -e AUTH_URL="http://localhost:3000" \
   -e AUTH_SECRET="$(openssl rand -base64 32)" \
-  -v "$(pwd)/data/prisma:/prisma" \
+  -v "$(pwd)/data:/app/data" \
   --restart unless-stopped \
   ghcr.io/openchatui/openchatui:latest
 ```
@@ -63,27 +64,15 @@ docker run --name openchat \
 > [!TIP]
 > - Change the host port by editing the `-p` flag (e.g., `-p 3001:3001` together with `-e PORT=3001`).
 > - If you prefer PostgreSQL, add `-e DB=postgres -e DATABASE_URL=postgresql://user:pass@host:5432/dbname`.
-> - The container will generate a `AUTH_SECRET` if not provided; set it for persistence across restarts.
+> - Optional (persist SQLite outside the image): mount a host folder at `/app/data` and set `SQLITE_URL=file:/app/data/openchat.db` (DB defaults to sqlite in the image). Avoid mounting `/prisma` to prevent overriding bundled migrations.
+> - The container will generate an `AUTH_SECRET` if not provided; set it for persistence across restarts.
 
 ##### Optional: Public landing (disable auth)
 
 Set `AUTH=false` to allow unauthenticated users to access the public landing page while keeping the `/admin` area protected and requiring admin login.
 
-Examples:
-
-```bash
-docker run \
-  -p 3000:3000 \
-  -e AUTH_URL="http://localhost:3000" \
-  -e AUTH_SECRET="$(openssl rand -base64 32)" \
-  -e AUTH=false \
-  -v "$(pwd)/data/prisma:/prisma" \
-  --restart unless-stopped \
-  ghcr.io/openchatui/openchatui:latest
-```
-
 #### Docker Compose
-A ready-to-use `docker-compose.yml` is included. It maps port `3000` and persists SQLite data to `./prisma`.
+A ready-to-use `docker-compose.yml` is included. It maps port `3000` and persists SQLite data to `./data` mounted at `/app/data`.
 
 Minimal compose file:
 ```yaml
@@ -92,8 +81,12 @@ services:
     image: ghcr.io/openchatui/openchatui:latest
     ports:
       - "3000:3000"
+    environment:
+      PORT: "3000"
+      AUTH_URL: "http://localhost:3000"
+      AUTH_SECRET: "<generate-a-secret>"
     volumes:
-      - ./prisma:/prisma
+      - ./data:/app/data
     restart: unless-stopped
 ```
 
@@ -109,7 +102,7 @@ docker compose down
 
 > [!TIP]
 > - Change the external port by editing `ports` and the internal app port by `environment: PORT` and `AUTH_URL`.
-> - Persist data: by default `./prisma:/prisma` stores the SQLite database on the host.
+> - Optional (persist SQLite outside the image): mount `./data:/app/data` and set `SQLITE_URL=file:/app/data/openchat.db` (DB defaults to sqlite in the image). Avoid mounting `/prisma` to prevent overriding bundled migrations.
 > - Switch to PostgreSQL: set `DB=postgres` and provide `DATABASE_URL` in `environment`. You can add a separate Postgres service if needed.
 
 # Features

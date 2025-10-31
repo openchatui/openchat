@@ -15,7 +15,7 @@ services:
       AUTH: "true"
       DEBUG_AUTH: "true"                                     
       #  DB: "sqlite"                                
-      #  SQLITE_URL: "file:/app/prisma/dev.db"             
+      #  SQLITE_URL: "file:/app/data/openchat.db"           
       #  DATABASE_URL: "postgresql://user:pass@host/db"
       #  NODE_ENV: "production"                        
       #  OPENAI_API_KEY: "sk-..."
