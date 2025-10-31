@@ -53,7 +53,7 @@ Pull and run with defaults (port 3000 inside the container):
 docker pull ghcr.io/openchatui/openchatui:latest
 docker run --name openchat \
   -p 3000:3000 \
-  -e NEXTAUTH_URL="http://localhost:3000" \
+  -e AUTH_URL="http://localhost:3000" \
   -e AUTH_SECRET="$(openssl rand -base64 32)" \
   -v "$(pwd)/data/prisma:/prisma" \
   --restart unless-stopped \
@@ -74,7 +74,7 @@ Examples:
 ```bash
 docker run \
   -p 3000:3000 \
-  -e NEXTAUTH_URL="http://localhost:3000" \
+  -e AUTH_URL="http://localhost:3000" \
   -e AUTH_SECRET="$(openssl rand -base64 32)" \
   -e AUTH=false \
   -v "$(pwd)/data/prisma:/prisma" \
@@ -108,7 +108,7 @@ docker compose down
 ```
 
 > [!TIP]
-> - Change the external port by editing `ports` and the internal app port by `environment: PORT` and `NEXTAUTH_URL`.
+> - Change the external port by editing `ports` and the internal app port by `environment: PORT` and `AUTH_URL`.
 > - Persist data: by default `./prisma:/prisma` stores the SQLite database on the host.
 > - Switch to PostgreSQL: set `DB=postgres` and provide `DATABASE_URL` in `environment`. You can add a separate Postgres service if needed.
 

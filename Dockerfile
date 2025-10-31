@@ -15,7 +15,7 @@ RUN pnpm install --frozen-lockfile
 COPY prisma ./prisma
 # Generate Prisma Client early so it is cached with node_modules
 ENV DB=sqlite
-ENV SQLITE_URL=file:./prisma/dev.db
+ENV SQLITE_URL=file:/app/data/openchat.db
 RUN pnpm exec prisma generate --schema prisma/schema.sqlite.prisma
 
 FROM base AS builder
@@ -23,7 +23,7 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 # Set build-time env vars so Next.js static generation doesn't fail
 ENV DB=sqlite
-ENV SQLITE_URL=file:./dev.db
+ENV SQLITE_URL=file:/app/data/openchat.db
 ENV AUTH_SECRET=build-time-secret-will-be-overridden
 ENV AUTH_URL=http://localhost:3000
 # Build Next.js
@@ -35,7 +35,7 @@ ENV NODE_ENV=production
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
 ENV DB=sqlite
-ENV SQLITE_URL=file:./dev.db
+ENV SQLITE_URL=file:/app/data/openchat.db
 ENV AUTH_TRUST_HOST=true
 ENV AUTH_URL=http://localhost:3000
 ENV AUTH=true

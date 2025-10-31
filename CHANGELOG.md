@@ -1,3 +1,12 @@
+## [0.1.27] - 2025-10-31
+
+### PR: [Dev](https://github.com/openchatui/openchat/pull/98)
+
+### Changed
+- Standardize environment variable from NEXTAUTH_URL to AUTH_URL across code, config, CI, and docs to align with Auth.js and simplify setup. (https://github.com/openchatui/openchat/commit/8268c21ec9561750b8fe638d8d97d7ace0fc1850)
+- Set SQLite path in Dockerfile to /app/data/openchat.db to persist data in a mounted volume and avoid stage inconsistencies. (https://github.com/openchatui/openchat/commit/16c20992b076e39e244584e87d57aa64600546fe)
+- Update docker-compose to reference SQLITE_URL=file:/app/prisma/dev.db and remove the unused prisma volume for a cleaner default. (https://github.com/openchatui/openchat/commit/1ecf4aa49e33441c0621b413ab24f7c3e4dabbf2)
+
 ## [0.1.26] - 2025-10-31
 
 ### PR: [dev to main: update apple icon and workflows ](https://github.com/openchatui/openchat/pull/91)
