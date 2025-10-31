@@ -32,7 +32,7 @@ async function getUserAccount(userId: string) {
 function getOAuthClient() {
   const clientId = process.env.DRIVE_CLIENT_ID
   const clientSecret = process.env.DRIVE_CLIENT_SECRET
-  const redirectUri = process.env.NEXTAUTH_URL+'/api/auth/callback/google-drive'
+  const redirectUri = process.env.AUTH_URL+'/api/auth/callback/google-drive'
   if (!clientId || !clientSecret) {
     return new google.auth.OAuth2()
   }
