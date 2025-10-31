@@ -1,3 +1,16 @@
+## [0.1.26] - 2025-10-31
+
+### PR: [dev to main: update apple icon and workflows ](https://github.com/openchatui/openchat/pull/91)
+
+### Added
+- Add Apple touch icon and general icon assets to improve branding and PWA support. (https://github.com/openchatui/openchat/commit/55a0f0c4f19bcf41e9d9af321e1e32d5589803d0)
+
+### Changed
+- Auto-changelog workflow now skips when the last commit is by the bot, and its model input generation switched to GPT-5. (https://github.com/openchatui/openchat/commit/0cd77def9d2c0a1102430f5f7de3bb35d59523d5)
+- Updated auto-changelog to use max_completion_tokens instead of the deprecated max_tokens parameter. (https://github.com/openchatui/openchat/commit/304c6ce8c3b1cc432b2a299f1c4b58beec30ea05)
+- Removed the temperature parameter from the auto-changelog workflow payload to simplify requests. (https://github.com/openchatui/openchat/commit/1a561da6fd08c10c28bc19609eb418b72eccc623)
+- Increased max_completion_tokens in the auto-changelog workflow to 4000 to support larger outputs. (https://github.com/openchatui/openchat/commit/fa6949835656af4810fbb58db6c0da078a208bf2)
+
 ## [0.1.25] - 2025-10-31
 
 ### PR: [Dev to Main: Reverse Proxy and Auth Fixes](https://github.com/openchatui/openchat/pull/86)
