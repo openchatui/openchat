@@ -1,3 +1,24 @@
+## [0.1.22] - 2025-10-31
+
+### PR: [Dev to Main ](https://github.com/openchatui/openchat/pull/79)
+
+### Added
+- Added OpenAPI Swagger documentation generation and serving via new API endpoints. (https://github.com/openchatui/openchat/commit/6757db1c020b170cde5765a8f11407ad6a32d9b9)
+- Enhanced model update API endpoint with Zod validation for improved input handling. (https://github.com/openchatui/openchat/commit/14c1b96a30132595320516329e867a3ee99b7281)
+
+### Fixed
+- Fixed OpenAI API payload structure and improved changelog JSON handling in workflow. (https://github.com/openchatui/openchat/commit/f00e883655f33109335fee9a53a8f9fb88756266)
+
+### Changed
+- Refactored server actions to API endpoints for connections, drive, websearch, image, video, and code interpreter configuration. (https://github.com/openchatui/openchat/commit/18bc25b1df8828bfad94af274b86a6d49a27591c)
+- Removed deprecated server actions and associated schemas for file management and documents. (https://github.com/openchatui/openchat/commit/d5b161fe45bae554b3c286f0eea4783e39133e14)
+- Refactored admin and main app pages to use new API helpers for models, chats, user settings, and feature configuration. (https://github.com/openchatui/openchat/commit/60cf3d2e6c705b48015a52701c6f2c89201e0f0b)
+- Improved user management API to support image uploads and refined user data processing. (https://github.com/openchatui/openchat/commit/0323d49c3c37aa63f93abb4755adbb87966c8953)
+- Removed legacy Swagger integration and updated API documentation retrieval method. (https://github.com/openchatui/openchat/commit/0434df12d74f2232b1783d4ce3cbfd7b32c4ac43)
+- Updated import paths and refactored API endpoints for improved consistency and maintainability. (https://github.com/openchatui/openchat/commit/4cb403821d279d6aa51280d47ce361547bfc38ba)
+- Refactored drive API endpoints and enhanced user settings retrieval for drive configuration. (https://github.com/openchatui/openchat/commit/725944079be7565e481a4db3700d4a83e65c0feb)
+- Removed old test docs page and performed file formatting cleanup. (https://github.com/openchatui/openchat/commit/566b29f42bb30a7b0a6e997978801d0c9a9a893d)
+
 ## [0.1.21] - 2025-10-19
 
 ### PR: [fix(api): await cookies](https://github.com/openchatui/openchat/pull/60)
