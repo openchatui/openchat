@@ -2,7 +2,13 @@ import { z } from "zod"
 
 function getApiBase(): string {
   if (typeof window !== 'undefined') return ''
-  const publicUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXTAUTH_URL || process.env.VERCEL_URL
+  // Prefer an internal URL when running on the server to avoid proxy-induced auth/cookie issues
+  const internalUrl = process.env.INTERNAL_API_URL || process.env.NEXTAUTH_INTERNAL_URL
+  if (internalUrl && !internalUrl.includes('${')) {
+    return internalUrl.startsWith('http') ? internalUrl : `http://${internalUrl}`
+  }
+  // Prefer explicit public app URLs; avoid routing SSR through reverse proxies via NEXTAUTH_URL by default
+  const publicUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || process.env.VERCEL_URL
   if (publicUrl && !publicUrl.includes('${')) {
     return publicUrl.startsWith('http') ? publicUrl : `https://${publicUrl}`
   }
