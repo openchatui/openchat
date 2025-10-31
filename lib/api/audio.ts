@@ -42,6 +42,38 @@ export type AudioConfig = {
 }
 
 export async function getAudioConfig(): Promise<AudioConfig> {
+  // Server-side optimization: call DB directly
+  if (typeof window === 'undefined') {
+    try {
+      const db = (await import('@/lib/db')).default
+      const { Prisma } = await import('@prisma/client')
+      let config = await db.config.findUnique({ where: { id: 1 } })
+      if (!config) {
+        const defaults = { 
+          audio: { 
+            ttsEnabled: false, 
+            sttEnabled: false,
+            tts: { provider: 'openai' },
+            stt: { provider: 'whisper-web', whisperWeb: { model: 'Xenova/whisper-small' } }
+          } 
+        }
+        return defaults.audio as AudioConfig
+      }
+      const current = (config.data || {}) as Record<string, any>
+      const audio = current.audio || {}
+      return {
+        ttsEnabled: Boolean(audio.ttsEnabled),
+        sttEnabled: Boolean(audio.sttEnabled),
+        tts: audio.tts || { provider: 'openai' },
+        stt: audio.stt || { provider: 'whisper-web', whisperWeb: { model: 'Xenova/whisper-small' } },
+      }
+    } catch (err) {
+      console.error('[getAudioConfig] Direct DB call failed:', err)
+      // Fall through to HTTP
+    }
+  }
+  
+  // Client-side or fallback: use HTTP
   const res = await httpFetch(absoluteUrl('/api/v1/audio/config'), { method: 'GET' })
   if (!res.ok) {
     const data = await res.json().catch(() => ({} as Record<string, unknown>))

@@ -1,4 +1,3 @@
-import 'server-only'
 import db from '@/lib/db'
 import type { DriveConfig, WorkspaceProvider, UpdateDriveConfigInput } from '@/types/drive.types'
 

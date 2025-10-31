@@ -101,6 +101,15 @@ export async function POST(req: NextRequest) {
   try {
     // Get the current session
     const session = await auth();
+    console.error('[DEBUG] Chat API - session:', JSON.stringify({ 
+      hasSession: !!session, 
+      hasUser: !!session?.user, 
+      userId: session?.user?.id,
+      cookies: req.cookies.getAll().map(c => c.name),
+      origin: req.headers.get('origin'),
+      host: req.headers.get('host'),
+      referer: req.headers.get('referer')
+    }));
     if (!session?.user?.id) {
       return new Response('Unauthorized', { status: 401 });
     }

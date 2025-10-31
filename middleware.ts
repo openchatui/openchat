@@ -10,11 +10,34 @@ export default async function middleware(request: NextRequest) {
 
   // Admin-only sections
   if (pathname.startsWith('/admin')) {
-    const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET })
-    const role = (token as any)?.role as string | undefined
-    if (!role || role !== 'ADMIN') {
+    // Debug: Check what cookies we're receiving
+    const cookies = request.cookies.getAll()
+    const cookieNames = cookies.map(c => c.name)
+    const sessionCookie = cookies.find(c => 
+      c.name.includes('session-token') || 
+      c.name.includes('next-auth') ||
+      c.name.startsWith('authjs.session-token') ||
+      c.name.startsWith('__Secure-authjs.session-token')
+    )
+    
+    const secret = process.env.AUTH_SECRET
+    
+    const token = await getToken({ 
+      req: request, 
+      secret,
+      secureCookie: request.nextUrl.protocol === 'https:',
+    }).catch(err => {
+      console.error('[Middleware] getToken error:', err)
+      return null
+    })
+    
+    const role = token?.role
+    if (!role || (typeof role === 'string' && role.toLowerCase() !== 'admin')) {
+      console.log('[Middleware] Access denied - role check failed')
       return NextResponse.rewrite(new URL('/404', request.url))
     }
+    
+    console.log('[Middleware] Access granted')
   }
 
   return NextResponse.next()

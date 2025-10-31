@@ -1,4 +1,4 @@
-import 'server-only';
+
 import { UIMessage, generateId } from 'ai';
 import db from '@/lib/db';
 import { ModelAccessService } from '@/lib/modules/access-control/model-access.service';

@@ -1,4 +1,3 @@
-import 'server-only';
 import crypto from 'crypto';
 import * as ApiKeyRepo from '@/lib/db/api-keys.db';
 import type { ApiKeyValidation, ApiKeyCreation, ApiKeyInfo } from './api-auth.types';

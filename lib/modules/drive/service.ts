@@ -1,4 +1,4 @@
-import 'server-only'
+
 import type { DriveProvider, FileEntry } from '@/lib/modules/drive/types'
 import { getDriveProvider } from '@/lib/modules/drive/types'
 import { listDirectory as localListDirectory, saveFile as localSaveFile } from '@/lib/modules/drive/providers/local.service'

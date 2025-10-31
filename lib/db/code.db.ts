@@ -1,4 +1,3 @@
-import 'server-only'
 import db from '@/lib/db'
 import type { CodeProvider, CodeConfig } from '@/types/code.types'
 

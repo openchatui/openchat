@@ -2,16 +2,10 @@ import { z } from "zod"
 
 function getApiBase(): string {
   if (typeof window !== 'undefined') return ''
-  // Prefer an internal URL when running on the server to avoid proxy-induced auth/cookie issues
-  const internalUrl = process.env.INTERNAL_API_URL || process.env.NEXTAUTH_INTERNAL_URL
-  if (internalUrl && !internalUrl.includes('${')) {
-    return internalUrl.startsWith('http') ? internalUrl : `http://${internalUrl}`
-  }
-  // Prefer explicit public app URLs; avoid routing SSR through reverse proxies via NEXTAUTH_URL by default
-  const publicUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || process.env.VERCEL_URL
-  if (publicUrl && !publicUrl.includes('${')) {
-    return publicUrl.startsWith('http') ? publicUrl : `https://${publicUrl}`
-  }
+  
+  // For server-side calls in Docker/reverse proxy mode, use localhost
+  // trustHost: true tells Auth.js to trust X-Forwarded-* headers,
+  // and we explicitly forward cookies in httpFetch() to maintain auth
   const port = process.env.PORT || '3000'
   return `http://localhost:${port}`
 }
@@ -52,7 +46,46 @@ export async function httpFetch(input: RequestInfo, init?: RequestInit): Promise
   const headers = new Headers(init?.headers)
   if (typeof window === 'undefined') {
     const serverCookies = await getServerCookieHeader()
-    if (serverCookies.cookie && !headers.has('cookie')) headers.set('cookie', serverCookies.cookie)
+    if (process.env.DEBUG_AUTH === 'true') {
+      console.log('[httpFetch] Server-side request:', {
+        url: typeof input === 'string' ? input : 'Request object',
+        hasCookies: !!serverCookies.cookie,
+        cookieLength: serverCookies.cookie?.length || 0,
+      })
+    }
+    if (serverCookies.cookie && !headers.has('cookie')) {
+      headers.set('cookie', serverCookies.cookie)
+    }
+    
+    // When behind a reverse proxy, forward the external host for Auth.js validation
+    // Auth.js with trustHost:true will validate against these headers
+    const externalUrl = process.env.AUTH_URL || process.env.NEXTAUTH_URL
+    if (externalUrl) {
+      try {
+        const url = new URL(externalUrl)
+        // Set Host header to match external domain (critical for Auth.js session validation)
+        if (!headers.has('host')) {
+          headers.set('host', url.host)
+        }
+        // Also set x-forwarded-* headers for proper proxy handling
+        if (!headers.has('x-forwarded-host')) {
+          headers.set('x-forwarded-host', url.host)
+        }
+        if (!headers.has('x-forwarded-proto')) {
+          headers.set('x-forwarded-proto', url.protocol.replace(':', ''))
+        }
+        if (!headers.has('x-forwarded-for')) {
+          headers.set('x-forwarded-for', '127.0.0.1')
+        }
+        
+        // Debug logging for Docker troubleshooting
+        if (process.env.DEBUG_AUTH === 'true') {
+          const cookieHeader = headers.get('cookie') || '';
+        }
+      } catch (err) {
+        console.error('[httpFetch] Failed to parse AUTH_URL:', externalUrl, err)
+      }
+    }
   }
   return await fetch(resolveUrl(input), {
     ...init,

@@ -12,6 +12,19 @@ export async function getConnections(): Promise<Connection[]> {
 }
 
 export async function getConnectionsConfig(): Promise<{ connections: ConnectionsConfig }> {
+  // Server-side optimization: call DB directly
+  if (typeof window === 'undefined') {
+    try {
+      const { getConnectionsConfig: getConnectionsConfigDb } = await import('@/lib/db/connections.db')
+      const result = await getConnectionsConfigDb()
+      return result as any
+    } catch (err) {
+      console.error('[getConnectionsConfig] Direct DB call failed:', err)
+      // Fall through to HTTP
+    }
+  }
+  
+  // Client-side or fallback: use HTTP
   const res = await httpFetch(absoluteUrl('/api/v1/connections/config'), { method: 'GET' })
   if (!res.ok) {
     const data = await res.json().catch(() => ({} as Record<string, unknown>))

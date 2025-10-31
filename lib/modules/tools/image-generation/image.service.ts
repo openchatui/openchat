@@ -1,4 +1,4 @@
-import 'server-only';
+
 import db from '@/lib/db';
 import { writeFile, mkdir } from 'fs/promises';
 import path from 'path';

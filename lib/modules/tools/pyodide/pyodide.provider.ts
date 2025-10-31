@@ -1,4 +1,4 @@
-import 'server-only';
+
 import { tool } from 'ai';
 import { PyodideManager } from './pyodide.service';
 import { PyodideRunInputSchema } from './pyodide.types';
