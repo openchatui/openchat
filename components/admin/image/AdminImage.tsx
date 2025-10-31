@@ -10,10 +10,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
-import { updateConnectionsConfig } from "@/actions/connections"
+import { updateConnectionsConfig } from "@/lib/api/connections"
 
 import { OpenAIImageConnectionForm } from "@/components/admin/image/OpenAIImageConnectionForm"
-import { updateImageConfigAction } from "@/actions/image"
+import { updateImageConfig } from "@/lib/api/image"
 import { toast } from "sonner"
 
 interface AdminImageProps {
@@ -36,7 +36,7 @@ export function AdminImage({ session, initialChats = [], initialProvider = 'open
   const persistProvider = async (nextProvider: 'openai' | 'comfyui' | 'automatic1111') => {
     try {
       setIsSaving(true)
-      await updateImageConfigAction({ provider: nextProvider })
+      await updateImageConfig({ provider: nextProvider })
       setProvider(nextProvider)
       toast.success("Image provider updated")
     } catch (e: any) {

@@ -2,7 +2,7 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { AdminModels } from "@/components/admin/models/AdminModels";
 import db from "@/lib/db";
-import { adminGetModels, adminGetGroupedModels } from "@/actions/chat";
+import { listModels, groupModelsByOwner } from "@/lib/api/models";
 import { ChatStore } from "@/lib/modules/chat";
 
 export default async function AdminModelsPage() {
@@ -11,8 +11,8 @@ export default async function AdminModelsPage() {
 
     // Load models server-side for better performance
     const [models, groupedModels] = await Promise.all([
-        adminGetModels(),
-        adminGetGroupedModels()
+        listModels(),
+        groupModelsByOwner()
     ]);
 
     // Load models config

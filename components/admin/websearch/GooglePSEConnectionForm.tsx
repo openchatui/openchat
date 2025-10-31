@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { ApiKeyField } from "@/components/admin/ApiKeyField"
-import { updateWebSearchConfigAction } from "@/actions/websearch"
+import { updateWebSearchConfig } from "@/lib/api/websearch"
 
 interface GooglePSEConnectionFormProps {
   initialApiKey?: string
@@ -43,7 +43,7 @@ export function GooglePSEConnectionForm({ initialApiKey = "", initialEngineId = 
             }
           }
         }
-        await updateWebSearchConfigAction(payload)
+        await updateWebSearchConfig(payload)
       } catch {
         // swallow; parent page shows global errors via hook if needed
       } finally {
@@ -62,7 +62,7 @@ export function GooglePSEConnectionForm({ initialApiKey = "", initialEngineId = 
           onChange={setApiKey}
           onSave={async (val) => {
             const payload = { websearch: { googlepse: { apiKey: val } } }
-            await updateWebSearchConfigAction(payload)
+            await updateWebSearchConfig(payload)
           }}
           isLoading={isLoading}
           placeholder="AIza..."

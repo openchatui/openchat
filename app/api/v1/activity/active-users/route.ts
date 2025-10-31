@@ -5,6 +5,21 @@ import { isAuthEnabled } from '@/lib/auth/toggle'
 
 export const runtime = 'nodejs'
 
+/**
+ * @swagger
+ * /api/v1/activity/active-users:
+ *   get:
+ *     tags: [Activity]
+ *     summary: List currently active users (last 30s)
+ *     description: Returns PII in authenticated mode; in public mode without auth, returns an array of nulls equal to the count.
+ *     responses:
+ *       200:
+ *         description: List of active users or count-only array
+ *       401:
+ *         description: Unauthorized (when auth required)
+ *       500:
+ *         description: Internal error
+ */
 export async function GET(req: NextRequest) {
   try {
     const session = await auth()

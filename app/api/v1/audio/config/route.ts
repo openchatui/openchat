@@ -24,6 +24,18 @@ function ensureAudioConfigShape(data: any): { audio: Record<string, unknown> } {
   return { audio: shaped }
 }
 
+/**
+ * @swagger
+ * /api/v1/audio/config:
+ *   get:
+ *     tags: [Audio]
+ *     summary: Get audio configuration (creates defaults if missing)
+ *     responses:
+ *       200:
+ *         description: Audio configuration
+ *       500:
+ *         description: Failed to fetch audio config
+ */
 // GET /api/v1/audio/config - returns audio config, initializing if needed
 export async function GET() {
   try {

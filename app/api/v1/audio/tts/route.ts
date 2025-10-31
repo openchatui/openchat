@@ -16,6 +16,44 @@ function getString(val: unknown): string | null {
   return typeof val === 'string' && val.length > 0 ? val : null
 }
 
+/**
+ * @swagger
+ * /api/v1/audio/tts:
+ *   post:
+ *     tags: [Audio]
+ *     summary: Text-to-Speech using configured provider (OpenAI or ElevenLabs)
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               text:
+ *                 type: string
+ *                 description: Text to synthesize
+ *     responses:
+ *       200:
+ *         description: Audio generated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 base64:
+ *                   type: string
+ *                   description: Base64 audio payload
+ *                 mimeType:
+ *                   type: string
+ *       400:
+ *         description: Missing text or provider not configured
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: TTS not enabled
+ *       500:
+ *         description: Failed to generate speech
+ */
 export async function POST(request: NextRequest) {
   try {
     const session = await auth()

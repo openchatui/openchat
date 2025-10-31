@@ -1,5 +1,5 @@
 import 'server-only';
-import * as UsersRepo from '@/lib/db/users.repository';
+import * as UsersRepo from '@/lib/db/users.db';
 import type { ExtendedUser, UserCreation, PasswordValidation } from './auth.types';
 
 // Core Authentication Service

@@ -18,8 +18,8 @@ export const PLACEHOLDERS = {
 } as const
 
 export const API_ENDPOINTS = {
-  USER_UPDATE: '/api/v1/users/update',
-  USER_DELETE: '/api/v1/users/delete'
+  USER_UPDATE: (id: string) => `/api/v1/users/${id}`,
+  USER_DELETE: (id: string) => `/api/v1/users/${id}/delete`,
 } as const
 
 export const MESSAGES = {
@@ -56,11 +56,15 @@ export const TOAST_MESSAGES = {
   USER_LOAD_FAILED: 'Failed to load users'
 } as const
 
-export const getEmailInitials = (email: string) => {
-  const [username] = email.split('@')
-  return username
-    .split('.')
+export const getEmailInitials = (email: string | null | undefined) => {
+  if (typeof email !== 'string' || email.length === 0) return 'U'
+  const [usernameRaw] = email.split('@')
+  const username = (usernameRaw || '').trim()
+  if (!username) return 'U'
+  const parts = username.split('.').filter(Boolean)
+  const letters = (parts.length > 0 ? parts : [username])
     .map(part => part.charAt(0).toUpperCase())
     .join('')
-    .slice(0, 2)
+  const initials = letters.slice(0, 2)
+  return initials || 'U'
 }

@@ -1,35 +1,47 @@
-"use client"
-import { useEffect, useState } from "react"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { renameFileSubmitAction, renameFolderSubmitAction } from "@/actions/files"
+"use client";
+import { useEffect, useState } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { renameFolder, renameFile } from "@/lib/api/drive";
 
 interface RenameItemDialogProps {
-  open: boolean
-  onOpenChange: (next: boolean) => void
-  itemId: string
-  itemType: "file" | "folder"
-  itemName?: string
+  open: boolean;
+  onOpenChange: (next: boolean) => void;
+  itemId: string;
+  itemType: "file" | "folder";
+  itemName?: string;
 }
 
-export function RenameItemDialog({ open, onOpenChange, itemId, itemType, itemName }: RenameItemDialogProps) {
-  const [name, setName] = useState<string>(itemName || "")
+export function RenameItemDialog({
+  open,
+  onOpenChange,
+  itemId,
+  itemType,
+  itemName,
+}: RenameItemDialogProps) {
+  const [name, setName] = useState<string>(itemName || "");
   useEffect(() => {
-    if (open) setName(itemName || "")
-  }, [open, itemName])
+    if (open) setName(itemName || "");
+  }, [open, itemName]);
 
-  const title = `Rename ${itemType === 'folder' ? 'folder' : 'file'}`
-  const idFieldName = itemType === 'folder' ? 'folderId' : 'fileId'
-  const nameFieldName = itemType === 'folder' ? 'name' : 'filename'
+  const title = `Rename ${itemType === "folder" ? "folder" : "file"}`;
+  const idFieldName = itemType === "folder" ? "folderId" : "fileId";
+  const nameFieldName = itemType === "folder" ? "name" : "filename";
 
   async function onConfirm(formData: FormData) {
-    if (itemType === 'folder') {
-      await renameFolderSubmitAction(formData)
+    if (itemType === "folder") {
+      await renameFolder({ id: itemId, name });
     } else {
-      await renameFileSubmitAction(formData)
+      await renameFile({ id: itemId, filename: name });
     }
-    onOpenChange(false)
+    onOpenChange(false);
   }
 
   return (
@@ -45,17 +57,23 @@ export function RenameItemDialog({ open, onOpenChange, itemId, itemType, itemNam
             name={nameFieldName}
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder={itemType === 'folder' ? 'Folder name' : 'File name'}
+            placeholder={itemType === "folder" ? "Folder name" : "File name"}
             autoFocus
           />
           <div className="flex items-center justify-end gap-2">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button type="submit" disabled={!name.trim()}>Rename</Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" disabled={!name.trim()}>
+              Rename
+            </Button>
           </div>
         </form>
       </DialogContent>
     </Dialog>
-  )
+  );
 }
-
-

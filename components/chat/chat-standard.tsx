@@ -9,7 +9,8 @@ import type { Session } from 'next-auth'
 import type { Model } from '@/types/model.types'
 import { useChatStore } from '@/lib/modules/chat/chat.client-store'
 import { useRouter } from 'next/navigation'
-import { loadChatMessages, updateUserSettings } from '@/actions/chat'
+import { getChatMessages } from '@/lib/api/chats'
+import { updateUserSettingsRaw } from '@/lib/api/userSettings'
 import { useChatStreaming } from '@/hooks/useChatStreaming'
 import { Loader } from '@/components/ui/loader'
 
@@ -56,6 +57,7 @@ export function ChatStandard({
   useEffect(() => {
     setMessages([] as any)
     hasAutoSentRef.current = false
+    setSelectedModel(null)
   }, [chatId, setMessages])
 
   // (removed) defer message loading until after streaming hook is available
@@ -83,6 +85,21 @@ export function ChatStandard({
       if (activeModels.length > 0) setSelectedModel(activeModels[0])
     }
   }, [selectedModel, messages, initialModels, initialUserSettings])
+
+  // Do not override user selection after initial set; only apply when none is selected yet
+  useEffect(() => {
+    if (selectedModel) return
+    if (initialModels.length === 0 || messages.length === 0) return
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const meta = (messages[i] as any)?.metadata
+      const modelId = meta?.model?.id
+      if (modelId) {
+        const found = initialModels.find(m => m.id === modelId || (m as any).providerId === modelId)
+        if (found) { setSelectedModel(found) }
+        break
+      }
+    }
+  }, [messages, initialModels, selectedModel])
 
   const currentModel = useMemo(() => {
     return selectedModel
@@ -134,7 +151,9 @@ export function ChatStandard({
           models: [(((model as any).providerId) || model.id)]
         }
       }
-      await updateUserSettings(updatedSettings)
+      if (session?.user?.id) {
+        await updateUserSettingsRaw(session.user.id, updatedSettings)
+      }
     } catch (error) {
       console.error('Failed to save model selection:', error)
     }
@@ -146,7 +165,7 @@ export function ChatStandard({
   useEffect(() => {
     if (!chatId) return
     let cancelled = false
-    loadChatMessages(chatId)
+    getChatMessages(chatId)
       .then((loaded) => {
         if (cancelled) return
         if (!Array.isArray(loaded) || loaded.length === 0) return

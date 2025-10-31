@@ -1,16 +1,11 @@
 import { useCallback, useState } from 'react'
 import { toast } from 'sonner'
-import { updateDriveConfigAction } from '@/actions/drive'
+import { updateDriveConfig } from '@/lib/api/drive'
+import type { DriveConfig, WorkspaceProvider } from '@/types/drive.types'
 
-export type WorkspaceProvider = 'local' | 'aws' | 'azure'
+// Using shared types from types/drive.types
 
-export interface DriveConfigUI {
-  enabled: boolean
-  workspace: { enabled: boolean; provider: WorkspaceProvider }
-  user: { enabled: boolean }
-}
-
-interface UseDriveState extends DriveConfigUI {
+interface UseDriveState extends DriveConfig {
   isSaving: boolean
 }
 
@@ -21,17 +16,14 @@ interface UseDriveApi extends UseDriveState {
   setUserEnabled: (enabled: boolean) => Promise<void>
 }
 
-export function useDrive(initialConfig: DriveConfigUI): UseDriveApi {
+export function useDrive(initialConfig: DriveConfig): UseDriveApi {
   const [state, setState] = useState<UseDriveState>({ ...initialConfig, isSaving: false })
 
   const setEnabled = useCallback(async (enabled: boolean) => {
     setState(prev => ({ ...prev, enabled, isSaving: true }))
     try {
-      const fd = new FormData()
-      fd.set('enabled', String(enabled))
-      const res = await updateDriveConfigAction(fd)
-      if (res?.status === 'success') toast.success('Drive settings saved')
-      else toast.error(res?.message || 'Failed to save')
+      await updateDriveConfig({ enabled })
+      toast.success('Drive settings saved')
     } catch (e: any) {
       toast.error(e?.message || 'Failed to save')
     } finally {
@@ -42,11 +34,8 @@ export function useDrive(initialConfig: DriveConfigUI): UseDriveApi {
   const setWorkspaceEnabled = useCallback(async (enabled: boolean) => {
     setState(prev => ({ ...prev, workspace: { ...prev.workspace, enabled }, isSaving: true }))
     try {
-      const fd = new FormData()
-      fd.set('workspaceEnabled', String(enabled))
-      const res = await updateDriveConfigAction(fd)
-      if (res?.status === 'success') toast.success('Workspace storage setting saved')
-      else toast.error(res?.message || 'Failed to save')
+      await updateDriveConfig({ workspace: { enabled } })
+      toast.success('Workspace storage setting saved')
     } catch (e: any) {
       toast.error(e?.message || 'Failed to save')
     } finally {
@@ -57,11 +46,8 @@ export function useDrive(initialConfig: DriveConfigUI): UseDriveApi {
   const setWorkspaceProvider = useCallback(async (provider: WorkspaceProvider) => {
     setState(prev => ({ ...prev, workspace: { ...prev.workspace, provider }, isSaving: true }))
     try {
-      const fd = new FormData()
-      fd.set('workspaceProvider', provider)
-      const res = await updateDriveConfigAction(fd)
-      if (res?.status === 'success') toast.success('Workspace provider saved')
-      else toast.error(res?.message || 'Failed to save')
+      await updateDriveConfig({ workspace: { provider } })
+      toast.success('Workspace provider saved')
     } catch (e: any) {
       toast.error(e?.message || 'Failed to save')
     } finally {
@@ -72,11 +58,8 @@ export function useDrive(initialConfig: DriveConfigUI): UseDriveApi {
   const setUserEnabled = useCallback(async (enabled: boolean) => {
     setState(prev => ({ ...prev, user: { ...prev.user, enabled }, isSaving: true }))
     try {
-      const fd = new FormData()
-      fd.set('userEnabled', String(enabled))
-      const res = await updateDriveConfigAction(fd)
-      if (res?.status === 'success') toast.success('User storage setting saved')
-      else toast.error(res?.message || 'Failed to save')
+      await updateDriveConfig({ user: { enabled } })
+      toast.success('User storage setting saved')
     } catch (e: any) {
       toast.error(e?.message || 'Failed to save')
     } finally {

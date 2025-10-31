@@ -5,7 +5,7 @@ import { AdminSidebar } from "../AdminSidebar"
 
 // Connections Panel Content (from connections.tsx)
 import { useConnections } from "@/hooks/connections/useConnections"
-import type { Connection, ConnectionsConfig, CreateConnectionData } from "@/lib/modules/connections/connections.types"
+import type { Connection, ConnectionsConfig, CreateConnectionData } from "@/types/connections.types"
 import { OpenAIConnectionForm } from "./openai-connection-form"
 import { OllamaConnectionForm } from "./ollama-connection-form"
 import { EditConnectionDialog } from "./edit-connection-dialog"

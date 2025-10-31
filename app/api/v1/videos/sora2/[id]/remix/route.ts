@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
-import db from '@/lib/db'
+import { createUserFileRecord } from '@/lib/db/video.db'
 import { ProviderService } from '@/lib/modules/ai/providers/provider.service'
 import OpenAI from 'openai'
 import { getRootFolderId } from '@/lib/modules/drive'
@@ -65,7 +65,7 @@ async function getOpenAIClient(): Promise<OpenAI | null> {
  * @swagger
  * /api/v1/videos/sora2/{id}/remix:
  *   post:
- *     tags: [Tools]
+ *     tags: [Video Tool]
  *     summary: Remix an existing OpenAI video by id using Sora 2
  *     parameters:
  *       - in: path
@@ -152,19 +152,17 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
     const filename = path.basename(finalPath)
     const dbPath = `/data/files/${effectiveParentId}/${filename}`
 
-    await db.file.create({
-      data: {
-        id,
-        userId,
-        parentId: effectiveParentId,
-        filename,
-        meta: { provider: 'openai', model: 'sora-2-pro', prompt, size, seconds, sourceVideoId: videoId, jobId },
-        createdAt: nowSec,
-        updatedAt: nowSec,
-        hash: sha,
-        data: json,
-        path: dbPath,
-      },
+    await createUserFileRecord({
+      id,
+      userId,
+      parentId: effectiveParentId,
+      filename,
+      dbPath,
+      createdAt: nowSec,
+      updatedAt: nowSec,
+      hash: sha,
+      meta: { provider: 'openai', model: 'sora-2-pro', prompt, size, seconds, sourceVideoId: videoId, jobId } as Record<string, unknown>,
+      data: json as unknown,
     })
 
     const url = `/files/${effectiveParentId}/${filename}`

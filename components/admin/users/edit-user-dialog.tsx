@@ -25,7 +25,7 @@ interface EditUserDialogProps {
   onClose: () => void
   onUpdateForm: (field: keyof EditUserForm, value: string) => void
   onTogglePasswordVisibility: () => void
-  onUpdateUser?: () => void
+  onUpdateUser?: (user: UserType) => void
   onDeleteUser?: () => void
   onProfileImageSelected?: (file: File) => void
   onProfileImageUploaded?: (url: string) => void
@@ -53,8 +53,10 @@ export function EditUserDialog({
   const { mutate: removeUser, isLoading: isDeleting, error: deleteError } = useDeleteUser()
   const { mutate: uploadImage } = useUploadUserProfileImage()
 
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return 'Never'
     const date = new Date(dateString)
+    if (Number.isNaN(date.getTime())) return 'Never'
     return new Intl.DateTimeFormat('en-US', {
       year: 'numeric',
       month: 'long',
@@ -317,7 +319,7 @@ export function EditUserDialog({
               onSubmit={async (e) => {
                 e.preventDefault()
                 try {
-                  await saveUser({
+                  const updated = await saveUser({
                     id: editingUser.id,
                     name: editForm.name,
                     email: editForm.email,
@@ -325,12 +327,12 @@ export function EditUserDialog({
                     password: editForm.password?.trim() ? editForm.password : undefined,
                     groupIds: selectedGroupIds,
                   })
-                  onUpdateUser?.()
+                  if (updated) onUpdateUser?.(updated as any)
                   onClose()
                 } catch {}
               }}
             >
-              <input type="hidden" name="id" value={editingUser.id} />
+              <input type="hidden" name="id" value={editingUser.id || ''} />
               <Button type="submit" disabled={!editForm.name.trim() || !editForm.email.trim() || isSaving} className="flex items-center gap-2">
                 <Save className="h-4 w-4" />
                 {isSaving ? 'Saving…' : 'Save'}

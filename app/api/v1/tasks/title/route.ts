@@ -9,10 +9,41 @@ export const maxDuration = 30
 export const runtime = 'nodejs'
 
 /**
- * POST /api/v1/tasks/title
- * Body: { title?: string, chatId?: string }
- * - If chatId provided: auth required, loads chat, generates from latest user text, persists title
- * - Else: cleans provided title string and returns it (no DB write)
+ * @swagger
+ * /api/v1/tasks/title:
+ *   post:
+ *     tags: [Tasks]
+ *     summary: Generate a chat title from recent messages or provided text
+ *     description: If chatId is provided, requires auth; generates a title from the latest user message and persists it. Otherwise, cleans up the provided title string and returns it without writing to DB.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               chatId:
+ *                 type: string
+ *                 description: Chat to read messages from (auth required)
+ *               title:
+ *                 type: string
+ *                 description: Optional raw title text to clean when chatId is not provided
+ *     responses:
+ *       200:
+ *         description: Title generated/cleaned successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 title:
+ *                   type: string
+ *       400:
+ *         description: Validation error (missing inputs)
+ *       401:
+ *         description: Unauthorized (when chatId is used)
+ *       500:
+ *         description: Failed to generate title
  */
 export async function POST(req: Request) {
   try {

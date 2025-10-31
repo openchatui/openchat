@@ -8,7 +8,7 @@ import { ApiKeyField } from "@/components/admin/ApiKeyField"
 import { Switch } from "@/components/ui/switch"
 import { toast } from "sonner"
 import { PLACEHOLDERS, MESSAGES, TOAST_MESSAGES } from "@/constants/connections"
-import type { NewConnection, CreateConnectionData, Connection } from "@/lib/modules/connections/connections.types"
+import type { NewConnection, CreateConnectionData, Connection } from "@/types/connections.types"
 
 interface OpenAIConnectionFormProps {
   existingConnections: (Connection & { type: 'openai-api' })[]

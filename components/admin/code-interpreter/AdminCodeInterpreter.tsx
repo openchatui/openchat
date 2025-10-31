@@ -8,7 +8,8 @@ import { SaveStatusButton } from "@/components/ui/save-button"
 import { AdminSidebar } from "@/components/admin/AdminSidebar"
 import type { Session } from "next-auth"
 import type { ChatData } from "@/lib/modules/chat"
-import { updateCodeInterpreterConfig, type CodeInterpreterConfig } from "@/actions/code-interpreter"
+import { updateCodeConfig } from "@/lib/api/code"
+import type { CodeConfig as CodeInterpreterConfig } from "@/lib/api/code"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { Label } from "@/components/ui/label"
@@ -33,13 +34,14 @@ export function AdminCodeInterpreter({ session, initialConfig }: AdminCodeInterp
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    const fd = new FormData()
-    fd.set('enabled', String(enabled))
-    fd.set('provider', provider)
     setMessage("")
     startTransition(async () => {
-      const res = await updateCodeInterpreterConfig(fd)
-      setMessage(res.ok ? 'Saved' : (res.message || 'Failed to save'))
+      try {
+        await updateCodeConfig({ enabled, provider })
+        setMessage('Saved')
+      } catch (err: any) {
+        setMessage(err?.message || 'Failed to save')
+      }
     })
   }
 

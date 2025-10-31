@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import db from '@/lib/db'
-import { fetchToken, isAdminToken, isSameOrigin } from '@/lib'
+import { findUserWithDetailsById, updateUserBasic, findUserById, updateUserGroups, findUserByEmail, updateUserImage } from '@/lib/db/users.db'
+import { fetchToken, isAdminToken, isSameOrigin } from '@/lib/auth/authz'
 import { z } from 'zod'
 
 // Role mapping between database enum and frontend types
@@ -11,9 +11,9 @@ const roleMap = {
 
 /**
  * @swagger
- * /api/users/{id}:
+ * /api/v1/users/{id}:
  *   get:
- *     tags: [Admin]
+ *     tags: [Users]
  *     summary: Get a user by ID
  *     security:
  *       - BearerAuth: []
@@ -53,33 +53,17 @@ export async function GET(
     const Params = z.object({ id: z.string().min(1) })
     const { id } = Params.parse(await params)
 
-    const dbUser = await db.user.findUnique({
-      where: { id },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        image: true,
-        createdAt: true,
-        updatedAt: true,
-        accounts: {
-          select: { providerAccountId: true, provider: true }
-        },
-        sessions: {
-          select: { expires: true },
-          orderBy: { expires: 'desc' },
-          take: 1
-        }
-      }
-    })
+    const dbUser = await findUserWithDetailsById(id)
 
     if (!dbUser) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
+    const MAX_AGE_DAYS = 30
+    const MAX_AGE_MS = MAX_AGE_DAYS * 24 * 60 * 60 * 1000
     const lastSession = dbUser.sessions[0]
-    const lastActive = lastSession ? new Date(lastSession.expires) : undefined
+    const expiresAt = lastSession ? new Date(lastSession.expires) : undefined
+    const lastActive = expiresAt ? new Date(expiresAt.getTime() - MAX_AGE_MS) : undefined
     const oauthAccount = dbUser.accounts.find(a => a.provider !== 'credentials')
 
     const user = {
@@ -111,9 +95,9 @@ const reverseRoleMap = {
 
 /**
  * @swagger
- * /api/users/{id}:
+ * /api/v1/users/{id}:
  *   put:
- *     tags: [Admin]
+ *     tags: [Users]
  *     summary: Update a user's profile (name, email, role, password) and optional group memberships
  *     security:
  *       - BearerAuth: []
@@ -145,6 +129,9 @@ const reverseRoleMap = {
  *                 type: array
  *                 items:
  *                   type: string
+ *               image:
+ *                 type: string
+ *                 description: Optional profile image URL. When provided alone, only the image is updated.
  *     responses:
  *       200:
  *         description: User updated
@@ -181,60 +168,101 @@ export async function PUT(
     const Params = z.object({ id: z.string().min(1) })
     const { id } = Params.parse(await params)
 
-    const Body = z.object({
+    const BodyBasic = z.object({
       name: z.string().min(1),
       email: z.string().email(),
       role: z.enum(['user', 'admin', 'moderator']).default('user'),
       password: z.string().min(8).optional().or(z.literal('')),
       groupIds: z.array(z.string()).optional(),
     })
-    const { name, email, role, password, groupIds } = Body.parse(await request.json())
+    const BodyImage = z.object({
+      image: z.string().min(1),
+    })
+    const raw = await request.json()
+    const basicParsed = BodyBasic.safeParse(raw)
+    const imageParsed = BodyImage.safeParse(raw)
 
-    const existing = await db.user.findUnique({ where: { id } })
+    const existing = await findUserById(id)
     if (!existing) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
-    if (email && email !== existing.email) {
-      const emailExists = await db.user.findUnique({ where: { email } })
+    if (basicParsed.success && basicParsed.data.email && basicParsed.data.email !== existing.email) {
+      const emailExists = await findUserByEmail(basicParsed.data.email)
       if (emailExists) {
         return NextResponse.json({ error: 'Email already in use' }, { status: 409 })
       }
     }
 
-    const updateData: Record<string, unknown> = {
-      name,
-      email,
-      role: reverseRoleMap[role as keyof typeof reverseRoleMap] || 'USER',
+    // If only image is being updated
+    if (imageParsed.success && !basicParsed.success) {
+      await updateUserImage(id, imageParsed.data.image)
+      const refreshed = await findUserWithDetailsById(id)
+      if (!refreshed) return NextResponse.json({ error: 'User not found' }, { status: 404 })
+      const MAX_AGE_DAYS = 30
+      const MAX_AGE_MS = MAX_AGE_DAYS * 24 * 60 * 60 * 1000
+      const lastSession = refreshed.sessions[0]
+      const expiresAt = lastSession ? new Date(lastSession.expires) : undefined
+      const lastActive = expiresAt ? new Date(expiresAt.getTime() - MAX_AGE_MS) : undefined
+      const oauthAccount = refreshed.accounts.find(a => a.provider !== 'credentials')
+      const user = {
+        id: refreshed.id,
+        name: refreshed.name || 'Unknown User',
+        email: refreshed.email,
+        role: roleMap[refreshed.role as keyof typeof roleMap] || 'user',
+        userGroup: 'default',
+        profilePicture: refreshed.image || undefined,
+        lastActive: lastActive?.toISOString(),
+        createdAt: refreshed.createdAt.toISOString(),
+        oauthId: oauthAccount?.providerAccountId,
+        updatedAt: refreshed.updatedAt.toISOString()
+      }
+      return NextResponse.json(user)
     }
 
-    if (password && password.trim()) {
-      const bcrypt = await import('bcryptjs')
-      updateData.hashedPassword = await bcrypt.hash(password, 12)
+    // Full/basic update flow
+    if (basicParsed.success) {
+      const { name, email, role, password, groupIds } = basicParsed.data
+      const updateData: { name: string; email: string; role: 'USER'|'ADMIN'; hashedPassword?: string } = {
+        name,
+        email,
+        role: (reverseRoleMap[role as keyof typeof reverseRoleMap] || 'USER') as 'USER'|'ADMIN',
+      }
+      if (password && password.trim()) {
+        const bcrypt = await import('bcryptjs')
+        updateData.hashedPassword = await bcrypt.hash(password, 12)
+      }
+      await updateUserBasic(id, updateData)
+
+      if (Array.isArray(groupIds)) {
+        await updateUserGroups(id, groupIds)
+      }
+
+      const refreshed = await findUserWithDetailsById(id)
+      if (!refreshed) return NextResponse.json({ error: 'User not found' }, { status: 404 })
+      const MAX_AGE_DAYS = 30
+      const MAX_AGE_MS = MAX_AGE_DAYS * 24 * 60 * 60 * 1000
+      const lastSession = refreshed.sessions[0]
+      const expiresAt = lastSession ? new Date(lastSession.expires) : undefined
+      const lastActive = expiresAt ? new Date(expiresAt.getTime() - MAX_AGE_MS) : undefined
+      const oauthAccount = refreshed.accounts.find(a => a.provider !== 'credentials')
+      const user = {
+        id: refreshed.id,
+        name: refreshed.name || 'Unknown User',
+        email: refreshed.email,
+        role: roleMap[refreshed.role as keyof typeof roleMap] || 'user',
+        userGroup: 'default',
+        profilePicture: refreshed.image || undefined,
+        lastActive: lastActive?.toISOString(),
+        createdAt: refreshed.createdAt.toISOString(),
+        oauthId: oauthAccount?.providerAccountId,
+        updatedAt: refreshed.updatedAt.toISOString()
+      }
+      return NextResponse.json(user)
     }
 
-    await db.user.update({ where: { id }, data: updateData })
-
-    if (Array.isArray(groupIds)) {
-      const groups = await db.group.findMany({ select: { id: true, userIds: true } })
-      await Promise.all(groups.map(async (g) => {
-        const currentRaw = g.userIds
-        const current: string[] = Array.isArray(currentRaw)
-          ? currentRaw.filter((v): v is string => typeof v === 'string')
-          : []
-        const shouldHave = groupIds.includes(g.id)
-        const hasNow = current.includes(id)
-        let next = current
-        if (shouldHave && !hasNow) next = Array.from(new Set([...current, id]))
-        if (!shouldHave && hasNow) next = current.filter((x) => x !== id)
-        const changed = next.length !== current.length || next.some((v, i) => v !== current[i])
-        if (changed) {
-          await db.group.update({ where: { id: g.id }, data: { userIds: next } })
-        }
-      }))
-    }
-
-    return NextResponse.json({ ok: true })
+    // Neither schema matched
+    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
   } catch (error) {
     console.error('Error updating user:', error)
     return NextResponse.json({ error: 'Failed to update user' }, { status: 500 })

@@ -1,6 +1,6 @@
 import 'server-only';
-import * as ConnectionsRepo from '@/lib/db/connections.repository';
-import * as ModelsRepo from '@/lib/db/models.repository';
+import * as ConnectionsRepo from '@/lib/db/connections.db';
+import * as ModelsRepo from '@/lib/db/models.db';
 import { createOpenAI } from '@ai-sdk/openai';
 import { createOpenRouter } from '@openrouter/ai-sdk-provider';
 import { createOllama } from 'ollama-ai-provider-v2';

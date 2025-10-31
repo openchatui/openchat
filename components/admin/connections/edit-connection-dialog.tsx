@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { MESSAGES, PLACEHOLDERS } from "@/constants/connections"
-import type { Connection, EditForm, ConnectionType } from "@/lib/modules/connections/connections.types"
+import type { Connection, EditForm, ConnectionType } from "@/types/connections.types"
 
 interface EditConnectionDialogProps {
   editingConnection: (Connection & { type: ConnectionType }) | null

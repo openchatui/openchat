@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { mkdir, writeFile } from "fs/promises"
 import path from "path"
 import crypto from "crypto"
-import { fetchToken, getUserIdFromToken, isSameOrigin } from '@/lib'
+import { fetchToken, getUserIdFromToken, isSameOrigin } from '@/lib/auth/authz'
 
 export const runtime = "nodejs"
 
@@ -72,7 +72,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
 /**
  * @swagger
- * /api/users/profile-image:
+ * /api/v1/users/profile-image:
  *   post:
  *     tags: [Users]
  *     summary: Upload a profile image for the current user

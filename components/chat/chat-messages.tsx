@@ -247,7 +247,7 @@ export default function ChatMessages({
       onScroll={handleScroll}
       className="w-full h-full flex-1 min-h-0 overflow-y-auto pt-16"
     >
-      <div className="max-w-5xl px-2.5 mx-auto space-y-6" style={{ paddingBottom: 'calc(185px)' }}>
+      <div className="max-w-5xl px-8 mx-auto space-y-6" style={{ paddingBottom: 'calc(185px)' }}>
       {messages.map((message) => 
         message.role === 'user' ? (
           <Message key={message.id} from={message.role}>

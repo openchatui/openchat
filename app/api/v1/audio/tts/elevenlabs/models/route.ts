@@ -1,6 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server'
 import db from '@/lib/db'
 
+/**
+ * @swagger
+ * /api/v1/audio/tts/elevenlabs/models:
+ *   get:
+ *     tags: [Audio]
+ *     summary: List ElevenLabs TTS models
+ *     responses:
+ *       200:
+ *         description: Array of models
+ *       400:
+ *         description: API key not configured
+ *       500:
+ *         description: Failed to fetch ElevenLabs models
+ */
+
 // GET /api/v1/audio/tts/elevenlabs/models
 export async function GET(_request: NextRequest) {
   try {

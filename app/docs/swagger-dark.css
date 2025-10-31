@@ -1,0 +1,362 @@
+.swagger-ui,
+.swagger-ui .topbar,
+.swagger-ui .info,
+.swagger-ui .opblock,
+.swagger-ui .model,
+.swagger-ui .responses-inner {
+  background-color: var(--background);
+  color: var(--foreground);
+}
+
+.swagger-ui .opblock .opblock-summary,
+.swagger-ui .opblock .opblock-section-header {
+  background-color: var(--card);
+  color: var(--foreground);
+  border-color: var(--border);
+}
+
+.swagger-ui .btn,
+.swagger-ui .btn.authorize.unlocked {
+  background-color: var(--primary);
+  color: var(--primary-foreground);
+  border-color: var(--primary);
+}
+
+.swagger-ui .btn:hover {
+  background-color: var(--primary);
+  filter: brightness(0.9);
+}
+
+.swagger-ui .opblock-tag {
+  color: var(--foreground);
+}
+
+.swagger-ui .markdown a,
+.swagger-ui a {
+  color: var(--primary);
+  text-decoration: underline;
+}
+
+.swagger-ui input,
+.swagger-ui select,
+.swagger-ui textarea {
+  background-color: var(--card);
+  color: var(--foreground) !important;
+  -webkit-text-fill-color: var(--foreground);
+  caret-color: var(--foreground);
+  border-color: var(--border);
+}
+
+/* Ensure editable state (Try it out) keeps foreground color */
+.swagger-ui .try-out input,
+.swagger-ui .try-out textarea,
+.swagger-ui input:not(:disabled),
+.swagger-ui textarea:not(:disabled),
+.swagger-ui input:focus,
+.swagger-ui textarea:focus {
+  color: var(--foreground) !important;
+  -webkit-text-fill-color: var(--foreground);
+  caret-color: var(--foreground);
+}
+
+/* Auth modal (dark mode) */
+.swagger-ui .modal-ux-inner {
+  background: var(--card) !important;
+  color: var(--foreground) !important;
+  border: 1px solid var(--border) !important;
+}
+.swagger-ui .modal-ux-header {
+  background: var(--card) !important;
+  color: var(--foreground) !important;
+  border-bottom: 1px solid var(--border) !important;
+}
+.swagger-ui .modal-ux-header h3,
+.swagger-ui .modal-ux-content h4,
+.swagger-ui .modal-ux-content p,
+.swagger-ui .modal-ux-content code,
+.swagger-ui .modal-ux-content label {
+  color: var(--foreground) !important;
+}
+.swagger-ui .modal-ux-header .close-modal svg path {
+  fill: var(--foreground) !important;
+}
+.swagger-ui .modal-ux-content .wrapper,
+.swagger-ui .modal-ux-content .auth-container {
+  background: transparent !important;
+}
+.swagger-ui .modal-ux-content input,
+.swagger-ui .modal-ux-content input[type="text"],
+.swagger-ui .modal-ux-content textarea,
+.swagger-ui .modal-ux-content select {
+  background: var(--card) !important;
+  background-color: var(--card) !important;
+  color: var(--foreground) !important;
+  -webkit-text-fill-color: var(--foreground) !important;
+  caret-color: var(--foreground) !important;
+  border-color: var(--border) !important;
+}
+.swagger-ui .modal-ux-content input::placeholder,
+.swagger-ui .modal-ux-content textarea::placeholder {
+  color: var(--foreground) !important;
+  opacity: 1;
+}
+.swagger-ui .auth-btn-wrapper .btn,
+.swagger-ui .modal-ux .btn {
+  background: var(--primary) !important;
+  color: var(--primary-foreground) !important;
+  border-color: var(--primary) !important;
+}
+
+/* Add spacing between modal auth buttons */
+.swagger-ui .auth-btn-wrapper {
+  display: flex;
+  gap: 8px;
+}
+
+/* Loading spinner/theme */
+.swagger-ui .loading-container h4,
+.swagger-ui .loading-container .loading-message,
+.swagger-ui .loading h4,
+.swagger-ui .loading p {
+  color: #fff !important;
+}
+
+/* Common spinner style used by Swagger UI (border-based) */
+.swagger-ui .loading-container .loading,
+.swagger-ui .loading .spinner,
+.swagger-ui .loading:before {
+  border-color: rgba(255, 255, 255, 0.25) !important;
+  border-left-color: #fff !important;
+}
+
+/* SVG-based spinners fallback */
+.swagger-ui .loading svg,
+.swagger-ui .loading svg path,
+.swagger-ui .loading svg circle {
+  fill: #fff !important;
+  stroke: #fff !important;
+}
+
+/* Force dark background for editable parameter inputs (overrides Swagger UI defaults) */
+.swagger-ui .opblock .opblock-body .parameters .parameters-col_description input[type="text"],
+.swagger-ui .opblock .opblock-body .parameters .parameters-col_description input,
+.swagger-ui .parameters input[type="text"],
+.swagger-ui .parameters input,
+.swagger-ui input[type="text"] {
+  background: var(--card) !important;
+  background-color: var(--card) !important;
+  color: var(--foreground) !important;
+  -webkit-text-fill-color: var(--foreground) !important;
+  border-color: var(--border) !important;
+}
+
+.swagger-ui .opblock .opblock-body .parameters .parameters-col_description input[type="text"]:focus,
+.swagger-ui .parameters input[type="text"]:focus,
+.swagger-ui .parameters input:focus,
+.swagger-ui input[type="text"]:focus {
+  background: var(--card) !important;
+  background-color: var(--card) !important;
+  color: var(--foreground) !important;
+  -webkit-text-fill-color: var(--foreground) !important;
+  border-color: var(--border) !important;
+}
+
+/* Increase specificity for parameter inputs in opblocks */
+.swagger-ui .opblock .parameters input,
+.swagger-ui .opblock .parameters input[type="text"],
+.swagger-ui .parameters input,
+.swagger-ui .parameters input[type="text"],
+.swagger-ui .parameters textarea {
+  color: var(--foreground) !important;
+  -webkit-text-fill-color: var(--foreground);
+  caret-color: var(--foreground);
+}
+
+/* Cross-browser placeholder color enforcement */
+.swagger-ui input::placeholder,
+.swagger-ui textarea::placeholder,
+.swagger-ui .parameters input::placeholder,
+.swagger-ui .parameters textarea::placeholder {
+  color: var(--foreground) !important;
+  opacity: 1;
+}
+.swagger-ui input::-webkit-input-placeholder,
+.swagger-ui textarea::-webkit-input-placeholder,
+.swagger-ui .parameters input::-webkit-input-placeholder,
+.swagger-ui .parameters textarea::-webkit-input-placeholder {
+  color: var(--foreground) !important;
+  opacity: 1;
+}
+.swagger-ui input::-moz-placeholder,
+.swagger-ui textarea::-moz-placeholder,
+.swagger-ui .parameters input::-moz-placeholder,
+.swagger-ui .parameters textarea::-moz-placeholder {
+  color: var(--foreground) !important;
+  opacity: 1;
+}
+.swagger-ui input:-ms-input-placeholder,
+.swagger-ui textarea:-ms-input-placeholder,
+.swagger-ui .parameters input:-ms-input-placeholder,
+.swagger-ui .parameters textarea:-ms-input-placeholder {
+  color: var(--foreground) !important;
+  opacity: 1;
+}
+.swagger-ui input::-ms-input-placeholder,
+.swagger-ui textarea::-ms-input-placeholder,
+.swagger-ui .parameters input::-ms-input-placeholder,
+.swagger-ui .parameters textarea::-ms-input-placeholder {
+  color: var(--foreground) !important;
+  opacity: 1;
+}
+
+.swagger-ui .response-col_status {
+  color: var(--foreground);
+}
+
+.swagger-ui .model .property.primitive {
+  color: var(--foreground);
+}
+
+.swagger-ui table thead tr th,
+.swagger-ui table tbody tr td {
+  border-color: var(--border);
+}
+
+.swagger-ui table thead tr th {
+  background: var(--card);
+  color: var(--foreground);
+}
+
+.swagger-ui .tab li a.tablinks {
+  color: var(--foreground);
+}
+
+.swagger-ui .topbar .download-url-wrapper input[type=text] {
+  background: var(--card);
+  color: var(--foreground);
+}
+
+.swagger-ui .topbar .download-url-wrapper .download-url-button {
+  background: var(--primary);
+  color: var(--primary-foreground);
+  border-color: var(--primary);
+}
+
+.swagger-ui .model-toggle {
+  filter: invert(85%);
+}
+
+.swagger-ui .servers-title {
+  color: var(--foreground);
+}
+
+.swagger-ui .info .title small.version-stamp {
+  background: var(--card);
+  color: var(--foreground);
+}
+
+.swagger-ui .scheme-container {
+  background: var(--card);
+}
+
+.swagger-ui .model-title,
+.swagger-ui .prop-format,
+.swagger-ui .prop-type {
+  color: var(--primary);
+}
+
+.swagger-ui .response-col_links a {
+  color: var(--foreground) !important;
+}
+
+.swagger-ui .opblock-summary-path,
+.swagger-ui .opblock-summary-description {
+  color: var(--foreground) !important;
+}
+
+.swagger-ui .opblock-description-wrapper p,
+.swagger-ui .opblock-external-docs-wrapper p,
+.swagger-ui .opblock-title_normal p {
+  color: var(--foreground) !important;
+}
+
+.swagger-ui .response-col_description__inner p,
+.swagger-ui .response-col_description__inner pre,
+.swagger-ui .response-col_description__inner code {
+  color: var(--foreground);
+}
+
+/* Force white text for headers/cols/links in responses table */
+.swagger-ui .col,
+.swagger-ui .col_header,
+.swagger-ui .response-col_links,
+.swagger-ui .response-col_description,
+.swagger-ui .response-col_description__inner {
+  color: var(--foreground) !important;
+}
+
+/* Ensure opblock titles and controls are bright */
+.swagger-ui .opblock-title,
+.swagger-ui .opblock .opblock-summary .opblock-summary-description,
+.swagger-ui .opblock .opblock-summary .opblock-summary-path {
+  color: var(--foreground) !important;
+}
+
+/* Arrow visibility for expand/collapse */
+.swagger-ui .opblock-control-arrow,
+.swagger-ui .opblock .opblock-summary-control .arrow,
+.swagger-ui .expand-operation svg,
+.swagger-ui .expand-operation .arrow {
+  filter: invert(85%) !important;
+}
+
+/* Ensure summary wrapper, titles, and rendered markdown are bright */
+.swagger-ui .opblock-summary-path-description-wrapper,
+.swagger-ui .info .title,
+.swagger-ui .info .description,
+.swagger-ui .renderedMarkdown,
+.swagger-ui .renderedMarkdown p,
+.swagger-ui .markdown,
+.swagger-ui .markdown p {
+  color: var(--foreground) !important;
+}
+
+/* Make expand/collapse arrows visible on dark */
+.swagger-ui .opblock .opblock-summary-control .arrow,
+.swagger-ui .model-toggle {
+  filter: invert(85%) !important;
+}
+
+/* Force unlocked icon to render white */
+svg.unlocked,
+.swagger-ui svg.unlocked {
+  color: #fff !important;
+}
+.swagger-ui svg.unlocked path {
+  fill: #fff !important;
+}
+
+/* Ensure disabled inputs and placeholders use foreground color */
+.swagger-ui input:disabled,
+.swagger-ui select:disabled,
+.swagger-ui textarea:disabled {
+  color: var(--foreground) !important;
+  -webkit-text-fill-color: var(--foreground);
+  background-color: var(--card);
+  border-color: var(--border);
+  opacity: 1;
+}
+
+.swagger-ui input::placeholder,
+.swagger-ui textarea::placeholder {
+  color: var(--foreground) !important;
+  opacity: 1;
+}
+
+.swagger-ui input:disabled::placeholder,
+.swagger-ui textarea:disabled::placeholder {
+  color: var(--foreground) !important;
+  opacity: 1;
+}
+
+

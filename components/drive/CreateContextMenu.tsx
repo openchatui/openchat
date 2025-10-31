@@ -26,13 +26,13 @@ export function CreateContextMenu({ parentId = "", children, disabled = false }:
   const [showUploadFolder, setShowUploadFolder] = useState(false)
 
   if (disabled) {
-    return <div>{children}</div>
+    return <div className="w-[99%] mx-2">{children}</div>
   }
 
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>
-        <div>{children}</div>
+        <div className="w-[99%] mx-2">{children}</div>
       </ContextMenuTrigger>
       <ContextMenuContent className="w-56">
         <ContextMenuItem onSelect={(e) => { e.preventDefault(); setShowNewFolder(true) }}>

@@ -33,7 +33,7 @@ export function CodeExecutor({
       setIsRunning(true)
       setErrorText("")
       setStats(null)
-      const res = await fetch('/api/tools/pyodide/run', {
+      const res = await fetch('/api/v1/code/pyodide/run', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ script: code, context, packages, warmup })

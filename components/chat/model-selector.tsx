@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react"
 import { useSearchParams } from "next/navigation"
-import { Check, ChevronsUpDown, Cpu, Link as LinkIcon, MoreHorizontal } from "lucide-react"
+import { Check, ChevronsUpDown, Cpu, Link as LinkIcon, MoreHorizontal, PanelLeft } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import type { Model } from '@/types/model.types'
 import { usePinnedModels } from "@/hooks/models/usePinnedModels"
+import { useSidebar } from "@/components/ui/sidebar"
 
 interface ModelSelectorProps {
   selectedModelId?: string
@@ -40,8 +41,25 @@ export function ModelSelector({ selectedModelId, onModelSelect, models = [], cur
   const [open, setOpen] = useState(false)
   const [userSelectedModel, setUserSelectedModel] = useState<Model | null>(null)
   const { pinnedIds, pin, unpin } = usePinnedModels(currentUserId, { allModels: models })
+  const { setOpenMobile } = useSidebar()
   const searchParams = useSearchParams()
   const activeModels = models.filter(model => model.isActive && !model.meta?.hidden)
+
+  const resolveByIdLike = (idLike?: string | null): Model | null => {
+    if (!idLike) return null
+    const normalize = (v: string) => v.trim().toLowerCase()
+    const target = normalize(idLike)
+    for (const m of activeModels) {
+      const idMatch = normalize(m.id) === target
+      const providerId = (m as any).providerId as string | undefined
+      const providerMatch = providerId ? normalize(providerId) === target : false
+      const providerSuffix = providerId ? (providerId.split('/').pop() || providerId) : undefined
+      const providerSuffixMatch = providerSuffix ? normalize(providerSuffix) === target : false
+      const nameMatch = normalize(m.name) === target
+      if (idMatch || providerMatch || providerSuffixMatch || nameMatch) return m
+    }
+    return null
+  }
 
   const selectedModel = useMemo(() => {
     if (userSelectedModel) return userSelectedModel
@@ -76,7 +94,7 @@ export function ModelSelector({ selectedModelId, onModelSelect, models = [], cur
   useEffect(() => {
     if (!userSelectedModel && activeModels.length > 0) {
       const initialModel = selectedModelId
-        ? activeModels.find(m => m.id === selectedModelId) || activeModels[0]
+        ? (resolveByIdLike(selectedModelId) || activeModels[0])
         : activeModels[0]
 
       if (initialModel) {
@@ -85,10 +103,19 @@ export function ModelSelector({ selectedModelId, onModelSelect, models = [], cur
     }
   }, [activeModels, selectedModelId, userSelectedModel])
 
+  // Sync when parent-selected id changes
+  useEffect(() => {
+    if (!selectedModelId || activeModels.length === 0) return
+    const match = resolveByIdLike(selectedModelId)
+    if (match && (!userSelectedModel || userSelectedModel.id !== match.id)) {
+      setUserSelectedModel(match)
+    }
+  }, [selectedModelId, activeModels])
+
   useEffect(() => {
     const param = searchParams?.get('model')
     if (!param || activeModels.length === 0) return
-    const found = activeModels.find(m => (m as any).providerId === param || m.id === param || m.name === param)
+    const found = resolveByIdLike(param)
     if (found && (!userSelectedModel || userSelectedModel.id !== found.id)) {
       setUserSelectedModel(found)
       onModelSelect?.(found)
@@ -99,7 +126,18 @@ export function ModelSelector({ selectedModelId, onModelSelect, models = [], cur
   const handleUnpinModelById = async (modelId: string) => { await unpin(modelId) }
 
   return (
-    <div className="absolute top-4 left-4 z-10">
+    <>
+      <div className="fixed inset-x-0 top-0 h-22 md:hidden pointer-events-none z-[5] bg-gradient-to-b from-background via-background to-transparent" />
+      <div className="absolute top-4 left-4 z-10 flex items-center gap-0">
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-12 w-12 md:hidden"
+        aria-label="Open sidebar"
+        onClick={() => setOpenMobile(true)}
+      >
+        <PanelLeft className="h-5 w-5" />
+      </Button>
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <Button
@@ -167,8 +205,7 @@ export function ModelSelector({ selectedModelId, onModelSelect, models = [], cur
                       className="group/item"
                       onSelect={() => {
                         setUserSelectedModel(model)
-                        const providerModelId = (model as any).providerId || model.id
-                        onModelSelect?.({ ...(model as any), id: providerModelId } as Model)
+                        onModelSelect?.(model)
                         setOpen(false)
                       }}
                     >
@@ -279,6 +316,7 @@ export function ModelSelector({ selectedModelId, onModelSelect, models = [], cur
           </Command>
         </PopoverContent>
       </Popover>
-    </div>
+      </div>
+    </>
   )
 }

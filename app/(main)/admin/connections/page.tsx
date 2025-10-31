@@ -4,7 +4,7 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { AdminConnections } from "@/components/admin/connections/AdminConnections";
 import { ChatStore } from "@/lib/modules/chat";
-import { getConnections, getConnectionsConfig } from "@/actions/connections";
+import { getConnections, getConnectionsConfig } from "@/lib/api/connections";
 
 export default async function AdminConnectionsPage() {
     const session = await auth();

@@ -19,6 +19,35 @@ function deepMerge(target: any, source: any): any {
   return source
 }
 
+/**
+ * @swagger
+ * /api/v1/tasks/config:
+ *   get:
+ *     tags: [Tasks]
+ *     summary: Get tasks configuration
+ *     responses:
+ *       200:
+ *         description: Current tasks configuration
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 tasks:
+ *                   type: object
+ *                   properties:
+ *                     TASK_MODEL:
+ *                       type: string
+ *                       nullable: true
+ *                     TITLE_PROMPT:
+ *                       type: string
+ *                       nullable: true
+ *                     TAGS_PROMPT:
+ *                       type: string
+ *                       nullable: true
+ *       500:
+ *         description: Failed to fetch tasks config
+ */
 // GET /api/v1/tasks/config - returns tasks config
 export async function GET() {
   try {
