@@ -59,7 +59,7 @@ export async function httpFetch(input: RequestInfo, init?: RequestInit): Promise
     
     // When behind a reverse proxy, forward the external host for Auth.js validation
     // Auth.js with trustHost:true will validate against these headers
-    const externalUrl = process.env.AUTH_URL || process.env.NEXTAUTH_URL
+    const externalUrl = process.env.AUTH_URL 
     if (externalUrl) {
       try {
         const url = new URL(externalUrl)
