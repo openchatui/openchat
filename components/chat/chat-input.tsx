@@ -366,7 +366,7 @@ export function ChatInput({
     <div className={cn(isLive ? "bg-transparent" : "bg-background", "mx-4 ")}>
       <form
         onSubmit={handleSubmit}
-        className={cn("max-w-6xl px-2.5 pb-6 mx-auto inset-x-0", isLive ? "pt-3" : "pt-0", className)}
+        className={cn("max-w-6xl px-0 pb-6 mx-auto inset-x-0", isLive ? "pt-3" : "pt-0", className)}
       >
         {isLive && sttAllowed ? (
           <div className="p-0 mt-5">

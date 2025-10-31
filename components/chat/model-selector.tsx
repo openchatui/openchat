@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react"
 import { useSearchParams } from "next/navigation"
-import { Check, ChevronsUpDown, Cpu, Link as LinkIcon, MoreHorizontal } from "lucide-react"
+import { Check, ChevronsUpDown, Cpu, Link as LinkIcon, MoreHorizontal, PanelLeft } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import type { Model } from '@/types/model.types'
 import { usePinnedModels } from "@/hooks/models/usePinnedModels"
+import { useSidebar } from "@/components/ui/sidebar"
 
 interface ModelSelectorProps {
   selectedModelId?: string
@@ -40,6 +41,7 @@ export function ModelSelector({ selectedModelId, onModelSelect, models = [], cur
   const [open, setOpen] = useState(false)
   const [userSelectedModel, setUserSelectedModel] = useState<Model | null>(null)
   const { pinnedIds, pin, unpin } = usePinnedModels(currentUserId, { allModels: models })
+  const { setOpenMobile } = useSidebar()
   const searchParams = useSearchParams()
   const activeModels = models.filter(model => model.isActive && !model.meta?.hidden)
 
@@ -124,7 +126,18 @@ export function ModelSelector({ selectedModelId, onModelSelect, models = [], cur
   const handleUnpinModelById = async (modelId: string) => { await unpin(modelId) }
 
   return (
-    <div className="absolute top-4 left-4 z-10">
+    <>
+      <div className="fixed inset-x-0 top-0 h-22 md:hidden pointer-events-none z-[5] bg-gradient-to-b from-background via-background to-transparent" />
+      <div className="absolute top-4 left-4 z-10 flex items-center gap-0">
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-12 w-12 md:hidden"
+        aria-label="Open sidebar"
+        onClick={() => setOpenMobile(true)}
+      >
+        <PanelLeft className="h-5 w-5" />
+      </Button>
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <Button
@@ -303,6 +316,7 @@ export function ModelSelector({ selectedModelId, onModelSelect, models = [], cur
           </Command>
         </PopoverContent>
       </Popover>
-    </div>
+      </div>
+    </>
   )
 }
