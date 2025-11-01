@@ -1,3 +1,17 @@
+## [0.1.29] - 2025-11-01
+
+### PR: [admin mobile, auth fixes](https://github.com/openchatui/openchat/pull/104)
+
+### Added
+- Add mobile navigation to AdminSidebar and refine layout for better small-screen usability. (https://github.com/openchatui/openchat/commit/664696f500f2e30479da9bb125e066206d56422b)
+
+### Fixed
+- Fix auth token retrieval by preferring NEXTAUTH_SECRET and setting secure cookies based on protocol, resolving route auth issues in local development. (https://github.com/openchatui/openchat/commit/5f9b439c6cbcd726200a8cd24402b6b73e8c0a42)
+
+### Changed
+- Switch profile image storage and profile file resolution to the data directory instead of public, updating upload and fetch paths. (https://github.com/openchatui/openchat/commit/9634e1bdfc910c7644c43a8992c1a8dcaf0cb17e)
+- Update docker-compose to point AUTH_URL to http://localhost:3000 for local development. (https://github.com/openchatui/openchat/commit/5f9b439c6cbcd726200a8cd24402b6b73e8c0a42)
+
 ## [0.1.28] - 2025-11-01
 
 ### PR: [Dev](https://github.com/openchatui/openchat/pull/102)
