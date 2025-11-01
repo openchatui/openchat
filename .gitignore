@@ -43,7 +43,7 @@ prisma/*_data.csv
 *.tsbuildinfo
 next-env.d.ts
 
-public/profiles/*
+/data/profiles/*
 /data/images/*
 /data/prisma/*
 /data/files/*

@@ -63,7 +63,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const filePath = path.join(profilesDir, filename)
     await writeFile(filePath, buffer)
 
-    const url = `/profiles/${filename}`
+    const url = `/data/profiles/${filename}`
     return NextResponse.json({ url })
   } catch (error) {
     return NextResponse.json({ error: "Upload failed" }, { status: 500 })

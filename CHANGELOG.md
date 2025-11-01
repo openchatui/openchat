@@ -1,3 +1,14 @@
+## [0.1.28] - 2025-11-01
+
+### PR: [Dev](https://github.com/openchatui/openchat/pull/102)
+
+### Fixed
+- Moved app icons to the app/ directory so icons load correctly in Next.js. (https://github.com/openchatui/openchat/commit/9d8c9bad349967614cee207a6e4b44eea7c1c505)
+
+### Changed
+- Updated docker-compose to persist SQLite at /app/data and clarified README setup and environment variables. (https://github.com/openchatui/openchat/commit/c6b0f5b27e4f2731145140cf7817365f53d64b93)
+- Switched profile storage to /data and updated the upload endpoint to return /data/profiles URLs; adjusted .gitignore accordingly. (https://github.com/openchatui/openchat/commit/adab9d1be7f298e6dfeb0a59396c6daf2cc88078)
+
 ## [0.1.27] - 2025-10-31
 
 ### PR: [Dev](https://github.com/openchatui/openchat/pull/98)
