@@ -3,8 +3,9 @@ import { getToken } from 'next-auth/jwt'
 import type { JWT } from 'next-auth/jwt'
 
 export async function fetchToken(request: NextRequest): Promise<JWT | null> {
-  const secret = process.env.AUTH_SECRET
-  return getToken({ req: request, secret })
+  const secret = process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET
+  const secureCookie = request.nextUrl.protocol === 'https:'
+  return getToken({ req: request, secret, secureCookie })
 }
 
 export function readStringField(obj: unknown, key: string): string | undefined {
