@@ -3,10 +3,6 @@ import { getPinnedModels, setPinnedModels } from '@/lib/db/users.db'
 import { fetchToken, isOwnerOrAdmin, isSameOrigin } from '@/lib/auth/authz'
 import { z } from 'zod'
 
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
-
 /**
  * @swagger
  * /api/v1/users/{id}/settings/pinned:

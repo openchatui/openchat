@@ -26,9 +26,9 @@ export async function GET(_req: Request, context: { params: Promise<{ name?: str
 
   // Resolve common locations that might be used in different build modes
   const candidates = [
-    path.join(process.cwd(), 'public', 'profiles', name),
-    path.join(process.cwd(), '.next', 'standalone', 'public', 'profiles', name),
-    path.join(process.cwd(), '.next', 'server', 'public', 'profiles', name),
+    path.join(process.cwd(), 'data', 'profiles', name),
+    path.join(process.cwd(), '.next', 'standalone', 'data', 'profiles', name),
+    path.join(process.cwd(), '.next', 'server', 'data', 'profiles', name),
   ]
 
   const file = await tryRead(candidates)

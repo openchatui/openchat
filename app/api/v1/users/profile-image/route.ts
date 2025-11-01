@@ -56,7 +56,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const ext = getExtensionFromFile(file)
     const filename = `${userId}-${Date.now()}-${crypto.randomUUID().slice(0, 8)}.${ext}`
 
-    const publicDir = path.join(process.cwd(), "public")
+    const publicDir = path.join(process.cwd(), "data")
     const profilesDir = path.join(publicDir, "profiles")
     await mkdir(profilesDir, { recursive: true })
 

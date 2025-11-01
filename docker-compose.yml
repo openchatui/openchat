@@ -9,7 +9,7 @@ services:
     environment:
       PORT: "3000"
       HOSTNAME: "0.0.0.0"
-      AUTH_URL: "https://openchat.pensotti.net"
+      AUTH_URL: "http://localhost:3000"
       AUTH_SECRET: "UgtF847HMAq+HqcOz0LDntb/uLYB74ybFu2t0jXwBXU="
       AUTH_TRUST_HOST: "true"
       AUTH: "true"

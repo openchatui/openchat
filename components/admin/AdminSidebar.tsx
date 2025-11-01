@@ -1,5 +1,5 @@
 "use client"
-import { SidebarInset } from "@/components/ui/sidebar"
+import { SidebarInset, SidebarTrigger } from "@/components/ui/sidebar"
 import { ADMIN_NAV_ITEMS, AdminTab } from "@/constants/admin"
 import { ReactNode, useMemo } from "react"
 import Link from "next/link"
@@ -21,12 +21,40 @@ export function AdminSidebar({ activeTab, children }: AdminLayoutProps) {
 
     return (
         <SidebarInset>
-            <div className="flex h-screen bg-background">
-                {/* Admin Navigation Sidebar */}
-                <div className="w-64 bg-background border-r border-border p-4">
+            <div className="flex md:flex-row flex-col min-h-screen bg-background">
+                {/* Mobile Top Nav (h-scroll) */}
+                <div className="md:hidden sticky top-0 z-10 bg-background border-b border-border">
+                    <div className="flex items-center gap-2 px-3 py-2">
+                        <SidebarTrigger />
+                        <div className="flex items-center gap-2 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                        {ADMIN_NAV_ITEMS.map((item) => {
+                            const Icon = item.icon as React.ComponentType<{ className?: string }>
+                            return (
+                                <Link
+                                    key={item.id}
+                                    href={item.href}
+                                    prefetch
+                                    className={cn(
+                                        "flex items-center gap-2 px-3 py-2 text-sm rounded-md whitespace-nowrap",
+                                        currentTab === item.id
+                                            ? "bg-primary/10 text-primary font-medium"
+                                            : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                                    )}
+                                >
+                                    <Icon className="h-4 w-4" />
+                                    <span>{item.label}</span>
+                                </Link>
+                            )
+                        })}
+                        </div>
+                    </div>
+                </div>
+
+                {/* Admin Navigation Sidebar (desktop) */}
+                <div className="hidden md:block w-64 bg-background border-r border-border p-4">
                     <div className="space-y-1">
                         {ADMIN_NAV_ITEMS.map((item) => {
-                            const Icon = item.icon as any
+                            const Icon = item.icon as React.ComponentType<{ className?: string }>
                             return (
                                 <Link
                                     key={item.id}
@@ -49,7 +77,7 @@ export function AdminSidebar({ activeTab, children }: AdminLayoutProps) {
 
                 {/* Main Content Area */}
                 <div className="flex-1 overflow-hidden">
-                    <div className="h-full p-6 overflow-auto">
+                    <div className="h-full p-4 md:p-6 overflow-auto">
                         {children}
                     </div>
                 </div>

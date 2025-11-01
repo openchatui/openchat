@@ -43,6 +43,7 @@ prisma/*_data.csv
 *.tsbuildinfo
 next-env.d.ts
 
+/data/openchat.db
 /data/profiles/*
 /data/images/*
 /data/prisma/*
