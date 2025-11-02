@@ -13,6 +13,7 @@ import {
   setFileStarred,
   setFolderStarred,
 } from "@/lib/api/drive"
+import { RenameItemDialog } from "./RenameItemDialog"
 
 const PreviewDialog = dynamic(() => import("./PreviewDialog"))
 
@@ -70,6 +71,8 @@ function getFileUrl(item: FileEntry): string {
 export function FilesResultsTableMobile({ entries, parentName }: FilesResultsTableMobileProps) {
   const router = useRouter()
   const [preview, setPreview] = useState<{ name: string; url: string; fileId?: string; mimeType?: string } | null>(null)
+  const [renameFileId, setRenameFileId] = useState<string | null>(null)
+  const [optimisticStars, setOptimisticStars] = useState<Record<string, boolean>>({})
   const idToItem = useMemo(() => {
     const m = new Map<string, FileEntry>()
     for (const e of entries) m.set(e.id, e)
@@ -107,7 +110,7 @@ export function FilesResultsTableMobile({ entries, parentName }: FilesResultsTab
             </button>
             <div className="flex items-center gap-1">
               {!item.isDirectory && (
-                <Button variant="ghost" size="icon" aria-label="Rename" onClick={() => {/* optional action placeholder */}}>
+                <Button variant="ghost" size="icon" aria-label="Rename" onClick={() => { setRenameFileId(item.id) }}>
                   <Pencil className="h-4 w-4" />
                 </Button>
               )}
@@ -116,15 +119,19 @@ export function FilesResultsTableMobile({ entries, parentName }: FilesResultsTab
                 size="icon"
                 aria-label="Star"
                 onClick={async () => {
-                  const current = Boolean((item as any).starred)
+                  const current = (optimisticStars[item.id] ?? Boolean((item as any).starred))
                   const next = !current
                   try {
+                    setOptimisticStars((prev) => ({ ...prev, [item.id]: next }))
                     if (item.isDirectory) await setFolderStarred({ id: item.id, starred: next })
                     else await setFileStarred({ id: item.id, starred: next })
-                  } catch {}
+                    router.refresh()
+                  } catch {
+                    setOptimisticStars((prev) => ({ ...prev, [item.id]: current }))
+                  }
                 }}
               >
-                {Boolean((item as any).starred) ? <FaStar className="h-4 w-4" /> : <FaRegStar className="h-4 w-4" />}
+                {(optimisticStars[item.id] ?? Boolean((item as any).starred)) ? <FaStar className="h-4 w-4" /> : <FaRegStar className="h-4 w-4" />}
               </Button>
               {!item.isDirectory && (
                 <Button variant="ghost" size="icon" aria-label="Download" onClick={() => {
@@ -150,6 +157,18 @@ export function FilesResultsTableMobile({ entries, parentName }: FilesResultsTab
         url={preview?.url ?? ""}
         mimeType={preview?.mimeType}
         fileId={preview?.fileId}
+      />
+      <RenameItemDialog
+        open={!!renameFileId}
+        onOpenChange={(next: boolean) => {
+          if (!next) {
+            setRenameFileId(null)
+            router.refresh()
+          }
+        }}
+        itemId={renameFileId ?? ""}
+        itemType="file"
+        itemName={renameFileId ? idToItem.get(renameFileId)?.name ?? "" : ""}
       />
     </div>
   )
