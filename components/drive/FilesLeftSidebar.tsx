@@ -21,6 +21,7 @@ import { FaStar, FaRegStar } from "react-icons/fa"
 import Image from "next/image"
 import { DriveStorageInfo } from "./DriveStorageInfo"
 import { useIntegrations } from "@/components/providers/IntegrationsProvider"
+import { FilesFabMenuItems } from "./FilesFabMenu"
 
 interface FilesLeftSidebarProps {
   parentId?: string
@@ -47,20 +48,11 @@ export function FilesLeftSidebar({ parentId = "", localRootId, googleRootId }: F
           </DropdownMenuTrigger>
           {!isTrash && (
           <DropdownMenuContent side="bottom" align="start" className="w-56">
-            <DropdownMenuLabel>Create</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={(e) => { e.preventDefault(); setShowNewFolder(true) }}>
-              <FolderPlus className="mr-2 h-4 w-4" />
-              <span>New Folder</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem onSelect={(e) => { e.preventDefault(); setShowUploadFile(true) }}>
-              <FileUp className="mr-2 h-4 w-4" />
-              <span>File Upload</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem onSelect={(e) => { e.preventDefault(); setShowUploadFolder(true) }}>
-              <FolderUp className="mr-2 h-4 w-4" />
-              <span>Folder Upload</span>
-            </DropdownMenuItem>
+            <FilesFabMenuItems
+              onCreateFolder={() => setShowNewFolder(true)}
+              onUploadFile={() => setShowUploadFile(true)}
+              onUploadFolder={() => setShowUploadFolder(true)}
+            />
           </DropdownMenuContent>
           )}
         </DropdownMenu>
