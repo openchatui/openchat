@@ -68,6 +68,19 @@ function getFileUrl(item: FileEntry): string {
     : `/files/${rel.split("/").map(encodeURIComponent).join("/")}`
 }
 
+function truncateFilename(name: string, maxLength = 24): string {
+  if (name.length <= maxLength) return name
+  const lastDot = name.lastIndexOf(".")
+  if (lastDot > 0 && lastDot < name.length - 1) {
+    const ext = name.slice(lastDot + 1)
+    const reserved = ext.length + 1
+    const available = maxLength - 3 - reserved
+    if (available <= 0) return name.slice(0, Math.max(0, maxLength - 3)) + "..."
+    return name.slice(0, available) + "..." + "." + ext
+  }
+  return name.slice(0, Math.max(0, maxLength - 3)) + "..."
+}
+
 export function FilesResultsTableMobile({ entries, parentName }: FilesResultsTableMobileProps) {
   const router = useRouter()
   const [preview, setPreview] = useState<{ name: string; url: string; fileId?: string; mimeType?: string } | null>(null)
@@ -99,7 +112,7 @@ export function FilesResultsTableMobile({ entries, parentName }: FilesResultsTab
             </div>
             <button className="flex-1 text-left min-w-0" onClick={() => onOpen(item)}>
               <div className="flex items-center gap-2 min-w-0">
-                <span className="truncate font-medium">{item.name}</span>
+                <span className="truncate font-medium">{truncateFilename(item.name, 24)}</span>
                 {!item.isDirectory && item.ownedByMe === false && (
                   <Users className="h-4 w-4 text-blue-500 flex-shrink-0" />
                 )}
