@@ -16,6 +16,7 @@ import {
   SidebarMenuSub,
   SidebarMenuSubButton,
   SidebarMenuSubItem,
+  useSidebar,
 } from "@/components/ui/sidebar"
 
 export function NavChannels({
@@ -34,6 +35,10 @@ export function NavChannels({
     }[]
   }[]
 }) {
+  const { isMobile, setOpenMobile } = useSidebar()
+  function handleNavigate() {
+    if (isMobile) setOpenMobile(false)
+  }
   return (
     <SidebarGroup className="pt-0 pb-0">
       <SidebarMenu className="gap-1">
@@ -42,7 +47,7 @@ export function NavChannels({
             return (
               <SidebarMenuItem key={item.title} className="py-0">
                 <SidebarMenuButton asChild tooltip={item.title} className="h-8">
-                  <Link href={item.url}>
+                  <Link href={item.url} onClick={handleNavigate}>
                     {item.icon && <item.icon />}
                     <span>{item.title}</span>
                   </Link>
@@ -71,7 +76,7 @@ export function NavChannels({
                       {item.items?.map((subItem) => (
                         <SidebarMenuSubItem key={subItem.title} className="py-0">
                           <SidebarMenuSubButton asChild className="h-8">
-                            <Link href={subItem.url}>
+                            <Link href={subItem.url} onClick={handleNavigate}>
                               {subItem.icon && <subItem.icon />}
                               <span>{subItem.title}</span>
                             </Link>

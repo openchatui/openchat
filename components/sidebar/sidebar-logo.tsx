@@ -8,11 +8,14 @@ import { Button } from "@/components/ui/button"
 import { useSidebar } from "@/components/ui/sidebar"
 
 export function SidebarLogo() {
-  const { toggleSidebar, state } = useSidebar()
+  const { toggleSidebar, state, isMobile, setOpenMobile } = useSidebar()
+  const handleHomeClick = () => {
+    if (isMobile) setOpenMobile(false)
+  }
 
   return (
     <div className="flex items-center pl-1 pr-2 py-2">
-      <Link href="/" aria-label="Go to home" className="flex items-center gap-3 flex-1 h-full">
+      <Link href="/" aria-label="Go to home" className="flex items-center gap-3 flex-1 h-full" onClick={handleHomeClick}>
         <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary">
           <Image
             src="/OpenChat.png"

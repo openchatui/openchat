@@ -1,6 +1,6 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import { getRootFolderId, listFoldersByParent, listFilesByParent, getFolderBreadcrumb, isGoogleDriveFolder } from "@/lib/modules/drive";
+import { getRootFolderId, listFoldersByParent, listFilesByParent, getFolderBreadcrumb, isGoogleDriveFolder, findLocalRootFolderId, getGoogleRootFolderId } from "@/lib/modules/drive";
 import { FilesSearchBar } from "@/components/drive/FilesSearchBar";
 import { FilesResultsTable } from "@/components/drive/FilesResultsTable";
 import { FilesResultsTableMobile } from "@/components/drive/FilesResultsTableMobile";
@@ -23,27 +23,25 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
     ? parentId
     : await getRootFolderId(session.user.id)
 
-  const [folders, files, breadcrumb, isDrive] = await Promise.all([
+  const [folders, files, breadcrumb, isDrive, localRootIdRaw, googleRootId] = await Promise.all([
     listFoldersByParent(session.user.id, effectiveRootId),
     listFilesByParent(session.user.id, effectiveRootId),
     getFolderBreadcrumb(session.user.id, effectiveRootId),
     isGoogleDriveFolder(session.user.id, effectiveRootId),
+    findLocalRootFolderId(session.user.id),
+    getGoogleRootFolderId(session.user.id),
   ])
   const entries = [...folders, ...files]
+  const localRootId = localRootIdRaw ?? ''
 
   return (
     <>
-      {/* Mobile header: fixed search + filters */}
-      <DriveMobileHeader />
-      {/* Spacer to offset the fixed mobile header height */}
+      {/* Mobile layout */}
+      <DriveMobileHeader localRootId={localRootId} googleRootId={googleRootId} isGoogleDriveFolder={isDrive} />
       <div className="md:hidden h-[136px]" />
-
-      {/* Mobile results list (full-width, scrolls under header) */}
       <div className="md:hidden">
         <FilesResultsTableMobile entries={entries} parentName={breadcrumb?.[breadcrumb.length - 1]?.name} />
       </div>
-
-      {/* Mobile floating action button */}
       <MobileDriveFab parentId={effectiveRootId} />
 
       {/* Desktop layout */}
