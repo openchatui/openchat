@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import { getRootFolderId, listFoldersByParent, listFilesByParent, getFolderBreadcrumb, isGoogleDriveFolder } from "@/lib/modules/drive";
 import { FilesSearchBar } from "@/components/drive/FilesSearchBar";
 import { FilesResultsTable } from "@/components/drive/FilesResultsTable";
+import { FilesResultsTableMobile } from "@/components/drive/FilesResultsTableMobile";
+import { DriveMobileHeader } from "@/components/drive/DriveMobileHeader";
 
 interface FilesPageProps {
   searchParams?: Promise<{ parentId?: string | string[] }>
@@ -29,10 +31,23 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
   const entries = [...folders, ...files]
 
   return (
-    <div className="space-y-6">
-      <FilesSearchBar />
-      <FilesResultsTable entries={entries} parentId={effectiveRootId} breadcrumb={breadcrumb} isGoogleDriveFolder={isDrive} />
-    </div>
+    <>
+      {/* Mobile header: fixed search + filters */}
+      <DriveMobileHeader />
+      {/* Spacer to offset the fixed mobile header height */}
+      <div className="md:hidden h-[136px]" />
+
+      {/* Mobile results list (full-width, scrolls under header) */}
+      <div className="md:hidden">
+        <FilesResultsTableMobile entries={entries} parentName={breadcrumb?.[breadcrumb.length - 1]?.name} />
+      </div>
+
+      {/* Desktop layout */}
+      <div className="hidden md:block space-y-6">
+        <FilesSearchBar />
+        <FilesResultsTable entries={entries} parentId={effectiveRootId} breadcrumb={breadcrumb} isGoogleDriveFolder={isDrive} />
+      </div>
+    </>
   );
 }
 

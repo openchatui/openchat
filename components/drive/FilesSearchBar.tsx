@@ -22,8 +22,8 @@ export function FilesSearchBar() {
   }, [params, router])
 
   return (
-    <div className="w-full flex justify-center my-4">
-      <div className="w-3/5">
+    <div className="w-full flex justify-center my-2 md:my-4">
+      <div className="w-full md:w-3/5">
         <Input
           placeholder="Search files and folders"
           value={q}
