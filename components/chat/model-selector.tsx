@@ -144,10 +144,10 @@ export function ModelSelector({ selectedModelId, onModelSelect, models = [], cur
             variant="ghost"
             role="combobox"
             aria-expanded={open}
-            className="w-fit h-12 justify-between bg-transparent hover:bg-muted/50 px-4"
+            className="w-fit h-12 justify-between bg-transparent hover:bg-muted/50 px-4 max-w-[90vw] md:max-w-none"
             disabled={isLoading}
           >
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 min-w-0">
               {selectedModel ? (
                 <>
                   <Avatar className="h-8 w-8 bg-transparent">
@@ -160,8 +160,8 @@ export function ModelSelector({ selectedModelId, onModelSelect, models = [], cur
                       {selectedModel.name.charAt(0).toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
-                  <div className="flex items-center gap-2">
-                    <span className="truncate text-sm">{getDisplayName(selectedModel)}</span>
+                  <div className="flex items-center gap-2 min-w-0 max-w-[55vw] md:max-w-none">
+                    <span className="truncate text-sm max-w-full">{getDisplayName(selectedModel)}</span>
                     {isOllama(selectedModel) ? (
                       <div className="flex items-center gap-2">
                         {getParameterSize(selectedModel) && (
@@ -221,8 +221,8 @@ export function ModelSelector({ selectedModelId, onModelSelect, models = [], cur
                         </AvatarFallback>
                       </Avatar>
                       <div className="flex flex-col w-full">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium">{getDisplayName(model)}</span>
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="font-medium truncate max-w-[60vw] md:max-w-none">{getDisplayName(model)}</span>
                           {isOllama(model) ? (
                             <div className="flex items-center gap-2">
                               {getParameterSize(model) && (
