@@ -1,4 +1,5 @@
 import { readFile, stat } from 'fs/promises'
+import { createReadStream } from 'fs'
 import path from 'path'
 import { LOCAL_BASE_DIR } from '@/lib/modules/drive/providers/local.service'
 
@@ -20,6 +21,7 @@ function resolveSafePath(segments: string[]): string | null {
 
 // Next.js dynamic API params are async; await them before use
 export async function GET(_req: Request, context: { params: Promise<{ path?: string[] }> }) {
+  const req = _req
   const { path: rawSegments } = await context.params
   if (!rawSegments || rawSegments.length === 0) {
     return new Response('Not Found', { status: 404 })
@@ -48,7 +50,6 @@ export async function GET(_req: Request, context: { params: Promise<{ path?: str
     try {
       const s = await stat(cand)
       if (!s.isFile()) continue
-      const data = await readFile(cand)
       const ext = cand.toLowerCase().split('.').pop() || ''
       const type =
         ext === 'png' ? 'image/png' :
@@ -63,13 +64,52 @@ export async function GET(_req: Request, context: { params: Promise<{ path?: str
         ext === 'avif' ? 'image/avif' :
         ext === 'pdf' ? 'application/pdf' :
         ext === 'txt' ? 'text/plain; charset=utf-8' :
+        ext === 'mp4' || ext === 'm4v' ? 'video/mp4' :
+        ext === 'mov' ? 'video/quicktime' :
+        ext === 'webm' ? 'video/webm' :
+        ext === 'ogv' || ext === 'ogg' ? 'video/ogg' :
+        ext === 'mkv' ? 'video/x-matroska' :
         'application/octet-stream'
-    return new Response(new Uint8Array(data), {
+
+      const range = req.headers.get('range')
+      const fileSize = s.size
+      const commonHeaders: Record<string, string> = {
+        'content-type': type,
+        'accept-ranges': 'bytes',
+        'cache-control': 'no-store',
+      }
+
+      if (range) {
+        // Parse Range: bytes=start-end
+        const match = /bytes=(\d+)-(\d+)?/.exec(range)
+        if (!match) {
+          return new Response('Invalid Range', { status: 416 })
+        }
+        const start = parseInt(match[1]!, 10)
+        const end = match[2] ? Math.min(parseInt(match[2]!, 10), fileSize - 1) : Math.min(start + 1024 * 1024 * 4 - 1, fileSize - 1) // 4MB default chunk
+        if (isNaN(start) || isNaN(end) || start > end || start >= fileSize) {
+          return new Response('Invalid Range', { status: 416 })
+        }
+        const chunkSize = end - start + 1
+        const stream = createReadStream(cand, { start, end })
+        return new Response(stream as any, {
+          status: 206,
+          headers: {
+            ...commonHeaders,
+            'content-length': String(chunkSize),
+            'content-range': `bytes ${start}-${end}/${fileSize}`,
+          }
+        })
+      }
+
+      // No range: stream entire file
+      const fullStream = createReadStream(cand)
+      return new Response(fullStream as any, {
         status: 200,
         headers: {
-          'content-type': type,
-          'cache-control': 'no-store',
-        ...(ext === 'pdf' ? { 'content-disposition': `inline; filename="${last}"` } : {}),
+          ...commonHeaders,
+          'content-length': String(fileSize),
+          ...(ext === 'pdf' ? { 'content-disposition': `inline; filename="${last}"` } : {}),
         }
       })
     } catch {
