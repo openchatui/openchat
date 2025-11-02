@@ -5,6 +5,7 @@ import { FilesResultsTable } from "@/components/drive/FilesResultsTable";
 import { FilesSearchBar } from "@/components/drive/FilesSearchBar";
 import { FilesResultsTableMobile } from "@/components/drive/FilesResultsTableMobile";
 import { DriveMobileHeader } from "@/components/drive/DriveMobileHeader";
+import { MobileDriveFab } from "@/components/drive/MobileDriveFab";
 
 export default async function TrashPage() {
   const session = await auth();
@@ -32,6 +33,9 @@ export default async function TrashPage() {
       <div className="md:hidden">
         <FilesResultsTableMobile entries={entries} parentName="Trash" />
       </div>
+
+      {/* Mobile floating action button */}
+      <MobileDriveFab parentId={trashId} isTrash />
 
       {/* Desktop layout */}
       <div className="hidden md:block space-y-6">

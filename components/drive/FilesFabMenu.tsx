@@ -10,6 +10,33 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Plus, FolderPlus, FileUp, FolderUp } from "lucide-react"
 
+export interface FilesFabMenuItemsProps {
+  onCreateFolder?: () => void
+  onUploadFile?: () => void
+  onUploadFolder?: () => void
+}
+
+export function FilesFabMenuItems({ onCreateFolder, onUploadFile, onUploadFolder }: FilesFabMenuItemsProps = {}) {
+  return (
+    <>
+      <DropdownMenuLabel>New</DropdownMenuLabel>
+      <DropdownMenuSeparator />
+      <DropdownMenuItem onSelect={(e) => { e.preventDefault(); onCreateFolder?.() }}>
+        <FolderPlus className="mr-2 h-4 w-4" />
+        <span>New Folder</span>
+      </DropdownMenuItem>
+      <DropdownMenuItem onSelect={(e) => { e.preventDefault(); onUploadFile?.() }}>
+        <FileUp className="mr-2 h-4 w-4" />
+        <span>File Upload</span>
+      </DropdownMenuItem>
+      <DropdownMenuItem onSelect={(e) => { e.preventDefault(); onUploadFolder?.() }}>
+        <FolderUp className="mr-2 h-4 w-4" />
+        <span>Folder Upload</span>
+      </DropdownMenuItem>
+    </>
+  )
+}
+
 export function FilesFabMenu() {
   return (
     <div className="fixed bottom-6 right-6">
@@ -20,20 +47,7 @@ export function FilesFabMenu() {
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent side="top" align="end" className="w-56">
-          <DropdownMenuLabel>New</DropdownMenuLabel>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem>
-            <FolderPlus className="mr-2 h-4 w-4" />
-            <span>New Folder</span>
-          </DropdownMenuItem>
-          <DropdownMenuItem>
-            <FileUp className="mr-2 h-4 w-4" />
-            <span>File Upload</span>
-          </DropdownMenuItem>
-          <DropdownMenuItem>
-            <FolderUp className="mr-2 h-4 w-4" />
-            <span>Folder Upload</span>
-          </DropdownMenuItem>
+          <FilesFabMenuItems />
         </DropdownMenuContent>
       </DropdownMenu>
     </div>

@@ -5,6 +5,7 @@ import { FilesSearchBar } from "@/components/drive/FilesSearchBar";
 import { FilesResultsTable } from "@/components/drive/FilesResultsTable";
 import { FilesResultsTableMobile } from "@/components/drive/FilesResultsTableMobile";
 import { DriveMobileHeader } from "@/components/drive/DriveMobileHeader";
+import { MobileDriveFab } from "@/components/drive/MobileDriveFab";
 
 interface FilesPageProps {
   searchParams?: Promise<{ parentId?: string | string[] }>
@@ -41,6 +42,9 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
       <div className="md:hidden">
         <FilesResultsTableMobile entries={entries} parentName={breadcrumb?.[breadcrumb.length - 1]?.name} />
       </div>
+
+      {/* Mobile floating action button */}
+      <MobileDriveFab parentId={effectiveRootId} />
 
       {/* Desktop layout */}
       <div className="hidden md:block space-y-6">

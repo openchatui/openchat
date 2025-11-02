@@ -5,6 +5,7 @@ import { FilesSearchBar } from "@/components/drive/FilesSearchBar";
 import { FilesResultsTable } from "@/components/drive/FilesResultsTable";
 import { FilesResultsTableMobile } from "@/components/drive/FilesResultsTableMobile";
 import { DriveMobileHeader } from "@/components/drive/DriveMobileHeader";
+import { MobileDriveFab } from "@/components/drive/MobileDriveFab";
 
 interface PageProps {
   params: Promise<{ folderId: string }>
@@ -35,6 +36,9 @@ export default async function FolderPage({ params }: PageProps) {
       <div className="md:hidden">
         <FilesResultsTableMobile entries={entries} parentName={parentName ?? undefined} />
       </div>
+
+      {/* Mobile floating action button */}
+      <MobileDriveFab parentId={folderId} />
 
       {/* Desktop layout */}
       <div className="hidden md:block space-y-6">
