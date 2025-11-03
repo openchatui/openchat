@@ -3,7 +3,6 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import ChatsResults from "@/components/search/results/chats-results";
 import ModelsResults from "@/components/search/results/models-results";
-import { SidebarTrigger } from "@/components/ui/sidebar";
 
 interface SearchPageProps {
   searchParams?: Promise<{ q?: string | string[]; mention?: string | string[] }>;
@@ -36,7 +35,6 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
         <div className="md:hidden fixed top-0 inset-x-0 z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
           <div className="px-3 py-2">
             <div className="flex items-center gap-2">
-              <SidebarTrigger />
               <SearchBar query={q} initialMentions={mentions} className="w-full" />
             </div>
           </div>
@@ -70,7 +68,6 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
         <div className="md:hidden fixed top-0 inset-x-0 z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
           <div className="px-3 py-2">
             <div className="flex items-center gap-2">
-              <SidebarTrigger />
               <SearchBar query={q} initialMentions={mentions} className="w-full" />
             </div>
           </div>
