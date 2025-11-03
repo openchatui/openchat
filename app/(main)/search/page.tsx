@@ -29,36 +29,66 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
   const scopeNoneSpecified = !scopeChats && !scopeArchived;
 
   if (q) {
-    if (scopeModels) {
-      return (
-        <div className="mx-48 w-full px-2.5 py-3">
-          <SearchBar query={q} initialMentions={mentions} className="max-w-[600px] mx-auto" />
-          <ModelsResults userId={userId} query={q} mentions={mentions} />
-        </div>
-      );
-    }
     return (
-      <div className="mx-48 w-full px-2.5 py-3">
-        <SearchBar query={q} initialMentions={mentions} className="max-w-[600px] mx-auto" />
-        <ChatsResults userId={userId} query={q} mentions={mentions} />
+      <div className="w-full md:mx-48">
+        {/* Mobile fixed header */}
+        <div className="md:hidden fixed top-0 inset-x-0 z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
+          <div className="px-3 py-2">
+            <div className="flex items-center gap-2">
+              <SearchBar query={q} initialMentions={mentions} className="w-full" />
+            </div>
+          </div>
+        </div>
+        {/* Spacer for fixed header height */}
+        <div className="md:hidden h-[64px]" />
+
+        {/* Mobile: show chats list only */}
+        <div className="md:hidden px-3 py-3">
+          <ChatsResults userId={userId} query={q} mentions={mentions} />
+        </div>
+
+        {/* Desktop layout */}
+        <div className="hidden md:block w-full px-2.5 py-3">
+          <SearchBar query={q} initialMentions={mentions} className="md:max-w-[600px] mx-auto" />
+          {scopeModels ? (
+            <ModelsResults userId={userId} query={q} mentions={mentions} />
+          ) : (
+            <ChatsResults userId={userId} query={q} mentions={mentions} />
+          )}
+        </div>
       </div>
     );
   }
 
   // When no query: default to chats unless a mention switches scope
   if (!q) {
-    if (scopeModels) {
-      return (
-        <div className="mx-48 w-full px-2.5 py-3">
-          <SearchBar query={q} initialMentions={mentions} className="max-w-[600px] mx-auto" />
-          <ModelsResults userId={userId} mentions={mentions} />
-        </div>
-      );
-    }
     return (
-      <div className="mx-48 w-full px-2.5 py-3">
-        <SearchBar query={q} initialMentions={mentions} className="max-w-[600px] mx-auto" />
-        <ChatsResults userId={userId} />
+      <div className="w-full md:mx-48">
+        {/* Mobile fixed header */}
+        <div className="md:hidden fixed top-0 inset-x-0 z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
+          <div className="px-3 py-2">
+            <div className="flex items-center gap-2">
+              <SearchBar query={q} initialMentions={mentions} className="w-full" />
+            </div>
+          </div>
+        </div>
+        {/* Spacer for fixed header height */}
+        <div className="md:hidden h-[64px]" />
+
+        {/* Mobile: show chats list only */}
+        <div className="md:hidden px-3 py-3">
+          <ChatsResults userId={userId} />
+        </div>
+
+        {/* Desktop layout */}
+        <div className="hidden md:block w-full px-2.5 py-3">
+          <SearchBar query={q} initialMentions={mentions} className="md:max-w-[600px] mx-auto" />
+          {scopeModels ? (
+            <ModelsResults userId={userId} mentions={mentions} />
+          ) : (
+            <ChatsResults userId={userId} />
+          )}
+        </div>
       </div>
     );
   }

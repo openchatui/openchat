@@ -33,38 +33,6 @@ async function getVideoDefaults(): Promise<{ model: string; size: string; second
   }
 }
 
-function pickContentExt(contentType: string | null | undefined): string {
-  const ct = String(contentType || '').toLowerCase()
-  if (ct.includes('webm')) return 'webm'
-  if (ct.includes('quicktime') || ct.includes('mov')) return 'mov'
-  if (ct.includes('m4v')) return 'm4v'
-  return 'mp4'
-}
-
-function extractVideoUrl(json: any): string | null {
-  if (!json || typeof json !== 'object') return null
-  if (json.assets && typeof json.assets === 'object') {
-    if (typeof json.assets.video === 'string' && json.assets.video) return json.assets.video
-    if (Array.isArray(json.assets) && json.assets.length > 0) {
-      const first = json.assets.find((a: any) => typeof a?.video === 'string')
-      if (first?.video) return String(first.video)
-    }
-  }
-  if (typeof json.url === 'string' && json.url) return json.url
-  if (json.data && Array.isArray(json.data) && json.data[0]?.url) return String(json.data[0].url)
-  const maybeContent = json.output || json.contents || json.content
-  const arr = Array.isArray(maybeContent) ? maybeContent : []
-  for (const item of arr) {
-    const blocks = Array.isArray(item?.content) ? item.content : []
-    for (const b of blocks) {
-      if (b?.type === 'output_video' && typeof b?.video?.url === 'string') return b.video.url
-      if (b?.type === 'video' && typeof b?.video?.url === 'string') return b.video.url
-      if (typeof b?.url === 'string') return b.url
-    }
-  }
-  return null
-}
-
 export class VideoGenerationService {
   static async generateWithOpenAI(userId: string, input: VideoGenerationInput): Promise<VideoGenerationResult> {
     const defaults = await getVideoDefaults()

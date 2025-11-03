@@ -577,9 +577,9 @@ export function FilesResultsTable({
           <TableHeader>
             <TableRow>
               <TableHead className="w-[45%]">Name</TableHead>
-              <TableHead className="w-[15%]">Owner</TableHead>
-              <TableHead className="w-[15%]">Last Modified</TableHead>
-              <TableHead className="w-[15%]">Location</TableHead>
+              <TableHead className="w-[15%] hidden md:table-cell">Owner</TableHead>
+              <TableHead className="w-[15%] hidden md:table-cell">Last Modified</TableHead>
+              <TableHead className="w-[15%] hidden md:table-cell">Location</TableHead>
               <TableHead className="w-[10%] text-right"></TableHead>
             </TableRow>
           </TableHeader>
@@ -881,21 +881,35 @@ function RowItem({
       {...listeners}
       {...attributes}
     >
-      <TableCell className="w-[45%] flex items-center gap-2 mt-2 min-w-0">
-        {item.isDirectory ? (
-          <FaFolder className="h-4 w-4" />
-        ) : (
-          getIconForFile(item.name, item)
-        )}
-        <span className="truncate flex-1 min-w-0">{item.name}</span>
-        {!item.isDirectory && item.ownedByMe === false && (
-          <span title="Shared with me" className="flex-shrink-0">
-            <Users className="h-4 w-4 text-blue-500" />
-          </span>
-        )}
+      <TableCell className="w-[45%] min-w-0">
+        <div className="flex items-center gap-2 mt-2">
+          {item.isDirectory ? (
+            <FaFolder className="h-4 w-4" />
+          ) : (
+            getIconForFile(item.name, item)
+          )}
+          <span className="truncate flex-1 min-w-0">{item.name}</span>
+          {!item.isDirectory && item.ownedByMe === false && (
+            <span title="Shared with me" className="flex-shrink-0">
+              <Users className="h-4 w-4 text-blue-500" />
+            </span>
+          )}
+        </div>
+        <div className="md:hidden ml-6 text-[11px] text-muted-foreground">
+          {new Date(item.modifiedMs).toLocaleString("en-US", {
+            timeZone: "UTC",
+            year: "numeric",
+            month: "numeric",
+            day: "numeric",
+            hour: "numeric",
+            minute: "2-digit",
+            second: "2-digit",
+            hour12: true,
+          })}
+        </div>
       </TableCell>
-      <TableCell className="w-[15%]">You</TableCell>
-      <TableCell className="w-[15%]">
+      <TableCell className="w-[15%] hidden md:table-cell">You</TableCell>
+      <TableCell className="w-[15%] hidden md:table-cell">
         {new Date(item.modifiedMs).toLocaleString("en-US", {
           timeZone: "UTC",
           year: "numeric",
@@ -907,7 +921,7 @@ function RowItem({
           hour12: true,
         })}
       </TableCell>
-      <TableCell className="w-[15%] min-w-0">
+      <TableCell className="w-[15%] min-w-0 hidden md:table-cell">
         <span className="block truncate">
           {parentName ? `/${parentName}` : "/"}
         </span>

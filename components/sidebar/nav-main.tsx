@@ -17,6 +17,7 @@ import {
   SidebarMenuSub,
   SidebarMenuSubButton,
   SidebarMenuSubItem,
+  useSidebar,
 } from "@/components/ui/sidebar"
 import type { IconType } from "react-icons/lib"
 
@@ -36,6 +37,12 @@ export function NavMain({
     }[]
   }[]
 }) {
+  const { isMobile, setOpenMobile } = useSidebar()
+
+  function handleNavigate() {
+    if (isMobile) setOpenMobile(false)
+  }
+
   return (
     <SidebarGroup>
       <SidebarMenu>
@@ -44,7 +51,7 @@ export function NavMain({
             return (
               <SidebarMenuItem key={item.title}>
                 <SidebarMenuButton asChild tooltip={item.title}>
-                  <Link href={item.url}>
+                  <Link href={item.url} onClick={handleNavigate}>
                     {item.icon && <item.icon />}
                     <span>{item.title}</span>
                   </Link>
@@ -73,7 +80,7 @@ export function NavMain({
                       {item.items?.map((subItem) => (
                         <SidebarMenuSubItem key={subItem.title}>
                           <SidebarMenuSubButton asChild>
-                            <Link href={subItem.url}>
+                            <Link href={subItem.url} onClick={handleNavigate}>
                               {subItem.icon && <subItem.icon />}
                               <span>{subItem.title}</span>
                             </Link>

@@ -2,6 +2,9 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { useSidebar } from "@/components/ui/sidebar";
+import { FiSidebar } from "react-icons/fi";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -19,6 +22,7 @@ export function SearchBar({
   placeholder = "Search or use @",
   className,
 }: SearchBarProps) {
+  const { toggleSidebar } = useSidebar();
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [value, setValue] = useState<string>(query ?? "");
   const [mentions, setMentions] = useState<string[]>([]);
@@ -198,74 +202,86 @@ export function SearchBar({
   }, [value, mentions, pathname, router, sp, tokenText]);
 
   return (
-    <div className={cn("w-full", className)}>
-      <form action="/search" method="GET" className="w-full">
-        <div className="rounded-full bg-accent p-2 shadow-md">
-          <div
-            className="flex items-center gap-2 relative flex-wrap mx-2"
-            onClick={() => inputRef.current?.focus()}
+    <div className={cn("w-full flex justify-center my-2 md:my-4", className)}>
+      <div className="w-full md:w-3/5">
+        <div className="relative">
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="Toggle sidebar"
+            onClick={toggleSidebar}
+            className="absolute left-2 top-1/2 -translate-y-1/2 h-9 w-9 rounded-full"
           >
-            {/* include mentions as hidden inputs for GET submission */}
-            {mentions.map((m) => (
-              <input key={`hidden-${m}`} type="hidden" name="mention" value={m}/>
-            ))}
-            {/* render selected mentions as badges in the same color order */}
-            {[...mentions]
-              .sort((a, b) => MENTION_OPTIONS.indexOf(a) - MENTION_OPTIONS.indexOf(b))
-              .map((m) => (
-              <Badge key={m} variant="secondary" className={cn("rounded-full", badgeColorClass(m))}>
-                @{m}
-              </Badge>
-            ))}
-            <Input
-              ref={inputRef}
-              name="q"
-              value={value}
-              onChange={(e) => setValue(e.target.value)}
-              onKeyDown={onKeyDown}
-              placeholder={mentions.length ? "" : placeholder}
-              autoComplete="off"
+            <FiSidebar className="h-5 w-5" />
+          </Button>
+          <form action="/search" method="GET" className="w-full">
+            <div
               className={cn(
-                // make input behave like inline text alongside badges
-                "h-8 border-0 bg-transparent dark:bg-transparent shadow-none flex-1 min-w-[6rem] px-0",
-                "focus-visible:ring-0 focus-visible:ring-offset-0",
-                "text-[16px] md:text-[16px]"
+                "rounded-full border bg-background shadow-sm",
+                "pl-12 pr-4",
+                "min-h-12 flex items-center gap-2 flex-wrap"
               )}
-            />
-            {open && (
-              <div
+              onClick={() => inputRef.current?.focus()}
+            >
+              {mentions.map((m) => (
+                <input key={`hidden-${m}`} type="hidden" name="mention" value={m}/>
+              ))}
+              {[...mentions]
+                .sort((a, b) => MENTION_OPTIONS.indexOf(a) - MENTION_OPTIONS.indexOf(b))
+                .map((m) => (
+                <Badge key={m} variant="secondary" className={cn("rounded-full", badgeColorClass(m))}>
+                  @{m}
+                </Badge>
+              ))}
+              <Input
+                ref={inputRef}
+                name="q"
+                value={value}
+                onChange={(e) => setValue(e.target.value)}
+                onKeyDown={onKeyDown}
+                placeholder={mentions.length ? "" : placeholder}
+                autoComplete="off"
                 className={cn(
-                  "absolute left-2 right-2 top-full mt-1 z-50",
-                  "rounded-md border bg-popover text-popover-foreground shadow-md"
+                  "h-12 border-0 bg-transparent dark:bg-transparent shadow-none flex-1 min-w-[6rem] px-0",
+                  "focus-visible:ring-0 focus-visible:ring-offset-0",
+                  "text-[16px] md:text-[16px]"
                 )}
-              >
-                <ul className="py-1 text-sm">
-                  {filtered.map((opt, idx) => (
-                    <li key={opt}>
-                      <button
-                        type="button"
-                        className={cn(
-                          "w-full text-left px-3 py-1.5",
-                          idx === highlightIndex
-                            ? "bg-accent text-foreground"
-                            : "hover:bg-accent/70"
-                        )}
-                        onMouseEnter={() => setHighlightIndex(idx)}
-                        onMouseDown={(e) => {
-                          e.preventDefault();
-                          selectOption(opt);
-                        }}
-                      >
-                        <Badge variant="secondary" className={cn("rounded-full", badgeColorClass(opt))}>@{opt}</Badge>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </div>
+              />
+            </div>
+          </form>
+          {open && (
+            <div
+              className={cn(
+                "absolute left-2 right-2 top-full mt-1 z-50",
+                "rounded-md border bg-popover text-popover-foreground shadow-md"
+              )}
+            >
+              <ul className="py-1 text-sm">
+                {filtered.map((opt, idx) => (
+                  <li key={opt}>
+                    <button
+                      type="button"
+                      className={cn(
+                        "w-full text-left px-3 py-1.5",
+                        idx === highlightIndex
+                          ? "bg-accent text-foreground"
+                          : "hover:bg-accent/70"
+                      )}
+                      onMouseEnter={() => setHighlightIndex(idx)}
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        selectOption(opt);
+                      }}
+                    >
+                      <Badge variant="secondary" className={cn("rounded-full", badgeColorClass(opt))}>@{opt}</Badge>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
-      </form>
+      </div>
     </div>
   );
 }

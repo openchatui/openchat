@@ -28,6 +28,10 @@ export function VideoJob({ jobId }: VideoJobProps) {
         if (cancelled) return
         setStatus(String(data.status || 'queued'))
         setProgress(Number.isFinite(data.progress) ? Number(data.progress) : 0)
+        if (typeof data.url === 'string' && data.url) {
+          setUrl(data.url)
+          return
+        }
         // Upstream moderation or provider errors (surface and stop polling)
         const jobError = (data?.job && typeof data.job === 'object') ? (data.job as any).error : null
         if (jobError && (jobError.message || jobError.code)) {
