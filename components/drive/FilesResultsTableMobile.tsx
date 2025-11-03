@@ -103,7 +103,7 @@ export function FilesResultsTableMobile({ entries, parentName }: FilesResultsTab
   }, [router])
 
   return (
-    <div className="w-full h-[100vh] overflow-auto pt-0 pb-20">
+    <div className="w-full pt-0 pb-20">
       <ul className="divide-y">
         {entries.map((item) => (
           <li key={item.id} className="flex items-center gap-3 px-3 py-3">

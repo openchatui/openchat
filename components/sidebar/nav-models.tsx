@@ -10,10 +10,15 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  useSidebar,
 } from "@/components/ui/sidebar"
 
 export function NavModels({ pinnedModels, currentUserId }: { pinnedModels: Model[]; currentUserId?: string | null }) {
   const { pinnedModels: localPinned } = usePinnedModels(currentUserId, { initialPinnedModels: pinnedModels })
+  const { isMobile, setOpenMobile } = useSidebar()
+  function handleNavigate() {
+    if (isMobile) setOpenMobile(false)
+  }
 
   return (
     <SidebarGroup>
@@ -28,7 +33,7 @@ export function NavModels({ pinnedModels, currentUserId }: { pinnedModels: Model
                     const encoded = encodeURIComponent(providerModelId).replace(/%3A/g, ':')
                     const href = `/?model=${encoded}`
                     return (
-                      <Link href={href} className="flex items-center gap-2">
+                      <Link href={href} className="flex items-center gap-2" onClick={handleNavigate}>
                         <Avatar className="h-5 w-5">
                           <AvatarImage src={model?.meta?.profile_image_url || "/OpenChat.png"} alt={model.name} />
                           <AvatarFallback>{String(model?.name || '?').charAt(0).toUpperCase()}</AvatarFallback>

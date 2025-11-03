@@ -247,7 +247,7 @@ export default function ChatMessages({
       onScroll={handleScroll}
       className="w-full h-full flex-1 min-h-0 overflow-y-auto pt-16"
     >
-      <div className="max-w-5xl px-8 mx-auto space-y-6" style={{ paddingBottom: 'calc(185px)' }}>
+      <div className="max-w-5xl px-8 mx-auto space-y-6" style={{ paddingBottom: 'calc(150px)' }}>
       {messages.map((message) => 
         message.role === 'user' ? (
           <Message key={message.id} from={message.role}>
@@ -268,7 +268,7 @@ export default function ChatMessages({
                 const copyText = getVisibleTextForCopy(message as any)
                 if (!copyText) return null
                 return (
-                  <Actions className="opacity-0 group-hover:opacity-100 transition-opacity m-0 mt-2">
+                  <Actions className="opacity-100 md:opacity-0 group-hover:md:opacity-100 transition-opacity m-0 mt-2">
                     <Action onClick={() => navigator.clipboard.writeText(copyText)} label="Copy">
                       <CopyIcon className="size-4" />
                     </Action>
@@ -542,7 +542,7 @@ export default function ChatMessages({
                 const copyText = getVisibleTextForCopy(message as any)
                 if (!copyText) return null
                 return (
-                  <Actions className="ml-0 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Actions className="ml-0 mt-2 opacity-100 md:opacity-0 group-hover:md:opacity-100 transition-opacity">
                     <Action onClick={() => navigator.clipboard.writeText(copyText)} label="Copy">
                       <CopyIcon className="size-4" />
                     </Action>

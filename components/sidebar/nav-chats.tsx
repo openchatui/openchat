@@ -17,6 +17,7 @@ import {
   SidebarMenuSub,
   SidebarMenuSubButton,
   SidebarMenuSubItem,
+  useSidebar,
 } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
 import {
@@ -37,6 +38,10 @@ interface NavChatsProps {
 }
 
 export function NavChats({ chats, timeZone = 'UTC' }: NavChatsProps) {
+  const { isMobile, setOpenMobile } = useSidebar()
+  const handleNavigate = useCallback(() => {
+    if (isMobile) setOpenMobile(false)
+  }, [isMobile, setOpenMobile])
   const [isOpen, setIsOpen] = useState(true)
   const [mounted, setMounted] = useState(false)
   const [allChats, setAllChats] = useState<ChatData[]>(chats)
@@ -340,7 +345,7 @@ export function NavChats({ chats, timeZone = 'UTC' }: NavChatsProps) {
                         return (
                           <SidebarMenuSubItem key={chat.id}>
                             <SidebarMenuSubButton asChild isActive={isActive} className="w-full">
-                              <Link href={`/c/${chat.id}`} className="group/chat relative w-full flex items-center">
+                              <Link href={`/c/${chat.id}`} className="group/chat relative w-full flex items-center" onClick={handleNavigate}>
                                 <span className="relative flex-1 min-w-0 overflow-hidden pr-0 group-hover/chat:pr-7">
                                   <span
                                     className="block whitespace-nowrap overflow-hidden"
