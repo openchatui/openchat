@@ -370,15 +370,20 @@ export default function ChatMessages({
               if (latestVideoPart) {
                 const out = latestVideoPart?.output
                 const url: string | undefined = (out && typeof out.url === 'string' && out.url) ? out.url : undefined
-                if (url) {
+                const jobId: string | undefined = (out?.details?.job?.id as string) || undefined
+                // Prefer local files; ignore remote API URLs
+                if (url && url.startsWith('/')) {
                   return (
                     <div className="mb-3 rounded-lg overflow-hidden border max-w-[1024px]">
                       <video src={url} controls className="w-full h-auto" />
                     </div>
                   )
                 }
+                // If the tool provided a remote URL, fall back to VideoJob to resolve the local saved asset
+                if (url && jobId) {
+                  return <VideoJob jobId={jobId} />
+                }
                 // Poll job status while queued
-                const jobId: string | undefined = (out?.details?.job?.id as string) || undefined
                 if (jobId) {
                   return <VideoJob jobId={jobId} />
                 }

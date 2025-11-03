@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { ProviderService } from '@/lib/modules/ai/providers/provider.service'
+import db from '@/lib/db'
 import OpenAI from 'openai'
 
 export const runtime = 'nodejs'
@@ -85,7 +86,51 @@ export async function GET(_request: NextRequest, context: { params: Promise<{ id
     const status: string = (anyJson?.status || '').toString()
     const progress: number = Number.isFinite(anyJson?.progress) ? Number(anyJson.progress) : 0
 
-    return NextResponse.json({ status, progress, job: json })
+    // If we've already saved the asset locally, include the local URL
+    let url: string | null = null
+    let fileId: string | null = null
+    try {
+      type Row = { id: string; filename: string; path: string | null; parentId: string | null }
+      let rows: Row[] = []
+      try {
+        rows = await db.$queryRaw<Row[]>`
+          SELECT id, filename, path, parent_id as parentId
+          FROM "file"
+          WHERE user_id = ${userId}
+            AND COALESCE(CAST(json_extract(meta, '$.jobId') AS TEXT), '') = ${videoId}
+          LIMIT 1`
+      } catch {
+        rows = await db.$queryRaw<Row[]>`
+          SELECT id, filename, path, parent_id as parentId
+          FROM "file"
+          WHERE user_id = ${userId}
+            AND COALESCE((meta ->> 'jobId')::text, '') = ${videoId}
+          LIMIT 1`
+      }
+      const file = rows && rows[0]
+      if (file) {
+        let rel = ''
+        const p = file.path ? String(file.path) : ''
+        if (p) {
+          let normalized = p.replace(/^\/+/, '')
+          if (!normalized.endsWith('/' + file.filename)) {
+            normalized = normalized + '/' + file.filename
+          }
+          if (normalized.startsWith('data/files/')) {
+            normalized = normalized.slice('data/'.length)
+          }
+          rel = normalized
+        } else if (file.parentId) {
+          rel = `files/${file.parentId}/${file.filename}`
+        } else {
+          rel = `files/${file.filename}`
+        }
+        url = rel.startsWith('files/') ? `/${rel}` : `/files/${rel}`
+        fileId = file.id
+      }
+    } catch {}
+
+    return NextResponse.json({ status, progress, job: json, ...(url ? { url, fileId } : {}) })
   } catch (error) {
     return NextResponse.json({ error: 'Failed to check status' }, { status: 500 })
   }
