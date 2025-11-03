@@ -1,3 +1,21 @@
+## [0.1.30] - 2025-11-03
+
+### PR: [Release: Merge dev into main — Mobile UX, Drive navigation, and video features](https://github.com/openchatui/openchat/pull/110)
+
+### Added
+- Implemented mobile layouts for Drive folder, starred, and trash pages with a fixed header and responsive results list. (https://github.com/openchatui/openchat/commit/1bb18fd4331027667ac04bbaac89e8f241c6681c)
+- Enhanced Drive layout with mobile navigation, including a bottom nav and responsive adjustments. (https://github.com/openchatui/openchat/commit/66e0cf67d43a07d4d49624f67c295f4de61b48d6)
+- Added a mobile floating action button on Drive pages and improved the FAB menu for reuse. (https://github.com/openchatui/openchat/commit/8266c29ca59b8fa89704d8e76f3175f9156f06e8)
+- Introduced rename capability and optimistic updates for starring in FilesResultsTableMobile. (https://github.com/openchatui/openchat/commit/0d5b03b72777925da57823507107cd16f9bb3db0)
+- Improved mobile file name display with truncation in FilesResultsTableMobile. (https://github.com/openchatui/openchat/commit/6b0257516246ca80307e053a67d5bef6e730f52f)
+- Added a sidebar toggle button to the FilesSearchBar for quicker navigation on smaller screens. (https://github.com/openchatui/openchat/commit/b45e13b5b2353750bc33abd70c10c164c9362e2b)
+- Enabled video streaming and added robust error handling in the VideoPreviewer component. (https://github.com/openchatui/openchat/commit/45daf1dd1ff1868c7fb57ffd4c746e7658dd5bbc)
+- Chat now shows locally saved videos for generation jobs and the status endpoint returns richer data. (https://github.com/openchatui/openchat/commit/5c04fb5cd0c9931f6e6d9473cd13d991e84c206e)
+- Improved mobile UX and navigation, including Drive root switching and responsive search/results. (https://github.com/openchatui/openchat/commit/3e273a3483a6d29a2ef904d9c60247bd725d90d8)
+
+### Changed
+- Migrated Whisper transcription worker to @huggingface/transformers with WebGPU/CPU fallback and browser caching. (https://github.com/openchatui/openchat/pull/110)
+
 ## [0.1.29] - 2025-11-01
 
 ### PR: [admin mobile, auth fixes](https://github.com/openchatui/openchat/pull/104)
