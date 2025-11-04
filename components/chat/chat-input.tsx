@@ -770,11 +770,12 @@ function Pill({
       <TooltipTrigger asChild>
         <Button
           type="button"
-          variant={active ? 'default' : 'outline'}
+          variant={'outlineAlt'}
           size="sm"
           onClick={onClick}
           className={cn(
-            "rounded-full h-7 px-3 gap-0",
+            "rounded-full h-7 px-3 gap-0 transition-colors",
+            active ? "!bg-foreground !text-black dark:!text-black !border-foreground" : "bg-input/10 dark:bg-input/30",
             disabled ? 'pointer-events-none opacity-50' : ''
           )}
           aria-pressed={active}
