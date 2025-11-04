@@ -23,7 +23,12 @@ export function usePinnedModels(
   currentUserId?: string | null,
   options?: UsePinnedModelsOptions,
 ): UsePinnedModelsResult {
-  const [pinnedIds, setPinnedIds] = useState<string[]>([])
+  const initialIds = useMemo(() => {
+    const initial = options?.initialPinnedModels
+    return Array.isArray(initial) ? initial.map((m) => m.id) : []
+  }, [options?.initialPinnedModels])
+
+  const [pinnedIds, setPinnedIds] = useState<string[]>(initialIds)
   const [pinnedModels, setPinnedModels] = useState<Model[]>(() => {
     const initial = options?.initialPinnedModels
     return Array.isArray(initial) ? [...initial] : []
@@ -60,9 +65,13 @@ export function usePinnedModels(
   }, [currentUserId, allModels])
 
   useEffect(() => {
-    // Initial load
+    // Skip initial refresh if caller provided initial pinned models to avoid
+    // unnecessary refetches during mount/unmount cycles (e.g., mobile sidebar).
+    if (Array.isArray(options?.initialPinnedModels) && options.initialPinnedModels.length > 0) {
+      return
+    }
     void refresh()
-  }, [refresh])
+  }, [refresh, options?.initialPinnedModels])
 
   useEffect(() => {
     const handler = () => { void refresh() }
