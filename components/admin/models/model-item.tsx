@@ -3,6 +3,7 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
+import { useEffect, useState } from "react"
 import { Edit } from "lucide-react"
 import type { Model } from '@/types/model.types'
 import type { UpdateModelData } from '@/types/model.types'
@@ -17,6 +18,11 @@ interface ModelItemProps {
 
 export function ModelItem({ model, onToggleActive, onUpdateModel, isUpdating }: ModelItemProps) {
   const profileImageUrl = model.meta?.profile_image_url || "/OpenChat.png"
+  const [localActive, setLocalActive] = useState<boolean>(model.isActive)
+
+  useEffect(() => {
+    setLocalActive(model.isActive)
+  }, [model.isActive])
 
   return (
     <div className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors">
@@ -43,13 +49,16 @@ export function ModelItem({ model, onToggleActive, onUpdateModel, isUpdating }: 
         </EditModelDialog>
 
         <Switch
-          checked={model.isActive}
-          onCheckedChange={(checked) => {
-            if (isUpdating) return
-            onToggleActive(model.id, checked)
+          checked={localActive}
+          onCheckedChange={async (checked) => {
+            const previous = localActive
+            setLocalActive(checked)
+            try {
+              await onToggleActive(model.id, checked)
+            } catch {
+              setLocalActive(previous)
+            }
           }}
-          aria-disabled={isUpdating}
-          className={isUpdating ? "opacity-60" : undefined}
         />
       </div>
     </div>
