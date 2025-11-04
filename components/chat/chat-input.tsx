@@ -9,6 +9,14 @@ import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { Loader } from "@/components/ui/loader";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useChats } from "@/hooks/useChats";
+import {
   Plus,
   Mic,
   X,
@@ -19,6 +27,10 @@ import {
   AudioWaveform,
   ArrowUp,
   Video,
+  FileUp,
+  HardDrive,
+  Camera,
+  MessageSquare,
 } from "lucide-react";
 
 const RecordingWaveform = dynamic(() => import("./recording-waveform"), { ssr: false })
@@ -76,6 +88,8 @@ export function ChatInput({
   const [isLive, setIsLive] = useState(false);
   const isLiveRef = useRef(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const cameraInputRef = useRef<HTMLInputElement | null>(null)
   const ttsAudioRef = useRef<HTMLAudioElement | null>(null)
   const ttsUrlsRef = useRef<Set<string>>(new Set())
   const ttsQueueRef = useRef<HTMLAudioElement[]>([])
@@ -84,6 +98,8 @@ export function ChatInput({
   const pendingTextRef = useRef<string>("")
   const firstSegmentSentRef = useRef(false)
   const drainResolverRef = useRef<(() => void) | null>(null)
+  const [showChatRefDialog, setShowChatRefDialog] = useState(false)
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([])
 
   const {
     isRecording,
@@ -356,6 +372,51 @@ export function ChatInput({
     }
   }, [value, isLive, startLive, sttAllowed])
 
+  // File helpers and actions for dropdown
+  const persistFilesMeta = useCallback((files: File[]) => {
+    try {
+      if (!sessionStorageKey) return
+      const raw = sessionStorage.getItem(sessionStorageKey)
+      const defaults = {
+        prompt: "",
+        files: [] as { name: string; size: number; type: string }[],
+        selectedToolIds: [] as string[],
+        selectedFilterIds: [] as string[],
+        imageGenerationEnabled: false,
+        webSearchEnabled: false,
+        codeInterpreterEnabled: false,
+      }
+      const data = raw ? { ...defaults, ...JSON.parse(raw) } : defaults
+      const metas = files.map((f) => ({ name: f.name, size: f.size, type: f.type }))
+      const existing = Array.isArray((data as any).files) ? (data as any).files : []
+      ;(data as any).files = [...existing, ...metas]
+      sessionStorage.setItem(sessionStorageKey, JSON.stringify(data))
+    } catch {}
+  }, [sessionStorageKey])
+
+  const triggerUploadFiles = useCallback(() => {
+    fileInputRef.current?.click()
+  }, [])
+
+  const triggerCameraCapture = useCallback(() => {
+    cameraInputRef.current?.click()
+  }, [])
+
+  const handleFilesSelected = useCallback((filesList: FileList | null) => {
+    const files = filesList ? Array.from(filesList) : []
+    if (files.length === 0) return
+    setSelectedFiles((prev) => [...prev, ...files])
+    persistFilesMeta(files)
+  }, [persistFilesMeta])
+
+  const handleReferenceChats = useCallback(() => {
+    setShowChatRefDialog(true)
+  }, [])
+
+  const handleDriveFiles = useCallback(() => {
+    try { window.open('/drive', '_blank', 'noopener,noreferrer') } catch {}
+  }, [])
+
   const formatTime = (total: number) => {
     const m = Math.floor(total / 60)
     const s = total % 60
@@ -461,15 +522,65 @@ export function ChatInput({
 
                 <div className="mt-1 flex items-center justify-between px-1">
                   <div className="flex items-center gap-2">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="rounded-full"
-                      aria-label="Open actions"
-                    >
-                      <Plus className="h-5 w-5" />
-                    </Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="rounded-full"
+                          aria-label="Open actions"
+                        >
+                          <Plus className="h-5 w-5" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start" className="w-56 bg-accent dark:bg-accent text-foreground border">
+                        <DropdownMenuItem asChild>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            className="w-full justify-start border-0 ring-0 focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 outline-none hover:bg-white/40 dark:hover:bg-white/10 data-[highlighted]:bg-white/40 dark:data-[highlighted]:bg-white/10 transition-colors"
+                            onClick={() => { triggerUploadFiles() }}
+                          >
+                            <FileUp className="mr-2 h-4 w-4" />
+                            <span>Upload files</span>
+                          </Button>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            className="w-full justify-start border-0 ring-0 focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 outline-none hover:bg-white/40 dark:hover:bg-white/10 data-[highlighted]:bg-white/40 dark:data-[highlighted]:bg-white/10 transition-colors"
+                            onClick={() => { handleReferenceChats() }}
+                          >
+                            <MessageSquare className="mr-2 h-4 w-4" />
+                            <span>Reference chats</span>
+                          </Button>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            className="w-full justify-start border-0 ring-0 focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 outline-none hover:bg-white/40 dark:hover:bg-white/10 data-[highlighted]:bg-white/40 dark:data-[highlighted]:bg-white/10 transition-colors"
+                            onClick={() => { handleDriveFiles() }}
+                          >
+                            <HardDrive className="mr-2 h-4 w-4" />
+                            <span>Drive files</span>
+                          </Button>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            className="w-full justify-start border-0 ring-0 focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 outline-none hover:bg-white/40 dark:hover:bg-white/10 data-[highlighted]:bg-white/40 dark:data-[highlighted]:bg-white/10 transition-colors"
+                            onClick={() => { triggerCameraCapture() }}
+                          >
+                            <Camera className="mr-2 h-4 w-4" />
+                            <span>Capture from camera</span>
+                          </Button>
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                     <Pill
                       active={webSearch}
                       onClick={() => {
@@ -639,13 +750,76 @@ export function ChatInput({
                     )}
                   </div>
                 </div>
+                {/* Hidden inputs for file selection and camera capture */}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  className="hidden"
+                  multiple
+                  onChange={(e) => {
+                    handleFilesSelected(e.target.files)
+                    e.currentTarget.value = ''
+                  }}
+                />
+                <input
+                  ref={cameraInputRef}
+                  type="file"
+                  className="hidden"
+                  accept="image/*,video/*"
+                  capture
+                  onChange={(e) => {
+                    handleFilesSelected(e.target.files)
+                    e.currentTarget.value = ''
+                  }}
+                />
               </>
             )}
           </div>
         )}
       </form>
+      <ChatReferenceDialog
+        open={showChatRefDialog}
+        onOpenChange={setShowChatRefDialog}
+        onInsert={(chat) => {
+          const title = chat.title || 'Chat'
+          const id = chat.id
+          setValue((prev) => (prev ? `${prev}\n[${title}](/c/${id})` : `[${title}](/c/${id})`))
+        }}
+      />
     </div>
   );
+}
+
+function ChatReferenceDialog({ open, onOpenChange, onInsert }: { open: boolean; onOpenChange: (next: boolean) => void; onInsert: (chat: { id: string; title?: string | null }) => void }) {
+  const { chats, isLoading } = useChats()
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Reference a chat</DialogTitle>
+        </DialogHeader>
+        <div className="max-h-64 overflow-y-auto space-y-1">
+          {isLoading ? (
+            <div className="text-sm text-muted-foreground">Loading…</div>
+          ) : chats.length === 0 ? (
+            <div className="text-sm text-muted-foreground">No chats available</div>
+          ) : (
+            chats.map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                className="w-full text-left px-2 py-2 rounded hover:bg-accent"
+                onClick={() => { onInsert({ id: c.id, title: (c as any).title }); onOpenChange(false) }}
+              >
+                <div className="text-sm font-medium truncate">{(c as any).title || 'Untitled'}</div>
+                <div className="text-xs text-muted-foreground">/c/{c.id}</div>
+              </button>
+            ))
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
 }
 
 function Pill({
