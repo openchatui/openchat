@@ -1,12 +1,14 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import type { RefObject, MutableRefObject } from "react";
 import dynamic from "next/dynamic";
 import { useVoiceInput } from "@/hooks/audio/useVoiceInput";
 import { cn } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Command, CommandEmpty, CommandGroup, CommandItem, CommandList } from "@/components/ui/command";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { Loader } from "@/components/ui/loader";
 import {
@@ -104,6 +106,13 @@ export function ChatInput({
   const drainResolverRef = useRef<(() => void) | null>(null)
   const [showChatRefDialog, setShowChatRefDialog] = useState(false)
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
+  const [contextFiles, setContextFiles] = useState<{ id: string; name: string }[]>([])
+  const [mentionOpen, setMentionOpen] = useState(false)
+  const [mentionTokenStart, setMentionTokenStart] = useState(0)
+  const [mentionQuery, setMentionQuery] = useState("")
+  const [mentionResults, setMentionResults] = useState<{ id: string; name: string }[]>([])
+  const [mentionHighlight, setMentionHighlight] = useState(0)
+  const recentFiles = useRecentFilesPrefetch(5)
 
   const {
     isRecording,
@@ -142,12 +151,14 @@ export function ChatInput({
         webSearchEnabled: false,
         codeInterpreterEnabled: false,
         videoGenerationEnabled: false,
+        contextFiles: [] as { id: string; name: string }[],
       }
       const data = raw ? { ...defaults, ...JSON.parse(raw) } : defaults
       if (typeof data.prompt === 'string') setValue(data.prompt)
       if (typeof data.webSearchEnabled === 'boolean') setWebSearch(data.webSearchEnabled)
       if (typeof data.imageGenerationEnabled === 'boolean') setImage(data.imageGenerationEnabled)
       if (typeof (data as any).videoGenerationEnabled === 'boolean') setVideo(Boolean((data as any).videoGenerationEnabled))
+      if (Array.isArray((data as any).contextFiles)) setContextFiles(((data as any).contextFiles || []).filter((x: any) => x && typeof x.id === 'string' && typeof x.name === 'string'))
     } catch {}
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionStorageKey])
@@ -167,12 +178,34 @@ export function ChatInput({
         imageGenerationEnabled: false,
         webSearchEnabled: false,
         codeInterpreterEnabled: false,
+        contextFiles: [] as { id: string; name: string }[],
       }
       const data = raw ? { ...defaults, ...JSON.parse(raw) } : defaults
       data.prompt = value
       sessionStorage.setItem(sessionStorageKey, JSON.stringify(data))
     } catch {}
   }, [value, sessionStorageKey])
+
+  // Persist context files to sessionStorage
+  useEffect(() => {
+    try {
+      if (!sessionStorageKey) return
+      const raw = sessionStorage.getItem(sessionStorageKey)
+      const defaults = {
+        prompt: "",
+        files: [] as any[],
+        selectedToolIds: [] as string[],
+        selectedFilterIds: [] as string[],
+        imageGenerationEnabled: false,
+        webSearchEnabled: false,
+        codeInterpreterEnabled: false,
+        contextFiles: [] as { id: string; name: string }[],
+      }
+      const data = raw ? { ...defaults, ...JSON.parse(raw) } : defaults
+      ;(data as any).contextFiles = contextFiles
+      sessionStorage.setItem(sessionStorageKey, JSON.stringify(data))
+    } catch {}
+  }, [contextFiles, sessionStorageKey])
 
   // Auto-resize the textarea as content grows (with a sensible max height)
   const resizeTextarea = () => {
@@ -360,6 +393,24 @@ export function ChatInput({
   }, [cancelRecording, cleanupTts])
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    // Remove last context pill when input is empty and Backspace is pressed
+    if (e.key === 'Backspace' && (value.length === 0 || caretIndex() === 0) && contextFiles.length > 0) {
+      e.preventDefault()
+      setContextFiles((prev) => prev.slice(0, -1))
+      return
+    }
+    // Mention dropdown keyboard navigation
+    if (mentionOpen) {
+      if (e.key === 'ArrowDown') { e.preventDefault(); setMentionHighlight((i) => (i + 1) % Math.max(displayMentionFiles.length, 1)); return }
+      if (e.key === 'ArrowUp') { e.preventDefault(); setMentionHighlight((i) => (i - 1 + Math.max(displayMentionFiles.length, 1)) % Math.max(displayMentionFiles.length, 1)); return }
+      if (e.key === 'Enter') {
+        e.preventDefault()
+        const opt = displayMentionFiles[mentionHighlight]
+        if (opt) selectMentionOption(opt)
+        return
+      }
+      if (e.key === 'Escape') { e.preventDefault(); setMentionOpen(false); return }
+    }
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       if (!isStreaming) {
@@ -367,6 +418,92 @@ export function ChatInput({
       }
     }
   };
+
+  // Compute current token at caret for @/# mentions
+  const caretIndex = useCallback(() => {
+    const el = textareaRef.current
+    if (!el) return value.length
+    try { return el.selectionStart ?? value.length } catch { return value.length }
+  }, [value])
+
+  const currentToken = useMemo(() => {
+    const pos = caretIndex()
+    const left = value.slice(0, pos)
+    const lastSpace = Math.max(left.lastIndexOf(" "), left.lastIndexOf("\n"), left.lastIndexOf("\t"))
+    const start = lastSpace + 1
+    const token = left.slice(start)
+    return { tokenStart: start, tokenText: token }
+  }, [value, caretIndex])
+
+  useEffect(() => {
+    const t = currentToken.tokenText
+    const startsMention = t.startsWith('@') || t.startsWith('#')
+    setMentionOpen(startsMention)
+    setMentionTokenStart(currentToken.tokenStart)
+    setMentionQuery(startsMention ? t.slice(1) : '')
+    setMentionHighlight(0)
+  }, [currentToken])
+
+
+  // Debounced fetch for mention results
+  useEffect(() => {
+    let active = true
+    const q = mentionQuery.trim()
+    if (!mentionOpen) { setMentionResults([]); return }
+    // If no query, show preloaded recent files immediately
+    if (!q && recentFiles.length > 0) { setMentionResults(recentFiles); }
+    const handle = setTimeout(async () => {
+      try {
+        const url = q
+          ? `/api/v1/drive/files/search?q=${encodeURIComponent(q)}&limit=24`
+          : `/api/v1/drive/files/recent?limit=5`
+        const res = await fetch(url, { cache: 'no-store' })
+        if (!res.ok) return
+        const data = await res.json()
+        if (!active) return
+        const files = Array.isArray(data?.files) ? data.files : []
+        setMentionResults(files.filter((f: any) => f && typeof f.id === 'string' && typeof f.name === 'string'))
+      } catch {}
+    }, 200)
+    return () => { active = false; clearTimeout(handle) }
+  }, [mentionQuery, mentionOpen, recentFiles])
+
+  const selectMentionOption = useCallback((opt: { id: string; name: string }) => {
+    const el = textareaRef.current
+    const pos = caretIndex()
+    const before = value.slice(0, mentionTokenStart)
+    const after = value.slice(pos)
+    setContextFiles((prev) => {
+      if (prev.some((f) => f.id === opt.id)) return prev
+      return [...prev, { id: opt.id, name: opt.name }]
+    })
+    const next = (before + after).replace(/^\s+/, "")
+    setValue(next)
+    setMentionOpen(false)
+    requestAnimationFrame(() => {
+      if (el) {
+        const newPos = (before + after).length - after.length
+        try { el.setSelectionRange(newPos, newPos); el.focus() } catch {}
+      }
+    })
+  }, [caretIndex, mentionTokenStart, value])
+
+  // Rank and limit to 6 items, closest match first
+  const displayMentionFiles = useMemo(() => {
+    const q = mentionQuery.trim().toLowerCase()
+    if (!q) return mentionResults.slice(0, 5)
+    const score = (name: string): number => {
+      const n = name.toLowerCase()
+      if (n === q) return 0
+      if (n.startsWith(q)) return 1
+      const idx = n.indexOf(q)
+      if (idx === 0) return 1
+      if (idx > 0) return 2 + Math.min(10, idx)
+      return 999
+    }
+    const sorted = [...mentionResults].sort((a, b) => score(a.name) - score(b.name) || a.name.localeCompare(b.name))
+    return sorted.slice(0, 6)
+  }, [mentionResults, mentionQuery])
 
   const handlePrimaryClick = useCallback((e: React.MouseEvent<HTMLButtonElement>) => {
     // If there's no text, use this button to toggle live voice
@@ -446,7 +583,7 @@ export function ChatInput({
             </button>
           </div>
         ) : (
-          <div className="rounded-3xl bg-accent p-2 shadow-md">
+          <div className="rounded-3xl bg-accent p-2 shadow-md border">
             {(isRecording || isTranscribing || isModelLoading) ? (
               <VoiceRecorderBar
                 isRecording={isRecording}
@@ -459,7 +596,8 @@ export function ChatInput({
               />
             ) : (
               <>
-                <div className="flex items-center px-2 bg-transparent">
+                <ContextPills files={contextFiles} onRemove={(id) => setContextFiles((prev) => prev.filter((x) => x.id !== id))} />
+                <div className="flex items-center px-2 bg-transparent relative">
                   <AutoResizeTextarea
                     textareaRef={textareaRef}
                     value={value}
@@ -468,6 +606,14 @@ export function ChatInput({
                     onInput={() => resizeTextarea()}
                     placeholder={placeholder}
                     disabled={Boolean(disabled && !isStreaming)}
+                  />
+                  <MentionDropdown
+                    open={mentionOpen}
+                    files={displayMentionFiles}
+                    highlight={mentionHighlight}
+                    onHover={(idx) => setMentionHighlight(idx)}
+                    onSelect={(f) => selectMentionOption(f)}
+                    heading={mentionQuery.trim() ? undefined : "Recent"}
                   />
                 </div>
 
@@ -1043,3 +1189,101 @@ function HiddenFileInputs({
 }
 
 export default ChatInput;
+
+// Local hooks/components for future code-splitting
+
+function useRecentFilesPrefetch(limit: number) {
+  const [recent, setRecent] = useState<{ id: string; name: string }[]>([])
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res = await fetch(`/api/v1/drive/files/recent?limit=${encodeURIComponent(String(limit))}`, { cache: 'no-store' })
+        if (!res.ok) return
+        const data = await res.json()
+        if (cancelled) return
+        const files = Array.isArray(data?.files) ? data.files : []
+        setRecent(files.filter((f: any) => f && typeof f.id === 'string' && typeof f.name === 'string'))
+      } catch {}
+    })()
+    return () => { cancelled = true }
+  }, [limit])
+  return recent
+}
+
+function ContextPills({ files, onRemove }: { files: { id: string; name: string }[]; onRemove: (id: string) => void }) {
+  if (!files || files.length === 0) return null
+  return (
+    <div className="mb-2 px-3 flex items-center gap-2 flex-wrap">
+      {files.map((f) => (
+        <Badge key={f.id} variant="secondary" className="rounded-full border bg-input/20 dark:bg-input/20 pl-3 pr-1 py-1 flex items-center gap-2">
+          <span className="truncate max-w-[12rem]" title={f.name}>@{f.name}</span>
+          <button
+            type="button"
+            aria-label={`Remove ${f.name}`}
+            className="inline-flex items-center justify-center h-5 w-5 rounded-full hover:bg-muted"
+            onClick={() => onRemove(f.id)}
+          >
+            <X className="h-3 w-3" />
+          </button>
+        </Badge>
+      ))}
+    </div>
+  )
+}
+
+function MentionDropdown({
+  open,
+  files,
+  highlight,
+  onHover,
+  onSelect,
+  heading,
+}: {
+  open: boolean
+  files: { id: string; name: string }[]
+  highlight: number
+  onHover: (idx: number) => void
+  onSelect: (file: { id: string; name: string }) => void
+  heading?: string
+}) {
+  if (!open) return null
+  return (
+    <div
+      className={cn(
+        "absolute left-2 top-full mt-1 z-50",
+        "w-[200px] max-w-[75vw]",
+        "rounded-md border bg-accent dark:bg-accent text-foreground shadow-md"
+      )}
+    >
+      <Command className="bg-transparent text-foreground text-xs">
+        <CommandList className="bg-transparent">
+          {files.length === 0 ? (
+            <CommandEmpty>
+              <div className="px-3 py-2 text-xs text-foreground/80">No files</div>
+            </CommandEmpty>
+          ) : (
+            <CommandGroup heading={heading}>
+              {files.map((f, idx) => (
+                <CommandItem
+                  key={f.id}
+                  value={f.name}
+                  className={cn(
+                    "group/item flex items-center gap-1 transition-colors px-1.5 py-1 leading-tight",
+                    "hover:bg-white/40 dark:hover:bg-white/10",
+                    idx === highlight ? "bg-white/40 dark:bg-white/10" : ""
+                  )}
+                  onMouseEnter={() => onHover(idx)}
+                  onMouseDown={(e) => { e.preventDefault(); onSelect(f) }}
+                >
+                  <HardDrive className="h-3 w-3 text-primary/60" />
+                  <span className="truncate" title={f.name}>{f.name}</span>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          )}
+        </CommandList>
+      </Command>
+    </div>
+  )
+}
