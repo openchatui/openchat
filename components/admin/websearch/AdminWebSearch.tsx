@@ -11,6 +11,7 @@ import { useAdminWebSearch } from "@/hooks/useAdminWebSearch"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { GooglePSEConnectionForm } from "./GooglePSEConnectionForm"
 import { BrowserlessConnectionForm } from "./BrowserlessConnectionForm"
+import { toast } from "sonner"
 
 interface AdminWebSearchProps {
   session: Session | null
@@ -76,7 +77,11 @@ export function AdminWebSearch({ session, initialChats = [], initialEnabled = fa
               <Switch
                 id="websearch-enabled"
                 checked={enabled}
-                onCheckedChange={(v) => setEnabled(Boolean(v))}
+                onCheckedChange={(v) => {
+                  setEnabled(Boolean(v))
+                  const action = v ? 'Enabled' : 'Disabled'
+                  toast.success(`${action} Web Search`)
+                }}
                 disabled={isLoading}
                 onBlur={() => persistEnabled()}
               />
