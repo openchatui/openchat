@@ -1,7 +1,7 @@
 "use client"
 
 import { useRef, useEffect, useState, useCallback, Fragment } from 'react'
-import { CopyIcon, HardDrive } from 'lucide-react'
+import { Bot, CopyIcon } from 'lucide-react'
 import { Actions, Action, SpeakAction } from '@/components/ai/actions'
 import { Message, MessageAvatar } from '@/components/ai/message'
 import { Response } from '@/components/ai/response'
@@ -232,7 +232,11 @@ export default function ChatMessages({
   if (messages.length === 0) {
     return (
       <div className="w-full h-full flex-1 min-h-0 flex items-center justify-center">
-        <Loader className="h-6 w-6 text-muted-foreground" />
+        <div className="text-center text-muted-foreground">
+          <Bot className="h-12 w-12 mx-auto mb-4 opacity-50" />
+          <h3 className="text-lg font-medium mb-2">Start a conversation</h3>
+          <p className="text-sm">Send a message to begin chatting with the AI assistant.</p>
+        </div>
       </div>
     )
   }
@@ -251,59 +255,6 @@ export default function ChatMessages({
               {/* User message with bubble */}
               <div className="group w-full flex flex-col items-end gap-2">
                 <div className="flex flex-col gap-3 overflow-hidden rounded-4xl px-5 py-4 max-w-[80%] bg-muted text-primary">
-                  {/* Render referenced chat pills from metadata */}
-                  {(() => {
-                    const meta = (message as any).metadata
-                    const refs = Array.isArray(meta?.referencedChats) ? meta.referencedChats : []
-                    if (refs.length === 0) return null
-                    return (
-                      <div className="flex items-center gap-2 flex-wrap">
-                        {refs.map((r: any) => (
-                          <div key={r.id} className="inline-flex items-center gap-2 pl-3 pr-2 py-1 rounded-full bg-input/20 border">
-                            <svg className="h-3.5 w-3.5 text-primary/60" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-                            </svg>
-                            <span className="text-xs truncate max-w-[12rem]">@{r.title || 'Chat'}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )
-                  })()}
-                  {/* Render image attachments from metadata */}
-                  {(() => {
-                    const meta = (message as any).metadata
-                    const attachments = meta?.attachments
-                    if (!Array.isArray(attachments)) return null
-                    return attachments
-                      .filter((att: any) => att.type === 'image')
-                      .map((att: any, index: number) => {
-                        const imageUrl = typeof att.image === 'string' ? att.image : undefined
-                        if (!imageUrl) return null
-                        return (
-                          <div key={`image-${index}`} className="rounded-lg overflow-hidden border border-muted-foreground/20">
-                            <img src={imageUrl} alt={`Uploaded image ${index + 1}`} className="max-w-full h-auto" />
-                          </div>
-                        )
-                      })
-                  })()}
-                  {/* Render file attachments from metadata (non-images) */}
-                  {(() => {
-                    const meta = (message as any).metadata
-                    const attachments = meta?.attachments
-                    if (!Array.isArray(attachments)) return null
-                    return attachments
-                      .filter((att: any) => att.type === 'file')
-                      .map((att: any, index: number) => {
-                        const fileName = att.filename || `File ${index + 1}`
-                        return (
-                          <div key={`file-${index}`} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted-foreground/10">
-                            <HardDrive className="h-4 w-4" />
-                            <span className="text-sm">{fileName}</span>
-                          </div>
-                        )
-                      })
-                  })()}
-                  {/* Render text parts */}
                   {message.parts
                     .filter((part) => part.type === 'text')
                     .map((part, index) => (
