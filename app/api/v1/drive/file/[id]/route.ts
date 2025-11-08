@@ -32,7 +32,7 @@ import { Readable } from 'stream'
  */
 export async function GET(
   req: NextRequest,
-  { params }: { params: Promise<{ fileId: string }> }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth()
@@ -40,15 +40,15 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { fileId } = await params
+    const { id } = await params
 
-    if (!fileId) {
+    if (!id) {
       return NextResponse.json({ error: 'File ID required' }, { status: 400 })
     }
 
     const { stream, mimeType, size } = await getGoogleDriveFileStream(
       session.user.id,
-      fileId
+      id
     )
 
     // Convert Node.js stream to Web ReadableStream

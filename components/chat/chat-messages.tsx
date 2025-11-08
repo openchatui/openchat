@@ -1,6 +1,6 @@
 "use client"
 
-import { useRef, useEffect, useState, useCallback } from 'react'
+import { useRef, useEffect, useState, useCallback, Fragment } from 'react'
 import { Bot, CopyIcon } from 'lucide-react'
 import { Actions, Action, SpeakAction } from '@/components/ai/actions'
 import { Message, MessageAvatar } from '@/components/ai/message'
@@ -250,33 +250,44 @@ export default function ChatMessages({
       <div className="max-w-5xl px-8 mx-auto space-y-6" style={{ paddingBottom: 'calc(150px)' }}>
       {messages.map((message) => 
         message.role === 'user' ? (
-          <Message key={message.id} from={message.role}>
-            {/* User message with bubble */}
-            <div className="group w-full flex flex-col items-end gap-2">
-              <div className="flex flex-col gap-3 overflow-hidden rounded-4xl px-5 py-4 max-w-[80%] bg-muted text-primary">
-                {message.parts
-                  .filter((part) => part.type === 'text')
-                  .map((part, index) => (
-                    <div key={index}>
-                      <Response className="prose prose-lg leading-normal prose-invert max-w-none prose-p:mt-2 prose-p:mb-2 prose-pre:my-3 prose-li:my-1">
-                        {(part as any).text}
-                      </Response>
-                    </div>
-                  ))}
+          <Fragment key={message.id}>
+            <Message from={message.role}>
+              {/* User message with bubble */}
+              <div className="group w-full flex flex-col items-end gap-2">
+                <div className="flex flex-col gap-3 overflow-hidden rounded-4xl px-5 py-4 max-w-[80%] bg-muted text-primary">
+                  {message.parts
+                    .filter((part) => part.type === 'text')
+                    .map((part, index) => (
+                      <div key={index}>
+                        <Response className="prose prose-lg leading-normal prose-invert max-w-none prose-p:mt-2 prose-p:mb-2 prose-pre:my-3 prose-li:my-1">
+                          {(part as any).text}
+                        </Response>
+                      </div>
+                    ))}
+                </div>
+                {(() => {
+                  const copyText = getVisibleTextForCopy(message as any)
+                  if (!copyText) return null
+                  return (
+                    <Actions className="opacity-100 md:opacity-0 group-hover:md:opacity-100 transition-opacity m-0 mt-2">
+                      <Action onClick={() => navigator.clipboard.writeText(copyText)} label="Copy">
+                        <CopyIcon className="size-4" />
+                      </Action>
+                    </Actions>
+                  )
+                })()}
               </div>
-              {(() => {
-                const copyText = getVisibleTextForCopy(message as any)
-                if (!copyText) return null
-                return (
-                  <Actions className="opacity-100 md:opacity-0 group-hover:md:opacity-100 transition-opacity m-0 mt-2">
-                    <Action onClick={() => navigator.clipboard.writeText(copyText)} label="Copy">
-                      <CopyIcon className="size-4" />
-                    </Action>
-                  </Actions>
-                )
-              })()}
-            </div>
-          </Message>
+            </Message>
+            {/* Optimistic assistant header appears directly after the last user message only when no assistant has spoken yet */}
+            {(!lastAssistantMessageId && message === messages[messages.length - 1]) && (
+              <div className="group w-full flex flex-col gap-2 py-4">
+                <div className="flex items-center gap-2">
+                  <MessageAvatar src={getAssistantImageUrl()} name="AI" />
+                  <span className="text-sm font-medium text-muted-foreground">{getAssistantDisplayName()}</span>
+                </div>
+              </div>
+            )}
+          </Fragment>
         ) : (
           <div
             key={message.id}

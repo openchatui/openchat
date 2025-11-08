@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { SidebarInset } from '@/components/ui/sidebar'
 import { ModelSelector } from '@/components/chat/model-selector'
 import { ChatInput } from '@/components/chat/chat-input'
-import dynamic from 'next/dynamic'
 import type { Session } from 'next-auth'
 import type { Model } from '@/types/model.types'
 import { useChatStore } from '@/lib/modules/chat/chat.client-store'
@@ -13,6 +12,7 @@ import { getChatMessages } from '@/lib/api/chats'
 import { updateUserSettingsRaw } from '@/lib/api/userSettings'
 import { useChatStreaming } from '@/hooks/useChatStreaming'
 import { Loader } from '@/components/ui/loader'
+import ChatMessages from '@/components/chat/chat-messages'
 
 interface ChatStandardProps {
   session: Session | null
@@ -53,12 +53,10 @@ export function ChatStandard({
     if (currentChatId !== chatId) setCurrentChatId(chatId)
   }, [chatId, currentChatId, setCurrentChatId])
 
-  // Clear messages when navigating to a different chat so the loader can replace them
+  // On chat change, only reset the auto-send guard; do not clear messages or model
   useEffect(() => {
-    setMessages([] as any)
     hasAutoSentRef.current = false
-    setSelectedModel(null)
-  }, [chatId, setMessages])
+  }, [chatId])
 
   // (removed) defer message loading until after streaming hook is available
 
@@ -107,16 +105,6 @@ export function ChatStandard({
       : null
   }, [selectedModel, initialModels])
 
-  // ChatMessages is quite heavy; lazy-load to reduce initial bundle
-  const ChatMessagesDynamic = useMemo(() => dynamic(() => import('@/components/chat/chat-messages'), {
-    ssr: false,
-    loading: () => (
-      <div className="flex items-center justify-center h-full">
-        <Loader className="h-8 w-8" />
-      </div>
-    )
-  }), [])
-
   const assistantInfo = useMemo(() => {
     for (let i = messages.length - 1; i >= 0; i--) {
       const msg = messages[i] as any
@@ -135,10 +123,25 @@ export function ChatStandard({
         return { displayName: name, imageUrl }
       }
     }
-    return {
-      displayName: selectedModel?.name || 'AI Assistant',
-      imageUrl: selectedModel?.meta?.profile_image_url || '/avatars/01.png'
+    // Fallback: use model info from the latest user message metadata if available
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const msg = messages[i] as any
+      if (msg?.role === 'user') {
+        const meta = msg?.metadata || {}
+        const modelMeta = meta?.model || {}
+        const name =
+          (typeof modelMeta.name === 'string' && modelMeta.name) ||
+          selectedModel?.name ||
+          'AI Assistant'
+        const imageUrl =
+          (typeof modelMeta.profile_image_url === 'string' && modelMeta.profile_image_url) ||
+          selectedModel?.meta?.profile_image_url ||
+          '/avatars/01.png'
+        return { displayName: name, imageUrl }
+      }
     }
+    // Final fallback
+    return { displayName: selectedModel?.name || 'AI Assistant', imageUrl: selectedModel?.meta?.profile_image_url || '/avatars/01.png' }
   }, [messages, selectedModel])
 
   const handleModelSelect = async (model: Model) => {
@@ -232,7 +235,7 @@ export function ChatStandard({
 
         <div className="flex-1 relative overflow-hidden">
           <div className="absolute inset-0">
-            <ChatMessagesDynamic
+            <ChatMessages
               messages={messages as any}
               isLoading={isLoading}
               error={error as any}
