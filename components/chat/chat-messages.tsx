@@ -1,7 +1,7 @@
 "use client"
 
 import { useRef, useEffect, useState, useCallback, Fragment } from 'react'
-import { Bot, CopyIcon } from 'lucide-react'
+import { Bot, CopyIcon, HardDrive } from 'lucide-react'
 import { Actions, Action, SpeakAction } from '@/components/ai/actions'
 import { Message, MessageAvatar } from '@/components/ai/message'
 import { Response } from '@/components/ai/response'
@@ -255,6 +255,41 @@ export default function ChatMessages({
               {/* User message with bubble */}
               <div className="group w-full flex flex-col items-end gap-2">
                 <div className="flex flex-col gap-3 overflow-hidden rounded-4xl px-5 py-4 max-w-[80%] bg-muted text-primary">
+                  {/* Render image attachments from metadata */}
+                  {(() => {
+                    const meta = (message as any).metadata
+                    const attachments = meta?.attachments
+                    if (!Array.isArray(attachments)) return null
+                    return attachments
+                      .filter((att: any) => att.type === 'image')
+                      .map((att: any, index: number) => {
+                        const imageUrl = typeof att.image === 'string' ? att.image : undefined
+                        if (!imageUrl) return null
+                        return (
+                          <div key={`image-${index}`} className="rounded-lg overflow-hidden border border-muted-foreground/20">
+                            <img src={imageUrl} alt={`Uploaded image ${index + 1}`} className="max-w-full h-auto" />
+                          </div>
+                        )
+                      })
+                  })()}
+                  {/* Render file attachments from metadata (non-images) */}
+                  {(() => {
+                    const meta = (message as any).metadata
+                    const attachments = meta?.attachments
+                    if (!Array.isArray(attachments)) return null
+                    return attachments
+                      .filter((att: any) => att.type === 'file')
+                      .map((att: any, index: number) => {
+                        const fileName = att.filename || `File ${index + 1}`
+                        return (
+                          <div key={`file-${index}`} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted-foreground/10">
+                            <HardDrive className="h-4 w-4" />
+                            <span className="text-sm">{fileName}</span>
+                          </div>
+                        )
+                      })
+                  })()}
+                  {/* Render text parts */}
                   {message.parts
                     .filter((part) => part.type === 'text')
                     .map((part, index) => (

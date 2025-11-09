@@ -53,10 +53,12 @@ export function ChatStandard({
     if (currentChatId !== chatId) setCurrentChatId(chatId)
   }, [chatId, currentChatId, setCurrentChatId])
 
-  // On chat change, only reset the auto-send guard; do not clear messages or model
+  // On chat change, reset auto-send guard and clear messages to prepare for new chat
   useEffect(() => {
     hasAutoSentRef.current = false
-  }, [chatId])
+    // Clear messages when switching chats to avoid showing stale data
+    setMessages([])
+  }, [chatId, setMessages])
 
   // (removed) defer message loading until after streaming hook is available
 
@@ -164,17 +166,16 @@ export function ChatStandard({
 
   const { handleSendMessage, handleStop, isLoading, error } = useChatStreaming({ chatId, initialModels, selectedModel })
 
-  // Load messages for the active chat, but avoid clobbering streaming state
+  // Load messages for the active chat (messages are cleared on chatId change above)
   useEffect(() => {
     if (!chatId) return
     let cancelled = false
     getChatMessages(chatId)
       .then((loaded) => {
-        if (cancelled) return
-        if (!Array.isArray(loaded) || loaded.length === 0) return
-        const hasAssistant = (messages as any[])?.some((m: any) => m?.role === 'assistant')
-        const shouldReplace = (messages as any[])?.length === 0 || loaded.length > (messages as any[])?.length
-        if (!isLoading && !hasAssistant && shouldReplace) {
+        if (cancelled || isLoading) return
+        if (!Array.isArray(loaded)) return
+        // Only set if we don't have messages yet (cleared on chat change)
+        if ((messages as any[])?.length === 0) {
           setMessages(loaded as any)
         }
       })

@@ -36,7 +36,7 @@ export function useChatStreaming({ chatId, initialModels, selectedModel }: UseCh
 
   const handleSendMessage = useCallback(async (
     value: string,
-    options: { webSearch: boolean; image: boolean; video?: boolean; codeInterpreter: boolean; referencedChats?: Array<{ id: string; title?: string | null }>; contextMessages?: UIMessage<MessageMetadata>[] },
+    options: { webSearch: boolean; image: boolean; video?: boolean; codeInterpreter: boolean },
     overrideModel?: Model,
     isAutoSend: boolean = false,
     streamHandlers?: StreamHandlers,
@@ -186,8 +186,7 @@ export function useChatStreaming({ chatId, initialModels, selectedModel }: UseCh
           name: resolveModelDisplay(providerModelId, modelToUse).name,
           profile_image_url: resolveModelDisplay(providerModelId, modelToUse).image || null,
         },
-        attachments: attachments.length > 0 ? attachments : undefined,
-        referencedChats: Array.isArray(options?.referencedChats) && options.referencedChats.length > 0 ? options.referencedChats : undefined,
+        attachments: attachments.length > 0 ? attachments : undefined
       } as any
     }
 
@@ -204,15 +203,9 @@ export function useChatStreaming({ chatId, initialModels, selectedModel }: UseCh
       const state = useChatStore.getState()
       const currentMessages = state.messages
 
-      const hasContext = Array.isArray(options?.contextMessages) && (options!.contextMessages as any[]).length > 0
-      const combinedMessages = hasContext
-        ? ([...(options!.contextMessages as any[]), ...(isAutoSend ? currentMessages : []), userMessage] as UIMessage[])
-        : undefined
       const body = isAutoSend
-        ? { messages: combinedMessages || currentMessages, chatId, modelId: modelToUse.id, enableWebSearch: options.webSearch, enableImage: options.image, enableVideo: Boolean(options.video) }
-        : combinedMessages
-          ? { messages: combinedMessages, chatId, modelId: modelToUse.id, enableWebSearch: options.webSearch, enableImage: options.image, enableVideo: Boolean(options.video) }
-          : { message: userMessage, chatId, modelId: modelToUse.id, enableWebSearch: options.webSearch, enableImage: options.image, enableVideo: Boolean(options.video) }
+        ? { messages: currentMessages, chatId, modelId: modelToUse.id, enableWebSearch: options.webSearch, enableImage: options.image, enableVideo: Boolean(options.video) }
+        : { message: userMessage, chatId, modelId: modelToUse.id, enableWebSearch: options.webSearch, enableImage: options.image, enableVideo: Boolean(options.video) }
 
       const response = await fetch('/api/v1/chat', {
         method: 'POST',
