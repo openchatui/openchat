@@ -167,14 +167,109 @@ export async function POST(req: NextRequest) {
     const mergedTools = await ToolsService.buildTools({ enableWebSearch, enableImage, enableVideo })
     const toolsEnabled = Boolean(mergedTools)
 
+    // Helper: Convert UIMessages with attachments to ModelMessages manually
+    const convertMessagesToModelFormat = (messages: UIMessage<MessageMetadata>[]): any[] => {
+      return messages.map((msg) => {
+        const meta = (msg as any).metadata
+        const attachments = meta?.attachments
+        
+        // Assistant messages - handle text and tool calls
+        if (msg.role === 'assistant') {
+          const textParts = msg.parts.filter((p: any) => p.type === 'text')
+          const toolParts = msg.parts.filter((p: any) => 
+            typeof p.type === 'string' && p.type.startsWith('tool-')
+          )
+          
+          // If has tool calls, need special handling
+          if (toolParts.length > 0) {
+            const textContent = textParts.map((p: any) => p.text || '').join('')
+            const toolCalls = toolParts.map((p: any) => ({
+              type: 'tool-call',
+              toolCallId: (p as any).toolCallId,
+              toolName: (p as any).type?.replace('tool-', ''),
+              args: (p as any).input || {}
+            }))
+            
+            return {
+              role: 'assistant',
+              content: [
+                { type: 'text', text: textContent },
+                ...toolCalls
+              ]
+            }
+          }
+          
+          // Simple text response
+          const textContent = textParts.map((p: any) => p.text || '').join('')
+          return {
+            role: 'assistant',
+            content: textContent
+          }
+        }
+        
+        // User messages - check for attachments
+        if (msg.role === 'user') {
+          const textContent = msg.parts
+            .filter((p: any) => p.type === 'text')
+            .map((p: any) => p.text || '')
+            .join('')
+          
+          // If no attachments, return simple text
+          if (!Array.isArray(attachments) || attachments.length === 0) {
+            return {
+              role: 'user',
+              content: textContent
+            }
+          }
+          
+          // With attachments, use array of content parts
+          const contentParts: any[] = [
+            ...attachments.map((att: any) => {
+              if (att.type === 'image') {
+                return { type: 'image', image: att.image, mediaType: att.mediaType }
+              } else {
+                return { type: 'file', data: att.data, mediaType: att.mediaType }
+              }
+            }),
+            { type: 'text', text: textContent }
+          ]
+          
+          return {
+            role: 'user',
+            content: contentParts
+          }
+        }
+        
+        // System messages
+        if (msg.role === 'system') {
+          const textContent = msg.parts
+            .filter((p: any) => p.type === 'text')
+            .map((p: any) => p.text || '')
+            .join('')
+          return {
+            role: 'system',
+            content: textContent
+          }
+        }
+        
+        return msg
+      })
+    }
+
     try {
       // First attempt: no trimming; if provider throws context error, we'll retry with trimmed payload
-      const validatedFull = await validateUIMessages({ messages: fullMessages });
+      console.log('[DEBUG] Processing messages, count:', fullMessages.length);
+      console.log('[DEBUG] Last message metadata:', JSON.stringify((fullMessages[fullMessages.length - 1] as any)?.metadata?.attachments, null, 2));
+      
+      // Convert UIMessages to ModelMessages manually to handle attachments
+      const modelMessages = convertMessagesToModelFormat(fullMessages)
+      
+      console.log('[DEBUG] Model messages created, count:', modelMessages.length);
+      console.log('[DEBUG] Last model message:', JSON.stringify(modelMessages[modelMessages.length - 1], null, 2).slice(0, 800));
+      
       const result = streamText({
         model: modelHandle,
-        messages: convertToModelMessages(
-          validatedFull as UIMessage<MessageMetadata>[]
-        ),
+        messages: modelMessages,
         system: combinedSystem,
         experimental_transform: smoothStream({
           delayInMs: 10, // optional: defaults to 10ms
@@ -202,23 +297,37 @@ export async function POST(req: NextRequest) {
         tools: mergedTools as any,
       });
       const toUIArgs = StreamUtils.buildToUIMessageStreamArgs(
-        validatedFull as UIMessage<MessageMetadata>[],
+        fullMessages as UIMessage<MessageMetadata>[],
         selectedModelInfo,
         { finalChatId, userId },
         undefined,
       );
       return result.toUIMessageStreamResponse(toUIArgs);
     } catch (err: any) {
+      console.error('[ERROR] Chat API streamText failed:', err);
+      console.error('[ERROR] Error stack:', err?.stack);
+      console.error('[ERROR] Error message:', err?.message);
+      console.error('[ERROR] Error code:', (err as any)?.code);
+      console.error('[ERROR] Full error object:', JSON.stringify(err, Object.getOwnPropertyNames(err), 2));
+      
       const msg = String(err?.message || '')
       const code = String((err as any)?.code || '')
       const isContextError =
         code === 'context_length_exceeded' ||
         /context length|too many tokens|maximum context/i.test(msg)
-      const status = isContextError ? 413 : 502
+      
+      // Check for vision/image support errors
+      const isVisionError = 
+        /vision|image|multimodal|not supported/i.test(msg) ||
+        /invalid.*content.*type/i.test(msg)
+      
+      const status = isContextError ? 413 : (isVisionError ? 400 : 502)
       const body = {
         error: isContextError
           ? 'Your message is too long for this model. Please shorten it or switch models.'
-          : 'Failed to generate a response. Please try again.',
+          : isVisionError
+          ? `This model does not support image inputs. Please select a vision-capable model (e.g., GPT-4 Vision, Claude 3, Gemini Pro Vision). Details: ${msg}`
+          : `Failed to generate a response. Error: ${msg}`,
       }
       return new Response(JSON.stringify(body), {
         status,

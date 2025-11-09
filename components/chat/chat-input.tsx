@@ -60,7 +60,8 @@ interface ChatInputProps {
       onStart?: () => void
       onDelta?: (delta: string, fullText: string) => void
       onFinish?: (finalText: string) => void
-    }
+    },
+    attachedFiles?: Array<{ file: File; localId: string }>
   ) => Promise<string | null> | void;
   sessionStorageKey?: string;
   webSearchAvailable?: boolean;
@@ -101,12 +102,13 @@ export function ChatInput({
   const ttsQueueRef = useRef<HTMLAudioElement[]>([])
   const ttsPlayingRef = useRef(false)
   const ttsAbortedRef = useRef(false)
+  const uploadPreviewUrlsRef = useRef<Set<string>>(new Set())
   const pendingTextRef = useRef<string>("")
   const firstSegmentSentRef = useRef(false)
   const drainResolverRef = useRef<(() => void) | null>(null)
   const [showChatRefDialog, setShowChatRefDialog] = useState(false)
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
-  const [contextFiles, setContextFiles] = useState<{ id: string; name: string }[]>([])
+  const [contextFiles, setContextFiles] = useState<{ id: string; name: string; type?: string; previewUrl?: string }[]>([])
   const [mentionOpen, setMentionOpen] = useState(false)
   const [mentionTokenStart, setMentionTokenStart] = useState(0)
   const [mentionQuery, setMentionQuery] = useState("")
@@ -136,6 +138,18 @@ export function ChatInput({
   useEffect(() => {
     isLiveRef.current = isLive
   }, [isLive])
+
+  // Cleanup any blob URLs created for local image previews
+  useEffect(() => {
+    return () => {
+      try {
+        for (const url of uploadPreviewUrlsRef.current) {
+          try { URL.revokeObjectURL(url) } catch {}
+        }
+        uploadPreviewUrlsRef.current.clear()
+      } catch {}
+    }
+  }, [])
 
   // Load initial state from sessionStorage if provided
   useEffect(() => {
@@ -223,9 +237,24 @@ export function ChatInput({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = value.trim();
-    if (!trimmed) return;
-    onSubmit?.(trimmed, { webSearch, image, video, codeInterpreter });
+    if (!trimmed && contextFiles.length === 0) return;
+    
+    // Build attachedFiles array with both uploaded files and drive file references
+    const attachedFiles = contextFiles.map((cf) => {
+      // Check if it's a locally uploaded file (starts with 'local:')
+      if (cf.id.startsWith('local:')) {
+        const file = selectedFiles.find((f) => f.name === cf.name)
+        return file ? { file, localId: cf.id } : null
+      } else {
+        // It's a drive file reference - pass the file ID
+        return { fileId: cf.id, fileName: cf.name }
+      }
+    }).filter((x): x is { file: File; localId: string } | { fileId: string; fileName: string } => x !== null)
+    
+    onSubmit?.(trimmed || '', { webSearch, image, video, codeInterpreter }, undefined, false, undefined, attachedFiles as any);
     setValue("");
+    setSelectedFiles([])
+    setContextFiles([])
     requestAnimationFrame(resizeTextarea);
     textareaRef.current?.focus();
   };
@@ -374,7 +403,7 @@ export function ChatInput({
     }
 
     try {
-      onSubmit?.(text, { webSearch, image, codeInterpreter }, undefined, false, streamHandlers)
+      onSubmit?.(text, { webSearch, image, codeInterpreter }, undefined, false, streamHandlers, [])
     } catch {}
   }, [onSubmit, webSearch, image, codeInterpreter, cleanupTts, enqueueTtsSegment, waitForQueueToDrain, startRecording])
 
@@ -396,7 +425,15 @@ export function ChatInput({
     // Remove last context pill when input is empty and Backspace is pressed
     if (e.key === 'Backspace' && (value.length === 0 || caretIndex() === 0) && contextFiles.length > 0) {
       e.preventDefault()
-      setContextFiles((prev) => prev.slice(0, -1))
+      setContextFiles((prev) => {
+        if (prev.length === 0) return prev
+        const next = [...prev]
+        const removed = next.pop()
+        if (removed?.previewUrl) {
+          try { URL.revokeObjectURL(removed.previewUrl); uploadPreviewUrlsRef.current.delete(removed.previewUrl) } catch {}
+        }
+        return next
+      })
       return
     }
     // Mention dropdown keyboard navigation
@@ -548,6 +585,21 @@ export function ChatInput({
     if (files.length === 0) return
     setSelectedFiles((prev) => [...prev, ...files])
     persistFilesMeta(files)
+    // Add uploaded files into context pills with tiny preview for images
+    setContextFiles((prev) => {
+      const additions = files.map((file) => {
+        const id = `local:${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+        let previewUrl: string | undefined
+        if (file.type && file.type.startsWith('image/')) {
+          try {
+            previewUrl = URL.createObjectURL(file)
+            if (previewUrl) uploadPreviewUrlsRef.current.add(previewUrl)
+          } catch {}
+        }
+        return { id, name: file.name, type: file.type, previewUrl }
+      })
+      return [...prev, ...additions]
+    })
   }, [persistFilesMeta])
 
   const handleReferenceChats = useCallback(() => {
@@ -596,7 +648,16 @@ export function ChatInput({
               />
             ) : (
               <>
-                <ContextPills files={contextFiles} onRemove={(id) => setContextFiles((prev) => prev.filter((x) => x.id !== id))} />
+                <ContextPills
+                  files={contextFiles}
+                  onRemove={(id) => {
+                    const item = contextFiles.find((x) => x.id === id)
+                    if (item?.previewUrl) {
+                      try { URL.revokeObjectURL(item.previewUrl); uploadPreviewUrlsRef.current.delete(item.previewUrl) } catch {}
+                    }
+                    setContextFiles((prev) => prev.filter((x) => x.id !== id))
+                  }}
+                />
                 <div className="flex items-center px-2 bg-transparent relative">
                   <AutoResizeTextarea
                     textareaRef={textareaRef}
@@ -1211,12 +1272,17 @@ function useRecentFilesPrefetch(limit: number) {
   return recent
 }
 
-function ContextPills({ files, onRemove }: { files: { id: string; name: string }[]; onRemove: (id: string) => void }) {
+function ContextPills({ files, onRemove }: { files: { id: string; name: string; type?: string; previewUrl?: string }[]; onRemove: (id: string) => void }) {
   if (!files || files.length === 0) return null
   return (
     <div className="mb-2 px-3 flex items-center gap-2 flex-wrap">
       {files.map((f) => (
         <Badge key={f.id} variant="secondary" className="rounded-full border bg-input/20 dark:bg-input/20 pl-3 pr-1 py-1 flex items-center gap-2">
+          {f.previewUrl ? (
+            <img src={f.previewUrl} alt={f.name} className="h-4 w-4 rounded object-cover" />
+          ) : (
+            <HardDrive className="h-3.5 w-3.5 text-primary/60" />
+          )}
           <span className="truncate max-w-[12rem]" title={f.name}>@{f.name}</span>
           <button
             type="button"

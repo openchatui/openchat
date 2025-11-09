@@ -97,7 +97,7 @@ export function ChatLanding({
     }
   }
 
-  const beginChat = async (prompt: string) => {
+  const beginChat = async (prompt: string, attachedFiles?: Array<{ file: File; localId: string } | { fileId: string; fileName: string }>) => {
     if (!selectedModel) {
       toast.error('Please select a model first.')
       return
@@ -106,7 +106,7 @@ export function ChatLanding({
     // Reset any previous chat state and optimistically start
     resetChat()
     try {
-      const chatId = await startNewChat(prompt, selectedModel)
+      const chatId = await startNewChat(prompt, selectedModel, attachedFiles)
       try {
         const baseKey = 'chat-input'
         const chatKey = `chat-input-${chatId}`
@@ -178,7 +178,9 @@ export function ChatLanding({
             <div className="w-full">
               <ChatInput
                 placeholder={"Ask me anything..."}
-                onSubmit={(value) => { void beginChat(value) }}
+                onSubmit={(value, options, overrideModel, isAutoSend, streamHandlers, attachedFiles) => { 
+                  void beginChat(value, attachedFiles) 
+                }}
                 disabled={false}
                 sessionStorageKey={'chat-input'}
                 webSearchAvailable={webSearchAvailable && !!permissions?.workspaceTools && !!permissions?.webSearch}
