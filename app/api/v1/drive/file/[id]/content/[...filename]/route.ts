@@ -147,7 +147,10 @@ export async function GET(
           'Content-Length': buffer.length.toString()
         }
         
-        return new NextResponse(buffer, { headers })
+        // Stream the buffer as a Web ReadableStream (widely accepted BodyInit)
+        const nodeStream = Readable.from(buffer)
+        const webStream = Readable.toWeb(nodeStream) as ReadableStream
+        return new NextResponse(webStream, { headers })
       } catch (err) {
         console.error('Error reading local file:', err)
         return NextResponse.json({ error: 'File not found on disk' }, { status: 404 })

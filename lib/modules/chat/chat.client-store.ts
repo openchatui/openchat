@@ -179,6 +179,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
           name: model.name,
           profile_image_url: (model as any)?.meta?.profile_image_url || null,
         },
+        attachments
       })
       const chatId: string = result.chatId
       set({ currentChatId: chatId })

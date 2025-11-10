@@ -1,7 +1,7 @@
 "use client"
 
 import { useRef, useEffect, useState, useCallback, Fragment } from 'react'
-import { Bot, CopyIcon, HardDrive } from 'lucide-react'
+import { CopyIcon, HardDrive } from 'lucide-react'
 import { Actions, Action, SpeakAction } from '@/components/ai/actions'
 import { Message, MessageAvatar } from '@/components/ai/message'
 import { Response } from '@/components/ai/response'
@@ -232,11 +232,7 @@ export default function ChatMessages({
   if (messages.length === 0) {
     return (
       <div className="w-full h-full flex-1 min-h-0 flex items-center justify-center">
-        <div className="text-center text-muted-foreground">
-          <Bot className="h-12 w-12 mx-auto mb-4 opacity-50" />
-          <h3 className="text-lg font-medium mb-2">Start a conversation</h3>
-          <p className="text-sm">Send a message to begin chatting with the AI assistant.</p>
-        </div>
+        <Loader className="h-6 w-6 text-muted-foreground" />
       </div>
     )
   }
