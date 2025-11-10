@@ -8,9 +8,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { FileText, Download, Pencil, Users, Table2 } from "lucide-react";
-import { FaStar, FaRegStar } from "react-icons/fa";
-import { LuSquareMenu } from "react-icons/lu";
+import { Download, Pencil, Users } from "lucide-react";
+import { FaStar, FaRegStar, FaFolder } from "react-icons/fa";
 import { useCallback, useMemo, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
@@ -25,10 +24,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { FaFilePdf, FaImage, FaFolder } from "react-icons/fa";
-import { BsFileEarmarkSpreadsheetFill } from "react-icons/bs";
-import { FaFilm } from "react-icons/fa6";
 import { ItemContextMenu } from "./ItemContextMenu";
+import { getFileIconComponent } from "@/lib/utils/file-icons";
 const SelectionBar = dynamic(
   () => import("./SelectionBar").then((m) => m.SelectionBar),
   { loading: () => <div className="mb-2 h-10" /> }
@@ -81,53 +78,6 @@ interface FilesResultsTableProps {
   isGoogleDriveFolder?: boolean;
 }
 
-function getIconForFile(name: string, item?: FileEntry) {
-  // Check for Google Workspace files by MIME type
-  if (item && (item as any).meta) {
-    const meta = (item as any).meta as any;
-    if (meta.mimeType) {
-      if (meta.mimeType === "application/vnd.google-apps.document") {
-        return <LuSquareMenu className="h-4 w-4 text-blue-500" />;
-      }
-      if (meta.mimeType === "application/vnd.google-apps.spreadsheet") {
-        return <Table2 className="h-4 w-4 text-green-500" />;
-      }
-    }
-  }
-
-  const ext = name.includes(".") ? name.split(".").pop()!.toLowerCase() : "";
-  if (
-    [
-      "jpg",
-      "jpeg",
-      "png",
-      "gif",
-      "webp",
-      "svg",
-      "bmp",
-      "tiff",
-      "tif",
-      "heic",
-      "heif",
-      "avif",
-    ].includes(ext)
-  ) {
-    return <FaImage className="h-4 w-4 text-red-400" />;
-  }
-  if (["mp4", "webm", "ogg", "ogv", "mov", "m4v", "mkv"].includes(ext)) {
-    return <FaFilm className="h-4 w-4 text-red-400" />;
-  }
-  if (ext === "pdf") {
-    return <FaFilePdf className="text-red-400" />;
-  }
-  if (["xls", "xlsx", "xlsm", "csv", "tsv", "ods", "numbers"].includes(ext)) {
-    return <BsFileEarmarkSpreadsheetFill className="h-4 w-4 text-green-400" />;
-  }
-  if (["doc", "docx", "rtf", "odt"].includes(ext)) {
-    return <FileText className="h-4 w-4 text-blue-400" />;
-  }
-  return <FileText className="h-4 w-4 text-blue-400" />;
-}
 
 function isPreviewable(name: string, item?: FileEntry) {
   // Check if it's a Google Workspace file
@@ -776,7 +726,7 @@ export function FilesResultsTable({
                     {it.isDirectory ? (
                       <FaFolder className="h-4 w-4" />
                     ) : (
-                      getIconForFile(it.name, it)
+                      getFileIconComponent(it.name, it)
                     )}
                     <span className="max-w-[320px] truncate font-medium">
                       {it.name}
@@ -886,7 +836,7 @@ function RowItem({
           {item.isDirectory ? (
             <FaFolder className="h-4 w-4" />
           ) : (
-            getIconForFile(item.name, item)
+            getFileIconComponent(item.name, item)
           )}
           <span className="truncate flex-1 min-w-0">{item.name}</span>
           {!item.isDirectory && item.ownedByMe === false && (

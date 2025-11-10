@@ -34,8 +34,12 @@ import {
   HardDrive,
   Camera,
   MessageSquare,
+  Folder,
+  ChevronRight,
+  ChevronDown,
 } from "lucide-react";
 import { RiHardDrive3Line } from "react-icons/ri";
+import { getFileIconCompact } from "@/lib/utils/file-icons";
 
 const RecordingWaveform = dynamic(() => import("./recording-waveform"), { ssr: false })
 const LiveCircle = dynamic(() => import("./live-circle"), { ssr: false })
@@ -1313,40 +1317,211 @@ function MentionDropdown({
   onSelect: (file: { id: string; name: string }) => void
   heading?: string
 }) {
+  const hasQuery = heading !== "Recent"
+  const [browseMode, setBrowseMode] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [rootParentId, setRootParentId] = useState<string | null>(null)
+  const [foldersByParent, setFoldersByParent] = useState<Record<string, { id: string; name: string }[]>>({})
+  const [filesByParent, setFilesByParent] = useState<Record<string, { id: string; name: string }[]>>({})
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set())
+  
+  useEffect(() => {
+    if (!open || hasQuery) setBrowseMode(false)
+  }, [open, hasQuery])
+  
+  useEffect(() => {
+    if (!open || !browseMode) return
+    let cancelled = false
+    setLoading(true)
+    ;(async () => {
+      try {
+        // Load root folders and files using existing Drive endpoints
+        const foldersRes = await fetch('/api/v1/drive/folder', { cache: 'no-store' }).catch(() => null)
+        const filesRes = await fetch('/api/v1/drive/file', { cache: 'no-store' }).catch(() => null)
+        if (cancelled) return
+        const foldersData = await (foldersRes?.json().catch(() => ({})) || {})
+        const filesData = await (filesRes?.json().catch(() => ({})) || {})
+        const flds = Array.isArray((foldersData as any).folders) ? (foldersData as any).folders : []
+        const fls = Array.isArray((filesData as any).files) ? (filesData as any).files : []
+        const parentId = (foldersData as any).parentId || (filesData as any).parentId || null
+        if (parentId) setRootParentId(String(parentId))
+        if (parentId) {
+          setFoldersByParent((prev) => ({ ...prev, [parentId]: flds }))
+          setFilesByParent((prev) => ({ ...prev, [parentId]: fls }))
+        }
+      } catch {
+        // ignore
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [open, browseMode])
+  
+  const toggleFolder = (folderId: string) => {
+    setExpandedFolders(prev => {
+      const next = new Set(prev)
+      if (next.has(folderId)) next.delete(folderId)
+      else next.add(folderId)
+      return next
+    })
+    // Lazy-load children for this folder if not already loaded
+    ;(async () => {
+      try {
+        if (!(foldersByParent as any)[folderId]) {
+          const res = await fetch(`/api/v1/drive/folder?parent=${encodeURIComponent(folderId)}`, { cache: 'no-store' })
+          if (res.ok) {
+            const data = await res.json().catch(() => ({}))
+            const flds = Array.isArray((data as any).folders) ? (data as any).folders : []
+            setFoldersByParent((prev) => ({ ...prev, [folderId]: flds }))
+          }
+        }
+        if (!(filesByParent as any)[folderId]) {
+          const res = await fetch(`/api/v1/drive/file?parent=${encodeURIComponent(folderId)}`, { cache: 'no-store' })
+          if (res.ok) {
+            const data = await res.json().catch(() => ({}))
+            const fls = Array.isArray((data as any).files) ? (data as any).files : []
+            setFilesByParent((prev) => ({ ...prev, [folderId]: fls }))
+          }
+        }
+      } catch {}
+    })()
+  }
+  
+  const renderFolderNode = (folder: { id: string; name: string }, depth: number = 0) => {
+    const isExpanded = expandedFolders.has(folder.id)
+    const paddingLeft = Math.min(24, depth * 12)
+    return (
+      <div key={folder.id}>
+        <div
+          className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-white/20 dark:hover:bg-white/5 cursor-pointer"
+          style={{ paddingLeft: paddingLeft ? `${paddingLeft}px` : undefined }}
+          onClick={(e) => { e.stopPropagation(); toggleFolder(folder.id) }}
+        >
+          {isExpanded ? (
+            <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+          ) : (
+            <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+          )}
+          <Folder className="h-3.5 w-3.5 text-muted-foreground" />
+          <span className="text-xs truncate">{folder.name}</span>
+        </div>
+        {isExpanded && (
+          <div className="space-y-0.5 mt-0.5">
+            {/* Child folders */}
+            {(foldersByParent[folder.id] || []).map((child) => renderFolderNode(child, depth + 1))}
+            {/* Files under this folder */}
+            {(filesByParent[folder.id] || []).map((file) => (
+              <div
+                key={file.id}
+                className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-white/20 dark:hover:bg-white/5 cursor-pointer"
+                style={{ paddingLeft: `${Math.min(24, (depth + 1) * 12) + 12}px` }}
+                onClick={(e) => { e.preventDefault(); onSelect({ id: file.id, name: file.name }) }}
+              >
+                <div className="flex-shrink-0">
+                  {getFileIconCompact(file.name)}
+                </div>
+                <span className="text-xs truncate">{file.name}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    )
+  }
+  
   if (!open) return null
+  
   return (
     <div
       className={cn(
-        "absolute left-2 top-full mt-1 z-50",
-        "w-[200px] max-w-[75vw]",
+        "absolute left-2 bottom-full mb-1 z-50",
+        "w-[280px] max-w-[85vw]",
         "rounded-md border bg-accent dark:bg-accent text-foreground shadow-md"
       )}
     >
-      <Command className="bg-transparent text-foreground text-xs">
+      <Command className="bg-transparent text-foreground">
         <CommandList className="bg-transparent">
-          {files.length === 0 ? (
-            <CommandEmpty>
-              <div className="px-3 py-2 text-xs text-foreground/80">No files</div>
-            </CommandEmpty>
+          {!browseMode ? (
+            <>
+              {files.length === 0 ? (
+                <CommandEmpty>
+                  <div className="px-3 py-2 text-xs text-foreground/80">No files</div>
+                </CommandEmpty>
+              ) : (
+                <CommandGroup heading={heading}>
+                  {files.map((f, idx) => (
+                    <CommandItem
+                      key={f.id}
+                      value={f.name}
+                      className={cn(
+                        "group/item flex items-center gap-1.5 transition-colors px-2 py-1.5",
+                        "hover:bg-white/40 dark:hover:bg-white/10",
+                        idx === highlight ? "bg-white/40 dark:bg-white/10" : ""
+                      )}
+                      onMouseEnter={() => onHover(idx)}
+                      onMouseDown={(e) => { e.preventDefault(); onSelect(f) }}
+                    >
+                      <div className="flex-shrink-0">
+                        {getFileIconCompact(f.name)}
+                      </div>
+                      <span className="truncate text-xs" title={f.name}>{f.name}</span>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              )}
+              {!hasQuery && (
+                <>
+                  <div className="h-px bg-border my-1" />
+                  <div 
+                    className="flex items-center justify-between gap-2 px-2 py-2 text-xs text-muted-foreground cursor-pointer hover:bg-white/20 dark:hover:bg-white/5 transition-colors"
+                    onClick={(e) => { e.stopPropagation(); setBrowseMode(true) }}
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <Folder className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span>Files and folders</span>
+                    </div>
+                    <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/50" />
+                  </div>
+                </>
+              )}
+            </>
           ) : (
-            <CommandGroup heading={heading}>
-              {files.map((f, idx) => (
-                <CommandItem
-                  key={f.id}
-                  value={f.name}
-                  className={cn(
-                    "group/item flex items-center gap-1 transition-colors px-1.5 py-1 leading-tight",
-                    "hover:bg-white/40 dark:hover:bg-white/10",
-                    idx === highlight ? "bg-white/40 dark:bg-white/10" : ""
-                  )}
-                  onMouseEnter={() => onHover(idx)}
-                  onMouseDown={(e) => { e.preventDefault(); onSelect(f) }}
+            <div className="max-h-[260px] overflow-y-auto py-1">
+              <div className="flex items-center justify-between px-2 py-1.5 text-xs text-muted-foreground">
+                <span className="font-medium">Browse</span>
+                <button
+                  type="button"
+                  className="text-xs hover:underline"
+                  onClick={(e) => { e.stopPropagation(); setBrowseMode(false) }}
                 >
-                  <HardDrive className="h-3 w-3 text-primary/60" />
-                  <span className="truncate" title={f.name}>{f.name}</span>
-                </CommandItem>
-              ))}
-            </CommandGroup>
+                  Back to recent
+                </button>
+              </div>
+              {loading ? (
+                <div className="flex items-center justify-center py-6">
+                  <Loader className="h-4 w-4" />
+                </div>
+              ) : (
+                <div className="space-y-0.5">
+                  {/* Root folders first (recursively expandable) */}
+                  {rootParentId && (foldersByParent[rootParentId] || []).map((folder) => renderFolderNode(folder, 0))}
+                  {/* Then root files */}
+                  {rootParentId && (filesByParent[rootParentId] || []).map((file) => (
+                    <div
+                      key={file.id}
+                      className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-white/20 dark:hover:bg-white/5 cursor-pointer"
+                      onClick={(e) => { e.preventDefault(); onSelect({ id: file.id, name: file.name }) }}
+                    >
+                      <div className="flex-shrink-0">
+                        {getFileIconCompact(file.name)}
+                      </div>
+                      <span className="text-xs truncate">{file.name}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
         </CommandList>
       </Command>
