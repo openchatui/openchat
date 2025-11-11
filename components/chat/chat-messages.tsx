@@ -251,6 +251,24 @@ export default function ChatMessages({
               {/* User message with bubble */}
               <div className="group w-full flex flex-col items-end gap-2">
                 <div className="flex flex-col gap-3 overflow-hidden rounded-4xl px-5 py-4 max-w-[80%] bg-muted text-primary">
+                  {/* Render referenced chat pills from metadata */}
+                  {(() => {
+                    const meta = (message as any).metadata
+                    const refs = Array.isArray(meta?.referencedChats) ? meta.referencedChats : []
+                    if (refs.length === 0) return null
+                    return (
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {refs.map((r: any) => (
+                          <div key={r.id} className="inline-flex items-center gap-2 pl-3 pr-2 py-1 rounded-full bg-input/20 border">
+                            <svg className="h-3.5 w-3.5 text-primary/60" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                            </svg>
+                            <span className="text-xs truncate max-w-[12rem]">@{r.title || 'Chat'}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )
+                  })()}
                   {/* Render image attachments from metadata */}
                   {(() => {
                     const meta = (message as any).metadata

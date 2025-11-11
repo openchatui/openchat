@@ -61,6 +61,7 @@ interface ChatInputProps {
       image: boolean;
       video?: boolean;
       codeInterpreter: boolean;
+      referencedChats?: { id: string; title?: string | null }[];
     },
     overrideModel?: any,
     isAutoSend?: boolean,
@@ -122,7 +123,6 @@ export function ChatInput({
   const [mentionQuery, setMentionQuery] = useState("")
   const [mentionResults, setMentionResults] = useState<{ id: string; name: string }[]>([])
   const [mentionHighlight, setMentionHighlight] = useState(0)
-  const [forceBrowseOpen, setForceBrowseOpen] = useState(false)
   const recentFiles = useRecentFilesPrefetch(5)
 
   const {
@@ -248,8 +248,13 @@ export function ChatInput({
     const trimmed = value.trim();
     if (!trimmed && contextFiles.length === 0) return;
     
-    // Build attachedFiles array with both uploaded files and drive file references
-    const attachedFiles = contextFiles.map((cf) => {
+    // Split context into drive/files vs referenced chats
+    const referencedChats = contextFiles
+      .filter((cf) => cf.id.startsWith('chat:'))
+      .map((cf) => ({ id: cf.id.slice(5), title: cf.name }))
+    
+    // Build attachedFiles array with both uploaded files and drive file references (exclude chats)
+    const attachedFiles = contextFiles.filter((cf) => !cf.id.startsWith('chat:')).map((cf) => {
       // Check if it's a locally uploaded file (starts with 'local:')
       if (cf.id.startsWith('local:')) {
         const file = selectedFiles.find((f) => f.name === cf.name)
@@ -260,7 +265,7 @@ export function ChatInput({
       }
     }).filter((x): x is { file: File; localId: string } | { fileId: string; fileName: string } => x !== null)
     
-    onSubmit?.(trimmed || '', { webSearch, image, video, codeInterpreter }, undefined, false, undefined, attachedFiles as any);
+    onSubmit?.(trimmed || '', { webSearch, image, video, codeInterpreter, referencedChats }, undefined, false, undefined, attachedFiles as any);
     setValue("");
     setSelectedFiles([])
     setContextFiles([])
@@ -412,9 +417,12 @@ export function ChatInput({
     }
 
     try {
-      onSubmit?.(text, { webSearch, image, codeInterpreter }, undefined, false, streamHandlers, [])
+      const referencedChats = contextFiles
+        .filter((cf) => cf.id.startsWith('chat:'))
+        .map((cf) => ({ id: cf.id.slice(5), title: cf.name }))
+      onSubmit?.(text, { webSearch, image, codeInterpreter, referencedChats }, undefined, false, streamHandlers, [])
     } catch {}
-  }, [onSubmit, webSearch, image, codeInterpreter, cleanupTts, enqueueTtsSegment, waitForQueueToDrain, startRecording])
+  }, [onSubmit, webSearch, image, codeInterpreter, contextFiles, cleanupTts, enqueueTtsSegment, waitForQueueToDrain, startRecording])
 
   const startLive = useCallback(() => {
     if (disabled || !sttAllowed) return
@@ -484,16 +492,11 @@ export function ChatInput({
   useEffect(() => {
     const t = currentToken.tokenText
     const startsMention = t.startsWith('@') || t.startsWith('#')
-    setMentionOpen(forceBrowseOpen ? true : startsMention)
-    setMentionTokenStart(forceBrowseOpen ? 0 : currentToken.tokenStart)
-    setMentionQuery(forceBrowseOpen ? '' : (startsMention ? t.slice(1) : ''))
+    setMentionOpen(startsMention)
+    setMentionTokenStart(currentToken.tokenStart)
+    setMentionQuery(startsMention ? t.slice(1) : '')
     setMentionHighlight(0)
-  }, [currentToken, forceBrowseOpen])
-
-  // Reset forced browse mode when dropdown closes
-  useEffect(() => {
-    if (!mentionOpen && forceBrowseOpen) setForceBrowseOpen(false)
-  }, [mentionOpen, forceBrowseOpen])
+  }, [currentToken])
 
 
   // Debounced fetch for mention results
@@ -620,10 +623,6 @@ export function ChatInput({
     setShowChatRefDialog(true)
   }, [])
 
-  const handleDriveFiles = useCallback(() => {
-    // No-op: Drive submenu handles UI
-  }, [])
-
   const handleSelectDriveFile = useCallback((opt: { id: string; name: string }) => {
     setContextFiles((prev) => {
       if (prev.some((f) => f.id === opt.id)) return prev
@@ -634,7 +633,11 @@ export function ChatInput({
   const handleSelectChatRef = useCallback((chat: { id: string; title?: string | null }) => {
     const title = chat.title || 'Chat'
     const id = chat.id
-    setValue((prev) => (prev ? `${prev}\n[${title}](/c/${id})` : `[${title}](/c/${id})`))
+    setContextFiles((prev) => {
+      const pillId = `chat:${id}`
+      if (prev.some((f) => f.id === pillId)) return prev
+      return [...prev, { id: pillId, name: title, type: 'chat' }]
+    })
   }, [])
 
   const formatTime = (total: number) => {
@@ -697,7 +700,6 @@ export function ChatInput({
                   />
                   <MentionDropdown
                     open={mentionOpen}
-                    forceBrowse={forceBrowseOpen}
                     files={displayMentionFiles}
                     highlight={mentionHighlight}
                     onHover={(idx) => setMentionHighlight(idx)}
@@ -711,7 +713,6 @@ export function ChatInput({
                     <AttachmentsMenu
                       onUploadFiles={triggerUploadFiles}
                       onReferenceChats={handleReferenceChats}
-                      onDriveFiles={handleDriveFiles}
                       onCaptureCamera={triggerCameraCapture}
                       onSelectDriveFile={handleSelectDriveFile}
                       onSelectChatRef={handleSelectChatRef}
@@ -770,7 +771,11 @@ export function ChatInput({
         onInsert={(chat) => {
           const title = chat.title || 'Chat'
           const id = chat.id
-          setValue((prev) => (prev ? `${prev}\n[${title}](/c/${id})` : `[${title}](/c/${id})`))
+          setContextFiles((prev) => {
+            const pillId = `chat:${id}`
+            if (prev.some((f) => f.id === pillId)) return prev
+            return [...prev, { id: pillId, name: title, type: 'chat' }]
+          })
         }}
       />
     </div>
@@ -1034,14 +1039,12 @@ function Pill({
 function AttachmentsMenu({
   onUploadFiles,
   onReferenceChats,
-  onDriveFiles,
   onCaptureCamera,
   onSelectDriveFile,
   onSelectChatRef,
 }: {
   onUploadFiles: () => void
   onReferenceChats: () => void
-  onDriveFiles: () => void
   onCaptureCamera: () => void
   onSelectDriveFile: (file: { id: string; name: string }) => void
   onSelectChatRef: (chat: { id: string; title?: string | null }) => void
@@ -1315,7 +1318,13 @@ function ContextPills({ files, onRemove }: { files: { id: string; name: string; 
           {f.previewUrl ? (
             <img src={f.previewUrl} alt={f.name} className="h-4 w-4 rounded object-cover" />
           ) : (
-            <HardDrive className="h-3.5 w-3.5 text-primary/60" />
+            <>
+              {f.type === 'chat' || f.id.startsWith('chat:') ? (
+                <MessageSquare className="h-3.5 w-3.5 text-primary/60" />
+              ) : (
+                <HardDrive className="h-3.5 w-3.5 text-primary/60" />
+              )}
+            </>
           )}
           <span className="truncate max-w-[12rem]" title={f.name}>@{f.name}</span>
           <button
@@ -1334,7 +1343,6 @@ function ContextPills({ files, onRemove }: { files: { id: string; name: string; 
 
 function MentionDropdown({
   open,
-  forceBrowse,
   files,
   highlight,
   onHover,
@@ -1342,7 +1350,6 @@ function MentionDropdown({
   heading,
 }: {
   open: boolean
-  forceBrowse?: boolean
   files: { id: string; name: string }[]
   highlight: number
   onHover: (idx: number) => void
@@ -1360,11 +1367,6 @@ function MentionDropdown({
   useEffect(() => {
     if (!open || hasQuery) setBrowseMode(false)
   }, [open, hasQuery])
-  
-  // Allow parent to force opening in browse mode (e.g., Drive files button)
-  useEffect(() => {
-    if (open && forceBrowse) setBrowseMode(true)
-  }, [open, forceBrowse])
   
   useEffect(() => {
     if (!open || !browseMode) return
