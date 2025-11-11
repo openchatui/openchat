@@ -16,6 +16,10 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  // Submenu components for nested dropdowns
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
 } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useChats } from "@/hooks/useChats";
@@ -118,6 +122,7 @@ export function ChatInput({
   const [mentionQuery, setMentionQuery] = useState("")
   const [mentionResults, setMentionResults] = useState<{ id: string; name: string }[]>([])
   const [mentionHighlight, setMentionHighlight] = useState(0)
+  const [forceBrowseOpen, setForceBrowseOpen] = useState(false)
   const recentFiles = useRecentFilesPrefetch(5)
 
   const {
@@ -479,11 +484,16 @@ export function ChatInput({
   useEffect(() => {
     const t = currentToken.tokenText
     const startsMention = t.startsWith('@') || t.startsWith('#')
-    setMentionOpen(startsMention)
-    setMentionTokenStart(currentToken.tokenStart)
-    setMentionQuery(startsMention ? t.slice(1) : '')
+    setMentionOpen(forceBrowseOpen ? true : startsMention)
+    setMentionTokenStart(forceBrowseOpen ? 0 : currentToken.tokenStart)
+    setMentionQuery(forceBrowseOpen ? '' : (startsMention ? t.slice(1) : ''))
     setMentionHighlight(0)
-  }, [currentToken])
+  }, [currentToken, forceBrowseOpen])
+
+  // Reset forced browse mode when dropdown closes
+  useEffect(() => {
+    if (!mentionOpen && forceBrowseOpen) setForceBrowseOpen(false)
+  }, [mentionOpen, forceBrowseOpen])
 
 
   // Debounced fetch for mention results
@@ -611,7 +621,20 @@ export function ChatInput({
   }, [])
 
   const handleDriveFiles = useCallback(() => {
-    try { window.open('/drive', '_blank', 'noopener,noreferrer') } catch {}
+    // No-op: Drive submenu handles UI
+  }, [])
+
+  const handleSelectDriveFile = useCallback((opt: { id: string; name: string }) => {
+    setContextFiles((prev) => {
+      if (prev.some((f) => f.id === opt.id)) return prev
+      return [...prev, { id: opt.id, name: opt.name }]
+    })
+  }, [])
+
+  const handleSelectChatRef = useCallback((chat: { id: string; title?: string | null }) => {
+    const title = chat.title || 'Chat'
+    const id = chat.id
+    setValue((prev) => (prev ? `${prev}\n[${title}](/c/${id})` : `[${title}](/c/${id})`))
   }, [])
 
   const formatTime = (total: number) => {
@@ -674,6 +697,7 @@ export function ChatInput({
                   />
                   <MentionDropdown
                     open={mentionOpen}
+                    forceBrowse={forceBrowseOpen}
                     files={displayMentionFiles}
                     highlight={mentionHighlight}
                     onHover={(idx) => setMentionHighlight(idx)}
@@ -689,6 +713,8 @@ export function ChatInput({
                       onReferenceChats={handleReferenceChats}
                       onDriveFiles={handleDriveFiles}
                       onCaptureCamera={triggerCameraCapture}
+                      onSelectDriveFile={handleSelectDriveFile}
+                      onSelectChatRef={handleSelectChatRef}
                     />
                     <ChatInputPills
                       webSearch={webSearch}
@@ -1010,11 +1036,15 @@ function AttachmentsMenu({
   onReferenceChats,
   onDriveFiles,
   onCaptureCamera,
+  onSelectDriveFile,
+  onSelectChatRef,
 }: {
   onUploadFiles: () => void
   onReferenceChats: () => void
   onDriveFiles: () => void
   onCaptureCamera: () => void
+  onSelectDriveFile: (file: { id: string; name: string }) => void
+  onSelectChatRef: (chat: { id: string; title?: string | null }) => void
 }) {
   return (
     <DropdownMenu>
@@ -1034,40 +1064,40 @@ function AttachmentsMenu({
           <Button
             type="button"
             variant="ghost"
-            className="w-full justify-start border-0 ring-0 focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 outline-none hover:bg-white/40 dark:hover:bg-white/10 data-[highlighted]:bg-white/40 dark:data-[highlighted]:bg-white/10 transition-colors"
+            size="sm"
+            className="w-full h-8 py-1 text-sm justify-start border-0 ring-0 focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 outline-none hover:bg-white/40 dark:hover:bg-white/10 data-[highlighted]:bg-white/40 dark:data-[highlighted]:bg-white/10 transition-colors"
             onClick={onUploadFiles}
           >
             <FileUp className="mr-2 h-4 w-4" />
             <span>Upload files</span>
           </Button>
         </DropdownMenuItem>
+        {/* Reference chats submenu */}
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger className="w-full h-8 py-1 px-2 bg-transparent flex items-center justify-start gap-2 hover:bg-white/40 dark:hover:bg-white/10 data-[highlighted]:bg-white/40 dark:data-[highlighted]:bg-white/10 data-[state=open]:bg-white/40 dark:data-[state=open]:bg-white/10 [&>svg:last-child]:text-muted-foreground/50">
+            <MessageSquare className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <span className="text-sm font-medium leading-5 ml-2.5">Reference chats</span>
+          </DropdownMenuSubTrigger>
+          <DropdownMenuSubContent className="w-[300px] p-0 bg-accent dark:bg-accent text-foreground border">
+            <ReferenceChatsSubmenu onSelect={(c) => onSelectChatRef(c)} />
+          </DropdownMenuSubContent>
+        </DropdownMenuSub>
+        {/* Drive files submenu */}
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger className="w-full h-8 py-1 px-2 bg-transparent flex items-center justify-start gap-2 hover:bg-white/40 dark:hover:bg-white/10 data-[highlighted]:bg-white/40 dark:data-[highlighted]:bg-white/10 data-[state=open]:bg-white/40 dark:data-[state=open]:bg-white/10 [&>svg:last-child]:text-muted-foreground/50">
+            <RiHardDrive3Line className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <span className="text-sm font-medium leading-5 ml-2.5">Drive files</span>
+          </DropdownMenuSubTrigger>
+          <DropdownMenuSubContent className="w-[300px] p-0 bg-accent dark:bg-accent text-foreground border">
+            <DriveFilesSubmenu onSelect={(f) => onSelectDriveFile(f)} />
+          </DropdownMenuSubContent>
+        </DropdownMenuSub>
         <DropdownMenuItem asChild>
           <Button
             type="button"
             variant="ghost"
-            className="w-full justify-start border-0 ring-0 focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 outline-none hover:bg-white/40 dark:hover:bg-white/10 data-[highlighted]:bg-white/40 dark:data-[highlighted]:bg-white/10 transition-colors"
-            onClick={onReferenceChats}
-          >
-            <MessageSquare className="mr-2 h-4 w-4" />
-            <span>Reference chats</span>
-          </Button>
-        </DropdownMenuItem>
-        <DropdownMenuItem asChild>
-          <Button
-            type="button"
-            variant="ghost"
-            className="w-full justify-start border-0 ring-0 focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 outline-none hover:bg-white/40 dark:hover:bg-white/10 data-[highlighted]:bg-white/40 dark:data-[highlighted]:bg-white/10 transition-colors"
-            onClick={onDriveFiles}
-          >
-            <RiHardDrive3Line className="mr-2 h-4 w-4" />
-            <span>Drive files</span>
-          </Button>
-        </DropdownMenuItem>
-        <DropdownMenuItem asChild>
-          <Button
-            type="button"
-            variant="ghost"
-            className="w-full justify-start border-0 ring-0 focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 outline-none hover:bg-white/40 dark:hover:bg-white/10 data-[highlighted]:bg-white/40 dark:data-[highlighted]:bg-white/10 transition-colors"
+            size="sm"
+            className="w-full h-8 py-1 text-sm justify-start border-0 ring-0 focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 outline-none hover:bg-white/40 dark:hover:bg-white/10 data-[highlighted]:bg-white/40 dark:data-[highlighted]:bg-white/10 transition-colors"
             onClick={onCaptureCamera}
           >
             <Camera className="mr-2 h-4 w-4" />
@@ -1304,6 +1334,7 @@ function ContextPills({ files, onRemove }: { files: { id: string; name: string; 
 
 function MentionDropdown({
   open,
+  forceBrowse,
   files,
   highlight,
   onHover,
@@ -1311,6 +1342,7 @@ function MentionDropdown({
   heading,
 }: {
   open: boolean
+  forceBrowse?: boolean
   files: { id: string; name: string }[]
   highlight: number
   onHover: (idx: number) => void
@@ -1328,6 +1360,11 @@ function MentionDropdown({
   useEffect(() => {
     if (!open || hasQuery) setBrowseMode(false)
   }, [open, hasQuery])
+  
+  // Allow parent to force opening in browse mode (e.g., Drive files button)
+  useEffect(() => {
+    if (open && forceBrowse) setBrowseMode(true)
+  }, [open, forceBrowse])
   
   useEffect(() => {
     if (!open || !browseMode) return
@@ -1525,6 +1562,166 @@ function MentionDropdown({
           )}
         </CommandList>
       </Command>
+    </div>
+  )
+}
+
+function DriveFilesSubmenu({ onSelect }: { onSelect: (file: { id: string; name: string }) => void }) {
+  const [loading, setLoading] = useState(false)
+  const [rootParentId, setRootParentId] = useState<string | null>(null)
+  const [foldersByParent, setFoldersByParent] = useState<Record<string, { id: string; name: string }[]>>({})
+  const [filesByParent, setFilesByParent] = useState<Record<string, { id: string; name: string }[]>>({})
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set())
+  
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    ;(async () => {
+      try {
+        const foldersRes = await fetch('/api/v1/drive/folder', { cache: 'no-store' }).catch(() => null)
+        const filesRes = await fetch('/api/v1/drive/file', { cache: 'no-store' }).catch(() => null)
+        if (cancelled) return
+        const foldersData = await (foldersRes?.json().catch(() => ({})) || {})
+        const filesData = await (filesRes?.json().catch(() => ({})) || {})
+        const flds = Array.isArray((foldersData as any).folders) ? (foldersData as any).folders : []
+        const fls = Array.isArray((filesData as any).files) ? (filesData as any).files : []
+        const parentId = (foldersData as any).parentId || (filesData as any).parentId || null
+        if (parentId) setRootParentId(String(parentId))
+        if (parentId) {
+          setFoldersByParent((prev) => ({ ...prev, [parentId]: flds }))
+          setFilesByParent((prev) => ({ ...prev, [parentId]: fls }))
+        }
+      } catch {
+        // ignore
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [])
+  
+  const toggleFolder = (folderId: string) => {
+    setExpandedFolders(prev => {
+      const next = new Set(prev)
+      if (next.has(folderId)) next.delete(folderId)
+      else next.add(folderId)
+      return next
+    })
+    ;(async () => {
+      try {
+        if (!(foldersByParent as any)[folderId]) {
+          const res = await fetch(`/api/v1/drive/folder?parent=${encodeURIComponent(folderId)}`, { cache: 'no-store' })
+          if (res.ok) {
+            const data = await res.json().catch(() => ({}))
+            const flds = Array.isArray((data as any).folders) ? (data as any).folders : []
+            setFoldersByParent((prev) => ({ ...prev, [folderId]: flds }))
+          }
+        }
+        if (!(filesByParent as any)[folderId]) {
+          const res = await fetch(`/api/v1/drive/file?parent=${encodeURIComponent(folderId)}`, { cache: 'no-store' })
+          if (res.ok) {
+            const data = await res.json().catch(() => ({}))
+            const fls = Array.isArray((data as any).files) ? (data as any).files : []
+            setFilesByParent((prev) => ({ ...prev, [folderId]: fls }))
+          }
+        }
+      } catch {}
+    })()
+  }
+
+  const renderFolderNode = (folder: { id: string; name: string }, depth: number = 0) => {
+    const isExpanded = expandedFolders.has(folder.id)
+    const paddingLeft = Math.min(24, depth * 12)
+    return (
+      <div key={folder.id}>
+        <div
+          className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-white/20 dark:hover:bg-white/5 cursor-pointer"
+          style={{ paddingLeft: paddingLeft ? `${paddingLeft}px` : undefined }}
+          onClick={(e) => { e.stopPropagation(); toggleFolder(folder.id) }}
+        >
+          {isExpanded ? (
+            <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+          ) : (
+            <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+          )}
+          <Folder className="h-3.5 w-3.5 text-muted-foreground" />
+          <span className="text-xs truncate">{folder.name}</span>
+        </div>
+        {isExpanded && (
+          <div className="space-y-0.5 mt-0.5">
+            {(foldersByParent[folder.id] || []).map((child) => renderFolderNode(child, depth + 1))}
+            {(filesByParent[folder.id] || []).map((file) => (
+              <div
+                key={file.id}
+                className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-white/20 dark:hover:bg-white/5 cursor-pointer"
+                style={{ paddingLeft: `${Math.min(24, (depth + 1) * 12) + 12}px` }}
+                onClick={(e) => { e.preventDefault(); onSelect({ id: file.id, name: file.name }) }}
+              >
+                <div className="flex-shrink-0">
+                  {getFileIconCompact(file.name)}
+                </div>
+                <span className="text-xs truncate">{file.name}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  return (
+    <div className="max-h-[320px] overflow-y-auto py-1">
+      {loading ? (
+        <div className="flex items-center justify-center py-6">
+          <Loader className="h-4 w-4" />
+        </div>
+      ) : (
+        <div className="space-y-0.5">
+          {rootParentId && (foldersByParent[rootParentId] || []).map((folder) => renderFolderNode(folder, 0))}
+          {rootParentId && (filesByParent[rootParentId] || []).map((file) => (
+            <div
+              key={file.id}
+              className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-white/20 dark:hover:bg-white/5 cursor-pointer"
+              onClick={(e) => { e.preventDefault(); onSelect({ id: file.id, name: file.name }) }}
+            >
+              <div className="flex-shrink-0">
+                {getFileIconCompact(file.name)}
+              </div>
+              <span className="text-xs truncate">{file.name}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ReferenceChatsSubmenu({ onSelect }: { onSelect: (chat: { id: string; title?: string | null }) => void }) {
+  const { chats, isLoading } = useChats()
+  return (
+    <div className="max-h-[320px] overflow-y-auto py-1">
+      {isLoading ? (
+        <div className="flex items-center justify-center py-6">
+          <Loader className="h-4 w-4" />
+        </div>
+      ) : (
+        <div className="space-y-0.5">
+          {Array.isArray(chats) && chats.length > 0 ? (
+            chats.map((c) => (
+              <div
+                key={c.id}
+                className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-white/20 dark:hover:bg-white/5 cursor-pointer"
+                onClick={(e) => { e.preventDefault(); onSelect({ id: c.id, title: (c as any).title }) }}
+              >
+                <MessageSquare className="h-4 w-4 shrink-0 text-muted-foreground" />
+                <span className="text-xs truncate">{(c as any).title || 'Untitled'}</span>
+              </div>
+            ))
+          ) : (
+            <div className="px-3 py-2 text-xs text-foreground/80">No chats available</div>
+          )}
+        </div>
+      )}
     </div>
   )
 }
