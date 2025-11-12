@@ -8,9 +8,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { FileText, Download, Pencil, Users, Table2 } from "lucide-react";
-import { FaStar, FaRegStar } from "react-icons/fa";
-import { LuSquareMenu } from "react-icons/lu";
+import { Download, Pencil, Users, MessageSquare } from "lucide-react";
+import { FaStar, FaRegStar, FaFolder } from "react-icons/fa";
 import { useCallback, useMemo, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
@@ -25,10 +24,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { FaFilePdf, FaImage, FaFolder } from "react-icons/fa";
-import { BsFileEarmarkSpreadsheetFill } from "react-icons/bs";
-import { FaFilm } from "react-icons/fa6";
 import { ItemContextMenu } from "./ItemContextMenu";
+import { getFileIconComponent } from "@/lib/utils/file-icons";
 const SelectionBar = dynamic(
   () => import("./SelectionBar").then((m) => m.SelectionBar),
   { loading: () => <div className="mb-2 h-10" /> }
@@ -81,53 +78,6 @@ interface FilesResultsTableProps {
   isGoogleDriveFolder?: boolean;
 }
 
-function getIconForFile(name: string, item?: FileEntry) {
-  // Check for Google Workspace files by MIME type
-  if (item && (item as any).meta) {
-    const meta = (item as any).meta as any;
-    if (meta.mimeType) {
-      if (meta.mimeType === "application/vnd.google-apps.document") {
-        return <LuSquareMenu className="h-4 w-4 text-blue-500" />;
-      }
-      if (meta.mimeType === "application/vnd.google-apps.spreadsheet") {
-        return <Table2 className="h-4 w-4 text-green-500" />;
-      }
-    }
-  }
-
-  const ext = name.includes(".") ? name.split(".").pop()!.toLowerCase() : "";
-  if (
-    [
-      "jpg",
-      "jpeg",
-      "png",
-      "gif",
-      "webp",
-      "svg",
-      "bmp",
-      "tiff",
-      "tif",
-      "heic",
-      "heif",
-      "avif",
-    ].includes(ext)
-  ) {
-    return <FaImage className="h-4 w-4 text-red-400" />;
-  }
-  if (["mp4", "webm", "ogg", "ogv", "mov", "m4v", "mkv"].includes(ext)) {
-    return <FaFilm className="h-4 w-4 text-red-400" />;
-  }
-  if (ext === "pdf") {
-    return <FaFilePdf className="text-red-400" />;
-  }
-  if (["xls", "xlsx", "xlsm", "csv", "tsv", "ods", "numbers"].includes(ext)) {
-    return <BsFileEarmarkSpreadsheetFill className="h-4 w-4 text-green-400" />;
-  }
-  if (["doc", "docx", "rtf", "odt"].includes(ext)) {
-    return <FileText className="h-4 w-4 text-blue-400" />;
-  }
-  return <FileText className="h-4 w-4 text-blue-400" />;
-}
 
 function isPreviewable(name: string, item?: FileEntry) {
   // Check if it's a Google Workspace file
@@ -776,7 +726,7 @@ export function FilesResultsTable({
                     {it.isDirectory ? (
                       <FaFolder className="h-4 w-4" />
                     ) : (
-                      getIconForFile(it.name, it)
+                      getFileIconComponent(it.name, it)
                     )}
                     <span className="max-w-[320px] truncate font-medium">
                       {it.name}
@@ -853,6 +803,7 @@ function RowItem({
   isStarred,
   onToggleStar,
 }: RowItemProps) {
+  const router = useRouter();
   const { attributes, listeners, setNodeRef } = useDraggable({ id: item.id });
   const { isOver, setNodeRef: setDropRef } = item.isDirectory
     ? useDroppable({ id: `folder/${item.id}` })
@@ -886,7 +837,7 @@ function RowItem({
           {item.isDirectory ? (
             <FaFolder className="h-4 w-4" />
           ) : (
-            getIconForFile(item.name, item)
+            getFileIconComponent(item.name, item)
           )}
           <span className="truncate flex-1 min-w-0">{item.name}</span>
           {!item.isDirectory && item.ownedByMe === false && (
@@ -929,6 +880,52 @@ function RowItem({
       <TableCell className="w-[10%] text-right">
         <div className="flex items-center justify-end gap-1">
           <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+            {!item.isDirectory && (
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Send to Chat"
+                title="Send to Chat"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  try {
+                    const key = "chat-input";
+                    const raw = sessionStorage.getItem(key);
+                    const defaults = {
+                      prompt: "",
+                      files: [] as { name: string; size: number; type: string }[],
+                      selectedToolIds: [] as string[],
+                      selectedFilterIds: [] as string[],
+                      imageGenerationEnabled: false,
+                      webSearchEnabled: false,
+                      codeInterpreterEnabled: false,
+                      contextFiles: [] as { id: string; name: string }[],
+                    };
+                    const data = raw ? { ...defaults, ...JSON.parse(raw) } : defaults;
+                    const existing = Array.isArray((data as any).contextFiles)
+                      ? ((data as any).contextFiles as { id: string; name: string }[])
+                      : [];
+                    const next = existing.some((f) => f && f.id === item.id)
+                      ? existing
+                      : [...existing, { id: item.id, name: item.name }];
+                    (data as any).contextFiles = next;
+                    sessionStorage.setItem(key, JSON.stringify(data));
+                    // Also pass via URL params so the landing page can inject if needed
+                    const cfid = encodeURIComponent(item.id);
+                    const cfn = encodeURIComponent(item.name);
+                    router.push(`/?cfid=${cfid}&cfn=${cfn}`);
+                  } catch {
+                    // ignore storage errors
+                    const cfid = encodeURIComponent(item.id);
+                    const cfn = encodeURIComponent(item.name);
+                    router.push(`/?cfid=${cfid}&cfn=${cfn}`);
+                  }
+                }}
+              >
+                <MessageSquare className="h-4 w-4" />
+              </Button>
+            )}
             <Button
               variant="ghost"
               size="icon"

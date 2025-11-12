@@ -97,7 +97,11 @@ export function ChatLanding({
     }
   }
 
-  const beginChat = async (prompt: string) => {
+  const beginChat = async (
+    prompt: string,
+    options?: { referencedChats?: { id: string; title?: string | null }[] },
+    attachedFiles?: Array<{ file: File; localId: string } | { fileId: string; fileName: string }>
+  ) => {
     if (!selectedModel) {
       toast.error('Please select a model first.')
       return
@@ -106,17 +110,28 @@ export function ChatLanding({
     // Reset any previous chat state and optimistically start
     resetChat()
     try {
-      const chatId = await startNewChat(prompt, selectedModel)
+      const chatId = await startNewChat(prompt, selectedModel, attachedFiles)
       try {
         const baseKey = 'chat-input'
         const chatKey = `chat-input-${chatId}`
+        const handoffKey = `chat-handoff-${chatId}`
         const raw = sessionStorage.getItem(baseKey)
         if (raw) {
           try {
             const data = JSON.parse(raw)
             if (data && typeof data === 'object') {
               data.prompt = ""
+              // If referenced chats were provided on submit, ensure they are persisted as context pills
+              if (options?.referencedChats && Array.isArray(options.referencedChats) && options.referencedChats.length > 0) {
+                const pills = (options.referencedChats || []).map((r) => ({ id: `chat:${r.id}`, name: r.title || 'Chat', type: 'chat' }))
+                const existingFiles = Array.isArray((data as any).contextFiles) ? (data as any).contextFiles : []
+                ;(data as any).contextFiles = [...existingFiles.filter((f: any) => !(f && typeof f.id === 'string' && String(f.id).startsWith('chat:'))), ...pills]
+              }
               sessionStorage.setItem(chatKey, JSON.stringify(data))
+              // Also write a small handoff record for robustness across timing races
+              if (options?.referencedChats && options.referencedChats.length > 0) {
+                sessionStorage.setItem(handoffKey, JSON.stringify({ referencedChats: options.referencedChats }))
+              }
             } else {
               sessionStorage.setItem(chatKey, raw)
             }
@@ -124,6 +139,11 @@ export function ChatLanding({
             sessionStorage.setItem(chatKey, raw)
           }
           sessionStorage.removeItem(baseKey)
+        } else {
+          // Even if baseKey is missing, still write handoff so the next page can pick it up
+          if (options?.referencedChats && options.referencedChats.length > 0) {
+            sessionStorage.setItem(handoffKey, JSON.stringify({ referencedChats: options.referencedChats }))
+          }
         }
       } catch {}
       router.replace(`/c/${chatId}`)
@@ -176,21 +196,25 @@ export function ChatLanding({
             </div>
 
             <div className="w-full">
-              <ChatInput
-                placeholder={"Ask me anything..."}
-                onSubmit={(value) => { void beginChat(value) }}
-                disabled={false}
-                sessionStorageKey={'chat-input'}
-                webSearchAvailable={webSearchAvailable && !!permissions?.workspaceTools && !!permissions?.webSearch}
-                imageAvailable={imageAvailable && !!permissions?.workspaceTools && !!permissions?.imageGeneration}
-                codeInterpreterAvailable={!!permissions?.workspaceTools && !!permissions?.codeInterpreter}
-                sttAllowed={!!permissions?.stt}
-                ttsAllowed={!!permissions?.tts}
-              />
-              <PromptSuggestions
-                disabled={false}
-                onSelect={(prompt) => { void beginChat(prompt) }}
-              />
+              <>
+                <ChatInput
+                  placeholder={"Ask me anything..."}
+                onSubmit={(value, options, overrideModel, isAutoSend, streamHandlers, attachedFiles) => { 
+                  void beginChat(value, options as any, attachedFiles) 
+                  }}
+                  disabled={false}
+                  sessionStorageKey={'chat-input'}
+                  webSearchAvailable={webSearchAvailable && !!permissions?.workspaceTools && !!permissions?.webSearch}
+                  imageAvailable={imageAvailable && !!permissions?.workspaceTools && !!permissions?.imageGeneration}
+                  codeInterpreterAvailable={!!permissions?.workspaceTools && !!permissions?.codeInterpreter}
+                  sttAllowed={!!permissions?.stt}
+                  ttsAllowed={!!permissions?.tts}
+                />
+                <PromptSuggestions
+                  disabled={false}
+                  onSelect={(prompt) => { void beginChat(prompt) }}
+                />
+              </>
             </div>
 
             {!selectedModel && (
