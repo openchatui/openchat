@@ -14,6 +14,8 @@ export function ZoomableImage({ src, alt, initialScale, minScale, maxScale = 8 }
   const containerRef = useRef<HTMLDivElement | null>(null)
   const [containerSize, setContainerSize] = useState<{ width: number; height: number } | null>(null)
   const [imageSize, setImageSize] = useState<{ width: number; height: number } | null>(null)
+  const [showContent, setShowContent] = useState(false)
+  const WHEEL_STEP = 0.1
 
   // Measure the container
   useEffect(() => {
@@ -47,38 +49,63 @@ export function ZoomableImage({ src, alt, initialScale, minScale, maxScale = 8 }
     }
   }, [src])
 
-  const fitScale = useMemo(() => {
+  // Compute scale to fit width exactly
+  const widthFitScale = useMemo(() => {
     if (!containerSize || !imageSize) return undefined
-    const wScale = containerSize.width / imageSize.width
-    const hScale = containerSize.height / imageSize.height
-    const s = Math.min(wScale, hScale)
+    const s = containerSize.width / imageSize.width
     if (!Number.isFinite(s) || s <= 0) return undefined
     return s
   }, [containerSize, imageSize])
 
-  const shouldAutoFit = useMemo(() => {
-    return typeof fitScale === "number" && fitScale < 1
-  }, [fitScale])
+  // Compute scale to fit height exactly
+  const heightFitScale = useMemo(() => {
+    if (!containerSize || !imageSize) return undefined
+    const s = containerSize.height / imageSize.height
+    if (!Number.isFinite(s) || s <= 0) return undefined
+    return s
+  }, [containerSize, imageSize])
+
+  // Choose base fit depending on orientation: landscape -> width, portrait -> height
+  const baseFitScale = useMemo(() => {
+    if (!imageSize) return undefined
+    const isPortrait = imageSize.height >= imageSize.width
+    return (isPortrait ? heightFitScale : widthFitScale)
+  }, [imageSize, widthFitScale, heightFitScale])
 
   const effectiveInitialScale = useMemo(() => {
-    // Auto-fit very large images; otherwise honor provided value or default to 1
-    if (shouldAutoFit && typeof fitScale === "number") return fitScale
+    // Start from the base fit and then apply two "zoom clicks" in
+    if (typeof baseFitScale === "number") return baseFitScale + 2 * WHEEL_STEP
     return typeof initialScale === "number" ? initialScale : 1
-  }, [fitScale, initialScale, shouldAutoFit])
+  }, [baseFitScale, initialScale])
 
   const effectiveMinScale = useMemo(() => {
-    // When auto-fitting, keep min at fit scale to avoid zooming out past screen
-    if (shouldAutoFit && typeof fitScale === "number") return fitScale
+    // Allow zooming out to exactly the base fit (so edges align), or to 1x for small images.
+    if (typeof baseFitScale === "number") return Math.min(baseFitScale, 1)
     if (typeof minScale === "number") return minScale
     if (typeof initialScale === "number") return initialScale
     return 0.1
-  }, [fitScale, initialScale, minScale, shouldAutoFit])
+  }, [baseFitScale, initialScale, minScale])
 
   // Wait until we can determine fit vs not, so first paint is correct
   const ready = containerSize !== null && imageSize !== null
 
+  // Avoid a single-frame flash of untransformed huge image by revealing content
+  // one animation frame after everything is ready (transforms applied).
+  useEffect(() => {
+    if (!ready) {
+      setShowContent(false)
+      return
+    }
+    const id = requestAnimationFrame(() => setShowContent(true))
+    return () => cancelAnimationFrame(id)
+  }, [ready])
+
   return (
-    <div ref={containerRef} className="w-full h-full overflow-hidden">
+    <div
+      ref={containerRef}
+      className="w-full h-full overflow-hidden"
+      style={{ visibility: ready && showContent ? 'visible' : 'hidden' }}
+    >
       {ready && (
         <TransformWrapper
           initialScale={effectiveInitialScale}
@@ -96,7 +123,12 @@ export function ZoomableImage({ src, alt, initialScale, minScale, maxScale = 8 }
             wrapperStyle={{ width: '100%', height: '100%' }}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={src} alt={alt} className="select-none" draggable={false} />
+            <img
+              src={src}
+              alt={alt}
+              className="select-none block"
+              draggable={false}
+            />
           </TransformComponent>
         </TransformWrapper>
       )}
