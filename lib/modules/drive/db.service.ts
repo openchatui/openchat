@@ -625,6 +625,56 @@ export class DriveDbService {
 
     return [...folderEntries, ...fileEntries]
   }
+
+  static async searchFilesByName(userId: string, q: string, limit: number = 10): Promise<{ id: string; name: string }[]> {
+    const needle = String(q || '').trim().toLowerCase()
+    if (!needle) return []
+    const like = `%${needle.replace(/[%_]/g, '\\$&')}%`
+    try {
+      const rows = await db.$queryRaw<any[]>`
+        SELECT id, filename
+        FROM "file"
+        WHERE user_id = ${userId}
+          AND LOWER(filename) LIKE ${like}
+        ORDER BY filename ASC
+        LIMIT ${Number.isFinite(limit) ? Math.max(1, Math.min(50, Math.floor(limit))) : 10}
+      `
+      return (rows || []).map(r => ({ id: String(r.id), name: String(r.filename) }))
+    } catch {
+      const rows = await db.$queryRaw<any[]>`
+        SELECT id, filename
+        FROM "file"
+        WHERE user_id = ${userId}
+          AND LOWER(filename) LIKE ${like}
+        ORDER BY filename ASC
+        LIMIT ${Number.isFinite(limit) ? Math.max(1, Math.min(50, Math.floor(limit))) : 10}
+      `
+      return (rows || []).map(r => ({ id: String(r.id), name: String(r.filename) }))
+    }
+  }
+
+  static async listRecentFiles(userId: string, limit: number = 5): Promise<{ id: string; name: string }[]> {
+    const safeLimit = Number.isFinite(limit) ? Math.max(1, Math.min(50, Math.floor(limit))) : 5
+    try {
+      const rows = await db.$queryRaw<any[]>`
+        SELECT id, filename
+        FROM "file"
+        WHERE user_id = ${userId}
+        ORDER BY updated_at DESC
+        LIMIT ${safeLimit}
+      `
+      return (rows || []).map(r => ({ id: String(r.id), name: String(r.filename) }))
+    } catch {
+      const rows = await db.$queryRaw<any[]>`
+        SELECT id, filename
+        FROM "file"
+        WHERE user_id = ${userId}
+        ORDER BY updated_at DESC
+        LIMIT ${safeLimit}
+      `
+      return (rows || []).map(r => ({ id: String(r.id), name: String(r.filename) }))
+    }
+  }
 }
 
  
@@ -641,5 +691,7 @@ export const listFilesByParent = DriveDbService.listFilesByParent.bind(DriveDbSe
 export const getFolderBreadcrumb = DriveDbService.getFolderBreadcrumb.bind(DriveDbService)
 export const listStarredEntries = DriveDbService.listStarredEntries.bind(DriveDbService)
 export const isGoogleDriveFolder = DriveDbService.isGoogleDriveFolder.bind(DriveDbService)
+export const searchFilesByName = DriveDbService.searchFilesByName.bind(DriveDbService)
+export const listRecentFiles = DriveDbService.listRecentFiles.bind(DriveDbService)
 
 

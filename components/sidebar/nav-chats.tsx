@@ -26,6 +26,17 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import {
+  AlertDialog,
+  AlertDialogTrigger,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogCancel,
+  AlertDialogAction,
+} from "@/components/ui/alert-dialog"
 import { usePathname, useRouter } from "next/navigation"
 import type { ChatData } from "@/lib/modules/chat"
 import { useChatTitles } from "@/hooks/useChatTitles"
@@ -390,31 +401,49 @@ export function NavChats({ chats, timeZone = 'UTC' }: NavChatsProps) {
                                       <Archive className="mr-2 h-3 w-3" />
                                       Archive
                                     </DropdownMenuItem>
-                                    <DropdownMenuItem
-                                      className=""
-                                      onClick={async (e) => {
-                                        e.preventDefault()
-                                        e.stopPropagation()
-                                        try {
-                                          // Optimistic removal
-                                          removeChatById(chat.id)
-                                          await fetch(`/api/v1/chats/${encodeURIComponent(chat.id)}`, {
-                                            method: 'DELETE',
-                                            cache: 'no-store',
-                                          })
-                                          try {
-                                            const bc = new BroadcastChannel('chats')
-                                            bc.postMessage({ type: 'deleted', id: chat.id })
-                                            bc.close()
-                                          } catch {}
-                                        } finally {
-                                          router.refresh()
-                                        }
-                                      }}
-                                    >
-                                      <Trash2 className="mr-2 h-3 w-3" />
-                                      Delete
-                                    </DropdownMenuItem>
+                                    <AlertDialog>
+                                      <AlertDialogTrigger asChild>
+                                        <DropdownMenuItem
+                                          className=""
+                                          onSelect={(e) => { e.preventDefault() }}
+                                        >
+                                          <Trash2 className="mr-2 h-3 w-3" />
+                                          Delete
+                                        </DropdownMenuItem>
+                                      </AlertDialogTrigger>
+                                      <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                          <AlertDialogTitle>Delete this chat?</AlertDialogTitle>
+                                          <AlertDialogDescription>
+                                            This action cannot be undone. This will permanently delete this chat and its messages.
+                                          </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                          <AlertDialogAction
+                                            onClick={async () => {
+                                              try {
+                                                // Optimistic removal
+                                                removeChatById(chat.id)
+                                                await fetch(`/api/v1/chats/${encodeURIComponent(chat.id)}`, {
+                                                  method: 'DELETE',
+                                                  cache: 'no-store',
+                                                })
+                                                try {
+                                                  const bc = new BroadcastChannel('chats')
+                                                  bc.postMessage({ type: 'deleted', id: chat.id })
+                                                  bc.close()
+                                                } catch {}
+                                              } finally {
+                                                router.refresh()
+                                              }
+                                            }}
+                                          >
+                                            Delete
+                                          </AlertDialogAction>
+                                        </AlertDialogFooter>
+                                      </AlertDialogContent>
+                                    </AlertDialog>
                                   </DropdownMenuContent>
                                 </DropdownMenu>
                               </Link>

@@ -63,3 +63,7 @@ node_modules/
 # editor folders
 .cursor/
 .vscode/
+
+# local docker compose overrides
+docker-compose.override.yml
+docker-compose.local.yml

@@ -34,7 +34,7 @@ import db from '@/lib/db'
  */
 export async function GET(
   req: NextRequest,
-  { params }: { params: Promise<{ fileId: string }> }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth()
@@ -42,16 +42,16 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { fileId } = await params
+    const { id } = await params
 
-    if (!fileId) {
+    if (!id) {
       return NextResponse.json({ error: 'File ID required' }, { status: 400 })
     }
 
     // Get file metadata from database to get the filename
     const file = await db.file.findFirst({
       where: {
-        id: fileId,
+        id: id,
         userId: session.user.id
       },
       select: {
@@ -67,7 +67,7 @@ export async function GET(
     let filename: string
 
     try {
-      const result = await getGoogleDriveFileStream(session.user.id, fileId)
+      const result = await getGoogleDriveFileStream(session.user.id, id)
       stream = result.stream
       mimeType = result.mimeType
       size = result.size

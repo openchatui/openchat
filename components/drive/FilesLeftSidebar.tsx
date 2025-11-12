@@ -20,7 +20,6 @@ import { cn } from "@/lib/utils"
 import { FaStar, FaRegStar } from "react-icons/fa"
 import Image from "next/image"
 import { DriveStorageInfo } from "./DriveStorageInfo"
-import { useIntegrations } from "@/components/providers/IntegrationsProvider"
 import { FilesFabMenuItems } from "./FilesFabMenu"
 
 interface FilesLeftSidebarProps {
@@ -30,13 +29,12 @@ interface FilesLeftSidebarProps {
 }
 
 export function FilesLeftSidebar({ parentId = "", localRootId, googleRootId }: FilesLeftSidebarProps) {
-  const { isEnabled } = useIntegrations()
   const [showNewFolder, setShowNewFolder] = useState(false)
   const [showUploadFile, setShowUploadFile] = useState(false)
   const [showUploadFolder, setShowUploadFolder] = useState(false)
   const pathname = usePathname()
   const isTrash = pathname?.startsWith('/drive/trash')
-  const showGoogle = Boolean(googleRootId) && isEnabled('google-drive')
+  const showGoogle = Boolean(googleRootId)
   return (
     <aside className="w-64 shrink-0 border-r px-3 py-4 flex flex-col h-full">
       <div>

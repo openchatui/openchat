@@ -74,15 +74,15 @@ async function streamToString(stream: NodeJS.ReadableStream): Promise<string> {
  */
 export async function GET(
   req: NextRequest,
-  { params }: { params: Promise<{ fileId: string }> }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth();
     if (!session?.user?.id)
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const { fileId } = await params;
-    if (!fileId)
+    const { id } = await params;
+    if (!id)
       return NextResponse.json({ error: "File ID required" }, { status: 400 });
 
     const { searchParams } = new URL(req.url);
@@ -91,7 +91,7 @@ export async function GET(
     if (mode === "meta") {
       const modifiedMs = await getGoogleFileModifiedTime(
         session.user.id,
-        fileId
+        id
       );
       return NextResponse.json({ modifiedMs });
     }
@@ -99,7 +99,7 @@ export async function GET(
     if (mode === "html") {
       const { stream } = await exportGoogleDriveFile(
         session.user.id,
-        fileId,
+        id,
         "text/html"
       );
       const html = await streamToString(stream);
@@ -119,15 +119,15 @@ export async function GET(
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: Promise<{ fileId: string }> }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth();
     if (!session?.user?.id)
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const { fileId } = await params;
-    if (!fileId)
+    const { id } = await params;
+    if (!id)
       return NextResponse.json({ error: "File ID required" }, { status: 400 });
 
     const body = (await req.json().catch(() => null)) as { html?: string };
@@ -140,7 +140,7 @@ export async function POST(
 
     const html = body.html;
     // Preserve basic formatting in Google Docs
-    await updateGoogleDocFromHTML(session.user.id, fileId, html);
+    await updateGoogleDocFromHTML(session.user.id, id, html);
     return NextResponse.json({ ok: true });
   } catch (error: any) {
     return NextResponse.json(
