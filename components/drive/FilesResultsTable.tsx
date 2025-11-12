@@ -8,7 +8,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Download, Pencil, Users } from "lucide-react";
+import { Download, Pencil, Users, MessageSquare } from "lucide-react";
 import { FaStar, FaRegStar, FaFolder } from "react-icons/fa";
 import { useCallback, useMemo, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -803,6 +803,7 @@ function RowItem({
   isStarred,
   onToggleStar,
 }: RowItemProps) {
+  const router = useRouter();
   const { attributes, listeners, setNodeRef } = useDraggable({ id: item.id });
   const { isOver, setNodeRef: setDropRef } = item.isDirectory
     ? useDroppable({ id: `folder/${item.id}` })
@@ -879,6 +880,52 @@ function RowItem({
       <TableCell className="w-[10%] text-right">
         <div className="flex items-center justify-end gap-1">
           <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+            {!item.isDirectory && (
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Send to Chat"
+                title="Send to Chat"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  try {
+                    const key = "chat-input";
+                    const raw = sessionStorage.getItem(key);
+                    const defaults = {
+                      prompt: "",
+                      files: [] as { name: string; size: number; type: string }[],
+                      selectedToolIds: [] as string[],
+                      selectedFilterIds: [] as string[],
+                      imageGenerationEnabled: false,
+                      webSearchEnabled: false,
+                      codeInterpreterEnabled: false,
+                      contextFiles: [] as { id: string; name: string }[],
+                    };
+                    const data = raw ? { ...defaults, ...JSON.parse(raw) } : defaults;
+                    const existing = Array.isArray((data as any).contextFiles)
+                      ? ((data as any).contextFiles as { id: string; name: string }[])
+                      : [];
+                    const next = existing.some((f) => f && f.id === item.id)
+                      ? existing
+                      : [...existing, { id: item.id, name: item.name }];
+                    (data as any).contextFiles = next;
+                    sessionStorage.setItem(key, JSON.stringify(data));
+                    // Also pass via URL params so the landing page can inject if needed
+                    const cfid = encodeURIComponent(item.id);
+                    const cfn = encodeURIComponent(item.name);
+                    router.push(`/?cfid=${cfid}&cfn=${cfn}`);
+                  } catch {
+                    // ignore storage errors
+                    const cfid = encodeURIComponent(item.id);
+                    const cfn = encodeURIComponent(item.name);
+                    router.push(`/?cfid=${cfid}&cfn=${cfn}`);
+                  }
+                }}
+              >
+                <MessageSquare className="h-4 w-4" />
+              </Button>
+            )}
             <Button
               variant="ghost"
               size="icon"

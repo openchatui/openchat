@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { SidebarInset } from '@/components/ui/sidebar'
 import { ChatInput } from '@/components/chat/chat-input'
 import { ModelSelector } from '@/components/chat/model-selector'
@@ -8,7 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import PromptSuggestions from '@/components/chat/prompt-suggestions'
 import type { Session } from 'next-auth'
 import { toast } from 'sonner'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import type { Model } from '@/types/model.types'
 import { updateUserSettingsRaw } from '@/lib/api/userSettings'
 import { useChatStore } from '@/lib/modules/chat/chat.client-store'
@@ -38,6 +38,49 @@ export function ChatLanding({
   permissions
 }: ChatLandingProps) {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const [ready, setReady] = useState(false)
+  const hasInjectedRef = useRef(false)
+
+  // Inject context file from URL params (?cfid, ?cfn) into sessionStorage before ChatInput mounts
+  useEffect(() => {
+    if (hasInjectedRef.current) {
+      setReady(true)
+      return
+    }
+    try {
+      const cfid = searchParams?.get('cfid') || ''
+      const cfn = searchParams?.get('cfn') || ''
+      if (cfid && cfn) {
+        const key = 'chat-input'
+        const raw = sessionStorage.getItem(key)
+        const defaults = {
+          prompt: '',
+          files: [] as { name: string; size: number; type: string }[],
+          selectedToolIds: [] as string[],
+          selectedFilterIds: [] as string[],
+          imageGenerationEnabled: false,
+          webSearchEnabled: false,
+          codeInterpreterEnabled: false,
+          contextFiles: [] as { id: string; name: string }[],
+        }
+        const data = raw ? { ...defaults, ...JSON.parse(raw) } : defaults
+        const existing = Array.isArray((data as any).contextFiles)
+          ? ((data as any).contextFiles as { id: string; name: string }[])
+          : []
+        const next = existing.some((f) => f && f.id === cfid)
+          ? existing
+          : [...existing, { id: cfid, name: cfn }]
+        ;(data as any).contextFiles = next
+        sessionStorage.setItem(key, JSON.stringify(data))
+      }
+    } catch {
+      // ignore
+    } finally {
+      hasInjectedRef.current = true
+      setReady(true)
+    }
+  }, [searchParams])
   const [selectedModel, setSelectedModel] = useState<Model | null>(() => {
     const activeModels = initialModels.filter(m => m.isActive && !(m as any).meta?.hidden)
     const saved = (initialUserSettings as any)?.ui?.models?.[0]
@@ -196,23 +239,27 @@ export function ChatLanding({
             </div>
 
             <div className="w-full">
-              <ChatInput
-                placeholder={"Ask me anything..."}
-              onSubmit={(value, options, overrideModel, isAutoSend, streamHandlers, attachedFiles) => { 
-                void beginChat(value, options as any, attachedFiles) 
-                }}
-                disabled={false}
-                sessionStorageKey={'chat-input'}
-                webSearchAvailable={webSearchAvailable && !!permissions?.workspaceTools && !!permissions?.webSearch}
-                imageAvailable={imageAvailable && !!permissions?.workspaceTools && !!permissions?.imageGeneration}
-                codeInterpreterAvailable={!!permissions?.workspaceTools && !!permissions?.codeInterpreter}
-                sttAllowed={!!permissions?.stt}
-                ttsAllowed={!!permissions?.tts}
-              />
-              <PromptSuggestions
-                disabled={false}
-                onSelect={(prompt) => { void beginChat(prompt) }}
-              />
+              {ready && (
+                <>
+                  <ChatInput
+                    placeholder={"Ask me anything..."}
+                  onSubmit={(value, options, overrideModel, isAutoSend, streamHandlers, attachedFiles) => { 
+                    void beginChat(value, options as any, attachedFiles) 
+                    }}
+                    disabled={false}
+                    sessionStorageKey={'chat-input'}
+                    webSearchAvailable={webSearchAvailable && !!permissions?.workspaceTools && !!permissions?.webSearch}
+                    imageAvailable={imageAvailable && !!permissions?.workspaceTools && !!permissions?.imageGeneration}
+                    codeInterpreterAvailable={!!permissions?.workspaceTools && !!permissions?.codeInterpreter}
+                    sttAllowed={!!permissions?.stt}
+                    ttsAllowed={!!permissions?.tts}
+                  />
+                  <PromptSuggestions
+                    disabled={false}
+                    onSelect={(prompt) => { void beginChat(prompt) }}
+                  />
+                </>
+              )}
             </div>
 
             {!selectedModel && (
