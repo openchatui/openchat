@@ -243,6 +243,45 @@ export function ChatInput({
     resizeTextarea();
   }, [value]);
 
+  // Fallback: inject context from URL params (?cfid, ?cfn) on mount, then clean URL
+  useEffect(() => {
+    try {
+      if (typeof window === 'undefined') return
+      const loc = new URL(window.location.href)
+      const cfid = loc.searchParams.get('cfid') || ''
+      const cfn = loc.searchParams.get('cfn') || ''
+      if (cfid && cfn) {
+        setContextFiles((prev) => {
+          if (prev.some((f) => f.id === cfid)) return prev
+          return [...prev, { id: cfid, name: cfn }]
+        })
+        // Persist into sessionStorageKey if available
+        try {
+          if (sessionStorageKey) {
+            const raw = sessionStorage.getItem(sessionStorageKey)
+            const defaults = {
+              prompt: "",
+              files: [] as any[],
+              selectedToolIds: [] as string[],
+              selectedFilterIds: [] as string[],
+              imageGenerationEnabled: false,
+              webSearchEnabled: false,
+              codeInterpreterEnabled: false,
+              contextFiles: [] as { id: string; name: string }[],
+            }
+            const data = raw ? { ...defaults, ...JSON.parse(raw) } : defaults
+            const existing = Array.isArray((data as any).contextFiles) ? (data as any).contextFiles : []
+            if (!existing.some((f: any) => f && f.id === cfid)) {
+              ;(data as any).contextFiles = [...existing, { id: cfid, name: cfn }]
+              sessionStorage.setItem(sessionStorageKey, JSON.stringify(data))
+            }
+          }
+        } catch {}
+      }
+    } catch {}
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = value.trim();
@@ -1359,6 +1398,8 @@ function MentionDropdown({
   const hasQuery = heading !== "Recent"
   const [browseMode, setBrowseMode] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [roots, setRoots] = useState<{ localRootId: string | null; googleRootId: string | null } | null>(null)
+  const [activeRootId, setActiveRootId] = useState<string | null>(null)
   const [rootParentId, setRootParentId] = useState<string | null>(null)
   const [foldersByParent, setFoldersByParent] = useState<Record<string, { id: string; name: string }[]>>({})
   const [filesByParent, setFilesByParent] = useState<Record<string, { id: string; name: string }[]>>({})
@@ -1374,19 +1415,31 @@ function MentionDropdown({
     setLoading(true)
     ;(async () => {
       try {
-        // Load root folders and files using existing Drive endpoints
-        const foldersRes = await fetch('/api/v1/drive/folder', { cache: 'no-store' }).catch(() => null)
-        const filesRes = await fetch('/api/v1/drive/file', { cache: 'no-store' }).catch(() => null)
+        // Load available roots, then load the chosen root (prefer Google if present)
+        const rootsRes = await fetch('/api/v1/drive/roots', { cache: 'no-store' }).catch(() => null)
+        const rootsData = await (rootsRes?.json().catch(() => ({})) || {})
+        const nextRoots = {
+          localRootId: (typeof (rootsData as any).localRootId === 'string' ? (rootsData as any).localRootId : null) as string | null,
+          googleRootId: (typeof (rootsData as any).googleRootId === 'string' ? (rootsData as any).googleRootId : null) as string | null,
+        }
         if (cancelled) return
-        const foldersData = await (foldersRes?.json().catch(() => ({})) || {})
-        const filesData = await (filesRes?.json().catch(() => ({})) || {})
-        const flds = Array.isArray((foldersData as any).folders) ? (foldersData as any).folders : []
-        const fls = Array.isArray((filesData as any).files) ? (filesData as any).files : []
-        const parentId = (foldersData as any).parentId || (filesData as any).parentId || null
-        if (parentId) setRootParentId(String(parentId))
-        if (parentId) {
-          setFoldersByParent((prev) => ({ ...prev, [parentId]: flds }))
-          setFilesByParent((prev) => ({ ...prev, [parentId]: fls }))
+        setRoots(nextRoots)
+        const chosenRoot = nextRoots.googleRootId || nextRoots.localRootId || null
+        if (chosenRoot) {
+          setActiveRootId(chosenRoot)
+          setRootParentId(chosenRoot)
+          // Load children for chosen root
+          const [foldersRes, filesRes] = await Promise.all([
+            fetch(`/api/v1/drive/folder?parent=${encodeURIComponent(chosenRoot)}`, { cache: 'no-store' }).catch(() => null),
+            fetch(`/api/v1/drive/file?parent=${encodeURIComponent(chosenRoot)}`, { cache: 'no-store' }).catch(() => null),
+          ])
+          if (cancelled) return
+          const foldersData = await (foldersRes?.json().catch(() => ({})) || {})
+          const filesData = await (filesRes?.json().catch(() => ({})) || {})
+          const flds = Array.isArray((foldersData as any).folders) ? (foldersData as any).folders : []
+          const fls = Array.isArray((filesData as any).files) ? (filesData as any).files : []
+          setFoldersByParent((prev) => ({ ...prev, [chosenRoot]: flds }))
+          setFilesByParent((prev) => ({ ...prev, [chosenRoot]: fls }))
         }
       } catch {
         // ignore
@@ -1529,13 +1582,54 @@ function MentionDropdown({
             <div className="max-h-[260px] overflow-y-auto py-1">
               <div className="flex items-center justify-between px-2 py-1.5 text-xs text-muted-foreground">
                 <span className="font-medium">Browse</span>
-                <button
-                  type="button"
-                  className="text-xs hover:underline"
-                  onClick={(e) => { e.stopPropagation(); setBrowseMode(false) }}
-                >
-                  Back to recent
-                </button>
+                <div className="flex items-center gap-2">
+                  {!!roots?.googleRootId && (
+                    <button
+                      type="button"
+                      className={cn(
+                        "px-1.5 py-0.5 rounded border text-foreground",
+                        activeRootId === roots.googleRootId ? "bg-white/30 dark:bg-white/10" : "hover:bg-white/20 dark:hover:bg-white/5"
+                      )}
+                      aria-label="Toggle Google Drive"
+                      title="Toggle Google Drive"
+                      onClick={async (e) => {
+                        e.stopPropagation()
+                        if (!roots?.googleRootId) return
+                        const nextRoot = activeRootId === roots.googleRootId
+                          ? (roots.localRootId || roots.googleRootId)
+                          : roots.googleRootId
+                        setActiveRootId(nextRoot)
+                        setRootParentId(nextRoot)
+                        if (!foldersByParent[nextRoot] || !filesByParent[nextRoot]) {
+                          try {
+                            setLoading(true)
+                            const [fr, fl] = await Promise.all([
+                              fetch(`/api/v1/drive/folder?parent=${encodeURIComponent(nextRoot)}`, { cache: 'no-store' }),
+                              fetch(`/api/v1/drive/file?parent=${encodeURIComponent(nextRoot)}`, { cache: 'no-store' }),
+                            ])
+                            const fd = await fr.json().catch(() => ({}))
+                            const ld = await fl.json().catch(() => ({}))
+                            const flds = Array.isArray((fd as any).folders) ? (fd as any).folders : []
+                            const files = Array.isArray((ld as any).files) ? (ld as any).files : []
+                            setFoldersByParent((prev) => ({ ...prev, [nextRoot]: flds }))
+                            setFilesByParent((prev) => ({ ...prev, [nextRoot]: files }))
+                          } finally {
+                            setLoading(false)
+                          }
+                        }
+                      }}
+                    >
+                      <img src="/logos/Google_Drive.svg" alt="Google Drive" className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className="text-xs hover:underline"
+                    onClick={(e) => { e.stopPropagation(); setBrowseMode(false) }}
+                  >
+                    Back to recent
+                  </button>
+                </div>
               </div>
               {loading ? (
                 <div className="flex items-center justify-center py-6">
@@ -1570,6 +1664,8 @@ function MentionDropdown({
 
 function DriveFilesSubmenu({ onSelect }: { onSelect: (file: { id: string; name: string }) => void }) {
   const [loading, setLoading] = useState(false)
+  const [roots, setRoots] = useState<{ localRootId: string | null; googleRootId: string | null } | null>(null)
+  const [activeRootId, setActiveRootId] = useState<string | null>(null)
   const [rootParentId, setRootParentId] = useState<string | null>(null)
   const [foldersByParent, setFoldersByParent] = useState<Record<string, { id: string; name: string }[]>>({})
   const [filesByParent, setFilesByParent] = useState<Record<string, { id: string; name: string }[]>>({})
@@ -1580,18 +1676,29 @@ function DriveFilesSubmenu({ onSelect }: { onSelect: (file: { id: string; name: 
     setLoading(true)
     ;(async () => {
       try {
-        const foldersRes = await fetch('/api/v1/drive/folder', { cache: 'no-store' }).catch(() => null)
-        const filesRes = await fetch('/api/v1/drive/file', { cache: 'no-store' }).catch(() => null)
+        const rootsRes = await fetch('/api/v1/drive/roots', { cache: 'no-store' }).catch(() => null)
+        const rootsData = await (rootsRes?.json().catch(() => ({})) || {})
+        const nextRoots = {
+          localRootId: (typeof (rootsData as any).localRootId === 'string' ? (rootsData as any).localRootId : null) as string | null,
+          googleRootId: (typeof (rootsData as any).googleRootId === 'string' ? (rootsData as any).googleRootId : null) as string | null,
+        }
         if (cancelled) return
-        const foldersData = await (foldersRes?.json().catch(() => ({})) || {})
-        const filesData = await (filesRes?.json().catch(() => ({})) || {})
-        const flds = Array.isArray((foldersData as any).folders) ? (foldersData as any).folders : []
-        const fls = Array.isArray((filesData as any).files) ? (filesData as any).files : []
-        const parentId = (foldersData as any).parentId || (filesData as any).parentId || null
-        if (parentId) setRootParentId(String(parentId))
-        if (parentId) {
-          setFoldersByParent((prev) => ({ ...prev, [parentId]: flds }))
-          setFilesByParent((prev) => ({ ...prev, [parentId]: fls }))
+        setRoots(nextRoots)
+        const chosenRoot = nextRoots.googleRootId || nextRoots.localRootId || null
+        if (chosenRoot) {
+          setActiveRootId(chosenRoot)
+          setRootParentId(chosenRoot)
+          const [foldersRes, filesRes] = await Promise.all([
+            fetch(`/api/v1/drive/folder?parent=${encodeURIComponent(chosenRoot)}`, { cache: 'no-store' }).catch(() => null),
+            fetch(`/api/v1/drive/file?parent=${encodeURIComponent(chosenRoot)}`, { cache: 'no-store' }).catch(() => null),
+          ])
+          if (cancelled) return
+          const foldersData = await (foldersRes?.json().catch(() => ({})) || {})
+          const filesData = await (filesRes?.json().catch(() => ({})) || {})
+          const flds = Array.isArray((foldersData as any).folders) ? (foldersData as any).folders : []
+          const fls = Array.isArray((filesData as any).files) ? (filesData as any).files : []
+          setFoldersByParent((prev) => ({ ...prev, [chosenRoot]: flds }))
+          setFilesByParent((prev) => ({ ...prev, [chosenRoot]: fls }))
         }
       } catch {
         // ignore
@@ -1673,6 +1780,47 @@ function DriveFilesSubmenu({ onSelect }: { onSelect: (file: { id: string; name: 
 
   return (
     <div className="max-h-[320px] overflow-y-auto py-1">
+      <div className="flex items-center justify-end px-2 py-1.5 text-xs text-muted-foreground gap-2">
+        {!!roots?.googleRootId && (
+          <button
+            type="button"
+            className={cn(
+              "px-1.5 py-0.5 rounded border text-foreground",
+              activeRootId === roots.googleRootId ? "bg-white/30 dark:bg-white/10" : "hover:bg-white/20 dark:hover:bg-white/5"
+            )}
+            aria-label="Toggle Google Drive"
+            title="Toggle Google Drive"
+            onClick={async (e) => {
+              e.stopPropagation()
+              if (!roots?.googleRootId) return
+              const nextRoot = activeRootId === roots.googleRootId
+                ? (roots.localRootId || roots.googleRootId)
+                : roots.googleRootId
+              setActiveRootId(nextRoot)
+              setRootParentId(nextRoot)
+              if (!foldersByParent[nextRoot] || !filesByParent[nextRoot]) {
+                try {
+                  setLoading(true)
+                  const [fr, fl] = await Promise.all([
+                    fetch(`/api/v1/drive/folder?parent=${encodeURIComponent(nextRoot)}`, { cache: 'no-store' }),
+                    fetch(`/api/v1/drive/file?parent=${encodeURIComponent(nextRoot)}`, { cache: 'no-store' }),
+                  ])
+                  const fd = await fr.json().catch(() => ({}))
+                  const ld = await fl.json().catch(() => ({}))
+                  const flds = Array.isArray((fd as any).folders) ? (fd as any).folders : []
+                  const files = Array.isArray((ld as any).files) ? (ld as any).files : []
+                  setFoldersByParent((prev) => ({ ...prev, [nextRoot]: flds }))
+                  setFilesByParent((prev) => ({ ...prev, [nextRoot]: files }))
+                } finally {
+                  setLoading(false)
+                }
+              }
+            }}
+          >
+            <img src="/logos/Google_Drive.svg" alt="Google Drive" className="h-3.5 w-3.5" />
+          </button>
+        )}
+      </div>
       {loading ? (
         <div className="flex items-center justify-center py-6">
           <Loader className="h-4 w-4" />
