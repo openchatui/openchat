@@ -1,3 +1,47 @@
+## [0.2.0] - 2025-11-13
+
+### PR: [API-first v1 migration, Swagger docs, and Drive/Mobile UX upgrades](https://github.com/openchatui/openchat/pull/120)
+
+Scope: 296 files changed, 12,179 insertions, 7,734 deletions. Direction: dev → main.
+
+### Added
+- Versioned, API-first surface under `app/api/v1/**` for Drive, Chat, Models, Users, Images, Videos, Websearch, Tasks, Activity, Code/Pyodide, and Connections.
+- Swagger UI at `/docs` with dark theme and OpenAPI served from `app/api/docs/*`.
+- Drive features and endpoints: roots, recent, search, signed URLs, move/rename/star/trash/restore/sync for files and folders.
+- Mobile-first Drive UI: `FilesResultsTableMobile`, `DriveMobileHeader`, bottom navigation, mobile FAB and related components.
+- Chat: attachments API (`app/api/v1/chat/attachments`) and streaming refinements.
+- Models: active Ollama models endpoint and activation logic.
+- Admin: mobile navigation improvements and enhanced config forms for audio/image/video/websearch.
+- Client API wrappers in `lib/api/**` for audio, chats, code, connections, drive, images, models, users, userSettings, video, and websearch.
+
+### Changed
+- Replaced legacy Server Actions with RESTful versioned endpoints; routes standardized under `/api/v1/**` with request/response validation and auth responses.
+- Consolidated data access into `lib/db/*.db.ts` modules; removed legacy repositories and `lib/db/client.ts`.
+- Simplified middleware to gate admin routes; refined auth handling across the app.
+- Dockerfile and `docker-compose.yml` updated for new envs and persistent SQLite path.
+- Chat and model selector UI/UX adjustments; Drive preview and video streaming improvements.
+
+### Removed
+- Deprecated Server Actions in `actions/**`.
+- Legacy Swagger integration in `app/swagger/*`.
+- Old docs pages under `app/(main)/docs/*`.
+
+### Breaking changes
+- Routes re-namespaced to `/api/v1/**` (old non-v1 paths removed/redirected).
+- Environment variables renamed: `NEXTAUTH_URL` → `AUTH_URL`, `NEXTAUTH_SECRET` → `AUTH_SECRET`.
+- DAL/files reorganized under `lib/db/*.db.ts`; old repository modules removed.
+
+### Migration notes
+- Update `.env`, Dockerfile, and `docker-compose.yml` to use `AUTH_URL`/`AUTH_SECRET` and the new SQLite path (`/app/data/openchat.db`).
+- Switch clients to `lib/api/**` wrappers and `/api/v1/**` endpoints; remove imports of deleted Server Actions.
+- Review middleware and any custom logic referencing old auth/env names.
+
+### Potential conflict hotspots
+- `middleware.ts`, `next.config.ts`, `package.json`, `pnpm-lock.yaml`
+- Route moves/removals under `app/api/**` → `app/api/v1/**`
+- Deletions under `actions/**` paired with new `lib/api/**` clients
+- Dockerfile and `docker-compose.yml` env changes
+
 ## [0.1.30] - 2025-11-03
 
 ### PR: [Release: Merge dev into main — Mobile UX, Drive navigation, and video features](https://github.com/openchatui/openchat/pull/110)
