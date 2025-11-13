@@ -115,7 +115,11 @@ export function OpenAIConnectionForm({
                 <div className="flex items-center pl-1 h-10">
                   <Switch
                     checked={!!enableStatuses[idx]}
-                    onCheckedChange={(checked) => onToggleEnable?.(idx, Boolean(checked))}
+                    onCheckedChange={(checked) => {
+                      onToggleEnable?.(idx, Boolean(checked))
+                      const action = checked ? 'Enabled' : 'Disabled'
+                      toast.success(`${action} OpenAI connection: ${connection.baseUrl}`)
+                    }}
                   />
                 </div>
               </div>

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import * as ConnectionsRepo from '@/lib/db/connections.db'
 
 /**
  * @swagger
@@ -29,8 +30,9 @@ import { NextRequest, NextResponse } from 'next/server'
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
-    const base = (searchParams.get('baseUrl') || 'http://localhost:11434').trim()
-    const apiKey = searchParams.get('apiKey')
+    const providerConn = await ConnectionsRepo.getProviderConnection('ollama').catch(() => null)
+    const base = (searchParams.get('baseUrl') || providerConn?.baseUrl || 'http://localhost:11434').trim()
+    const apiKey = searchParams.get('apiKey') || providerConn?.apiKey || undefined
 
     // Validate URL format
     try { new URL(base) } catch {

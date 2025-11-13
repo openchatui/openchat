@@ -1,13 +1,28 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import type { RefObject, MutableRefObject } from "react";
 import dynamic from "next/dynamic";
 import { useVoiceInput } from "@/hooks/audio/useVoiceInput";
 import { cn } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Command, CommandEmpty, CommandGroup, CommandItem, CommandList } from "@/components/ui/command";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { Loader } from "@/components/ui/loader";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  // Submenu components for nested dropdowns
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
+} from "@/components/ui/dropdown-menu";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useChats } from "@/hooks/useChats";
 import {
   Plus,
   Mic,
@@ -19,7 +34,16 @@ import {
   AudioWaveform,
   ArrowUp,
   Video,
+  FileUp,
+  HardDrive,
+  Camera,
+  MessageSquare,
+  Folder,
+  ChevronRight,
+  ChevronDown,
 } from "lucide-react";
+import { RiHardDrive3Line } from "react-icons/ri";
+import { getFileIconCompact } from "@/lib/utils/file-icons";
 
 const RecordingWaveform = dynamic(() => import("./recording-waveform"), { ssr: false })
 const LiveCircle = dynamic(() => import("./live-circle"), { ssr: false })
@@ -37,6 +61,7 @@ interface ChatInputProps {
       image: boolean;
       video?: boolean;
       codeInterpreter: boolean;
+      referencedChats?: { id: string; title?: string | null }[];
     },
     overrideModel?: any,
     isAutoSend?: boolean,
@@ -44,7 +69,8 @@ interface ChatInputProps {
       onStart?: () => void
       onDelta?: (delta: string, fullText: string) => void
       onFinish?: (finalText: string) => void
-    }
+    },
+    attachedFiles?: Array<{ file: File; localId: string }>
   ) => Promise<string | null> | void;
   sessionStorageKey?: string;
   webSearchAvailable?: boolean;
@@ -53,6 +79,8 @@ interface ChatInputProps {
   sttAllowed?: boolean;
   ttsAllowed?: boolean;
 }
+
+type BoolSetter = (updater: (prev: boolean) => boolean) => void
 
 export function ChatInput({
   placeholder = "Send a Message",
@@ -76,14 +104,26 @@ export function ChatInput({
   const [isLive, setIsLive] = useState(false);
   const isLiveRef = useRef(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const cameraInputRef = useRef<HTMLInputElement | null>(null)
   const ttsAudioRef = useRef<HTMLAudioElement | null>(null)
   const ttsUrlsRef = useRef<Set<string>>(new Set())
   const ttsQueueRef = useRef<HTMLAudioElement[]>([])
   const ttsPlayingRef = useRef(false)
   const ttsAbortedRef = useRef(false)
+  const uploadPreviewUrlsRef = useRef<Set<string>>(new Set())
   const pendingTextRef = useRef<string>("")
   const firstSegmentSentRef = useRef(false)
   const drainResolverRef = useRef<(() => void) | null>(null)
+  const [showChatRefDialog, setShowChatRefDialog] = useState(false)
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([])
+  const [contextFiles, setContextFiles] = useState<{ id: string; name: string; type?: string; previewUrl?: string }[]>([])
+  const [mentionOpen, setMentionOpen] = useState(false)
+  const [mentionTokenStart, setMentionTokenStart] = useState(0)
+  const [mentionQuery, setMentionQuery] = useState("")
+  const [mentionResults, setMentionResults] = useState<{ id: string; name: string }[]>([])
+  const [mentionHighlight, setMentionHighlight] = useState(0)
+  const recentFiles = useRecentFilesPrefetch(5)
 
   const {
     isRecording,
@@ -108,6 +148,18 @@ export function ChatInput({
     isLiveRef.current = isLive
   }, [isLive])
 
+  // Cleanup any blob URLs created for local image previews
+  useEffect(() => {
+    return () => {
+      try {
+        for (const url of uploadPreviewUrlsRef.current) {
+          try { URL.revokeObjectURL(url) } catch {}
+        }
+        uploadPreviewUrlsRef.current.clear()
+      } catch {}
+    }
+  }, [])
+
   // Load initial state from sessionStorage if provided
   useEffect(() => {
     try {
@@ -122,12 +174,14 @@ export function ChatInput({
         webSearchEnabled: false,
         codeInterpreterEnabled: false,
         videoGenerationEnabled: false,
+        contextFiles: [] as { id: string; name: string }[],
       }
       const data = raw ? { ...defaults, ...JSON.parse(raw) } : defaults
       if (typeof data.prompt === 'string') setValue(data.prompt)
       if (typeof data.webSearchEnabled === 'boolean') setWebSearch(data.webSearchEnabled)
       if (typeof data.imageGenerationEnabled === 'boolean') setImage(data.imageGenerationEnabled)
       if (typeof (data as any).videoGenerationEnabled === 'boolean') setVideo(Boolean((data as any).videoGenerationEnabled))
+      if (Array.isArray((data as any).contextFiles)) setContextFiles(((data as any).contextFiles || []).filter((x: any) => x && typeof x.id === 'string' && typeof x.name === 'string'))
     } catch {}
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionStorageKey])
@@ -147,12 +201,34 @@ export function ChatInput({
         imageGenerationEnabled: false,
         webSearchEnabled: false,
         codeInterpreterEnabled: false,
+        contextFiles: [] as { id: string; name: string }[],
       }
       const data = raw ? { ...defaults, ...JSON.parse(raw) } : defaults
       data.prompt = value
       sessionStorage.setItem(sessionStorageKey, JSON.stringify(data))
     } catch {}
   }, [value, sessionStorageKey])
+
+  // Persist context files to sessionStorage
+  useEffect(() => {
+    try {
+      if (!sessionStorageKey) return
+      const raw = sessionStorage.getItem(sessionStorageKey)
+      const defaults = {
+        prompt: "",
+        files: [] as any[],
+        selectedToolIds: [] as string[],
+        selectedFilterIds: [] as string[],
+        imageGenerationEnabled: false,
+        webSearchEnabled: false,
+        codeInterpreterEnabled: false,
+        contextFiles: [] as { id: string; name: string }[],
+      }
+      const data = raw ? { ...defaults, ...JSON.parse(raw) } : defaults
+      ;(data as any).contextFiles = contextFiles
+      sessionStorage.setItem(sessionStorageKey, JSON.stringify(data))
+    } catch {}
+  }, [contextFiles, sessionStorageKey])
 
   // Auto-resize the textarea as content grows (with a sensible max height)
   const resizeTextarea = () => {
@@ -167,12 +243,71 @@ export function ChatInput({
     resizeTextarea();
   }, [value]);
 
+  // Fallback: inject context from URL params (?cfid, ?cfn) on mount, then clean URL
+  useEffect(() => {
+    try {
+      if (typeof window === 'undefined') return
+      const loc = new URL(window.location.href)
+      const cfid = loc.searchParams.get('cfid') || ''
+      const cfn = loc.searchParams.get('cfn') || ''
+      if (cfid && cfn) {
+        setContextFiles((prev) => {
+          if (prev.some((f) => f.id === cfid)) return prev
+          return [...prev, { id: cfid, name: cfn }]
+        })
+        // Persist into sessionStorageKey if available
+        try {
+          if (sessionStorageKey) {
+            const raw = sessionStorage.getItem(sessionStorageKey)
+            const defaults = {
+              prompt: "",
+              files: [] as any[],
+              selectedToolIds: [] as string[],
+              selectedFilterIds: [] as string[],
+              imageGenerationEnabled: false,
+              webSearchEnabled: false,
+              codeInterpreterEnabled: false,
+              contextFiles: [] as { id: string; name: string }[],
+            }
+            const data = raw ? { ...defaults, ...JSON.parse(raw) } : defaults
+            const existing = Array.isArray((data as any).contextFiles) ? (data as any).contextFiles : []
+            if (!existing.some((f: any) => f && f.id === cfid)) {
+              ;(data as any).contextFiles = [...existing, { id: cfid, name: cfn }]
+              sessionStorage.setItem(sessionStorageKey, JSON.stringify(data))
+            }
+          }
+        } catch {}
+      }
+    } catch {}
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = value.trim();
-    if (!trimmed) return;
-    onSubmit?.(trimmed, { webSearch, image, video, codeInterpreter });
+    if (!trimmed && contextFiles.length === 0) return;
+    
+    // Split context into drive/files vs referenced chats
+    const referencedChats = contextFiles
+      .filter((cf) => cf.id.startsWith('chat:'))
+      .map((cf) => ({ id: cf.id.slice(5), title: cf.name }))
+    
+    // Build attachedFiles array with both uploaded files and drive file references (exclude chats)
+    const attachedFiles = contextFiles.filter((cf) => !cf.id.startsWith('chat:')).map((cf) => {
+      // Check if it's a locally uploaded file (starts with 'local:')
+      if (cf.id.startsWith('local:')) {
+        const file = selectedFiles.find((f) => f.name === cf.name)
+        return file ? { file, localId: cf.id } : null
+      } else {
+        // It's a drive file reference - pass the file ID
+        return { fileId: cf.id, fileName: cf.name }
+      }
+    }).filter((x): x is { file: File; localId: string } | { fileId: string; fileName: string } => x !== null)
+    
+    onSubmit?.(trimmed || '', { webSearch, image, video, codeInterpreter, referencedChats }, undefined, false, undefined, attachedFiles as any);
     setValue("");
+    setSelectedFiles([])
+    setContextFiles([])
     requestAnimationFrame(resizeTextarea);
     textareaRef.current?.focus();
   };
@@ -321,9 +456,12 @@ export function ChatInput({
     }
 
     try {
-      onSubmit?.(text, { webSearch, image, codeInterpreter }, undefined, false, streamHandlers)
+      const referencedChats = contextFiles
+        .filter((cf) => cf.id.startsWith('chat:'))
+        .map((cf) => ({ id: cf.id.slice(5), title: cf.name }))
+      onSubmit?.(text, { webSearch, image, codeInterpreter, referencedChats }, undefined, false, streamHandlers, [])
     } catch {}
-  }, [onSubmit, webSearch, image, codeInterpreter, cleanupTts, enqueueTtsSegment, waitForQueueToDrain, startRecording])
+  }, [onSubmit, webSearch, image, codeInterpreter, contextFiles, cleanupTts, enqueueTtsSegment, waitForQueueToDrain, startRecording])
 
   const startLive = useCallback(() => {
     if (disabled || !sttAllowed) return
@@ -340,6 +478,32 @@ export function ChatInput({
   }, [cancelRecording, cleanupTts])
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    // Remove last context pill when input is empty and Backspace is pressed
+    if (e.key === 'Backspace' && (value.length === 0 || caretIndex() === 0) && contextFiles.length > 0) {
+      e.preventDefault()
+      setContextFiles((prev) => {
+        if (prev.length === 0) return prev
+        const next = [...prev]
+        const removed = next.pop()
+        if (removed?.previewUrl) {
+          try { URL.revokeObjectURL(removed.previewUrl); uploadPreviewUrlsRef.current.delete(removed.previewUrl) } catch {}
+        }
+        return next
+      })
+      return
+    }
+    // Mention dropdown keyboard navigation
+    if (mentionOpen) {
+      if (e.key === 'ArrowDown') { e.preventDefault(); setMentionHighlight((i) => (i + 1) % Math.max(displayMentionFiles.length, 1)); return }
+      if (e.key === 'ArrowUp') { e.preventDefault(); setMentionHighlight((i) => (i - 1 + Math.max(displayMentionFiles.length, 1)) % Math.max(displayMentionFiles.length, 1)); return }
+      if (e.key === 'Enter') {
+        e.preventDefault()
+        const opt = displayMentionFiles[mentionHighlight]
+        if (opt) selectMentionOption(opt)
+        return
+      }
+      if (e.key === 'Escape') { e.preventDefault(); setMentionOpen(false); return }
+    }
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       if (!isStreaming) {
@@ -348,6 +512,92 @@ export function ChatInput({
     }
   };
 
+  // Compute current token at caret for @/# mentions
+  const caretIndex = useCallback(() => {
+    const el = textareaRef.current
+    if (!el) return value.length
+    try { return el.selectionStart ?? value.length } catch { return value.length }
+  }, [value])
+
+  const currentToken = useMemo(() => {
+    const pos = caretIndex()
+    const left = value.slice(0, pos)
+    const lastSpace = Math.max(left.lastIndexOf(" "), left.lastIndexOf("\n"), left.lastIndexOf("\t"))
+    const start = lastSpace + 1
+    const token = left.slice(start)
+    return { tokenStart: start, tokenText: token }
+  }, [value, caretIndex])
+
+  useEffect(() => {
+    const t = currentToken.tokenText
+    const startsMention = t.startsWith('@') || t.startsWith('#')
+    setMentionOpen(startsMention)
+    setMentionTokenStart(currentToken.tokenStart)
+    setMentionQuery(startsMention ? t.slice(1) : '')
+    setMentionHighlight(0)
+  }, [currentToken])
+
+
+  // Debounced fetch for mention results
+  useEffect(() => {
+    let active = true
+    const q = mentionQuery.trim()
+    if (!mentionOpen) { setMentionResults([]); return }
+    // If no query, show preloaded recent files immediately
+    if (!q && recentFiles.length > 0) { setMentionResults(recentFiles); }
+    const handle = setTimeout(async () => {
+      try {
+        const url = q
+          ? `/api/v1/drive/files/search?q=${encodeURIComponent(q)}&limit=24`
+          : `/api/v1/drive/files/recent?limit=5`
+        const res = await fetch(url, { cache: 'no-store' })
+        if (!res.ok) return
+        const data = await res.json()
+        if (!active) return
+        const files = Array.isArray(data?.files) ? data.files : []
+        setMentionResults(files.filter((f: any) => f && typeof f.id === 'string' && typeof f.name === 'string'))
+      } catch {}
+    }, 200)
+    return () => { active = false; clearTimeout(handle) }
+  }, [mentionQuery, mentionOpen, recentFiles])
+
+  const selectMentionOption = useCallback((opt: { id: string; name: string }) => {
+    const el = textareaRef.current
+    const pos = caretIndex()
+    const before = value.slice(0, mentionTokenStart)
+    const after = value.slice(pos)
+    setContextFiles((prev) => {
+      if (prev.some((f) => f.id === opt.id)) return prev
+      return [...prev, { id: opt.id, name: opt.name }]
+    })
+    const next = (before + after).replace(/^\s+/, "")
+    setValue(next)
+    setMentionOpen(false)
+    requestAnimationFrame(() => {
+      if (el) {
+        const newPos = (before + after).length - after.length
+        try { el.setSelectionRange(newPos, newPos); el.focus() } catch {}
+      }
+    })
+  }, [caretIndex, mentionTokenStart, value])
+
+  // Rank and limit to 6 items, closest match first
+  const displayMentionFiles = useMemo(() => {
+    const q = mentionQuery.trim().toLowerCase()
+    if (!q) return mentionResults.slice(0, 5)
+    const score = (name: string): number => {
+      const n = name.toLowerCase()
+      if (n === q) return 0
+      if (n.startsWith(q)) return 1
+      const idx = n.indexOf(q)
+      if (idx === 0) return 1
+      if (idx > 0) return 2 + Math.min(10, idx)
+      return 999
+    }
+    const sorted = [...mentionResults].sort((a, b) => score(a.name) - score(b.name) || a.name.localeCompare(b.name))
+    return sorted.slice(0, 6)
+  }, [mentionResults, mentionQuery])
+
   const handlePrimaryClick = useCallback((e: React.MouseEvent<HTMLButtonElement>) => {
     // If there's no text, use this button to toggle live voice
     if (!value.trim()) {
@@ -355,6 +605,79 @@ export function ChatInput({
       if (!isLive && sttAllowed) startLive()
     }
   }, [value, isLive, startLive, sttAllowed])
+
+  // File helpers and actions for dropdown
+  const persistFilesMeta = useCallback((files: File[]) => {
+    try {
+      if (!sessionStorageKey) return
+      const raw = sessionStorage.getItem(sessionStorageKey)
+      const defaults = {
+        prompt: "",
+        files: [] as { name: string; size: number; type: string }[],
+        selectedToolIds: [] as string[],
+        selectedFilterIds: [] as string[],
+        imageGenerationEnabled: false,
+        webSearchEnabled: false,
+        codeInterpreterEnabled: false,
+      }
+      const data = raw ? { ...defaults, ...JSON.parse(raw) } : defaults
+      const metas = files.map((f) => ({ name: f.name, size: f.size, type: f.type }))
+      const existing = Array.isArray((data as any).files) ? (data as any).files : []
+      ;(data as any).files = [...existing, ...metas]
+      sessionStorage.setItem(sessionStorageKey, JSON.stringify(data))
+    } catch {}
+  }, [sessionStorageKey])
+
+  const triggerUploadFiles = useCallback(() => {
+    fileInputRef.current?.click()
+  }, [])
+
+  const triggerCameraCapture = useCallback(() => {
+    cameraInputRef.current?.click()
+  }, [])
+
+  const handleFilesSelected = useCallback((filesList: FileList | null) => {
+    const files = filesList ? Array.from(filesList) : []
+    if (files.length === 0) return
+    setSelectedFiles((prev) => [...prev, ...files])
+    persistFilesMeta(files)
+    // Add uploaded files into context pills with tiny preview for images
+    setContextFiles((prev) => {
+      const additions = files.map((file) => {
+        const id = `local:${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+        let previewUrl: string | undefined
+        if (file.type && file.type.startsWith('image/')) {
+          try {
+            previewUrl = URL.createObjectURL(file)
+            if (previewUrl) uploadPreviewUrlsRef.current.add(previewUrl)
+          } catch {}
+        }
+        return { id, name: file.name, type: file.type, previewUrl }
+      })
+      return [...prev, ...additions]
+    })
+  }, [persistFilesMeta])
+
+  const handleReferenceChats = useCallback(() => {
+    setShowChatRefDialog(true)
+  }, [])
+
+  const handleSelectDriveFile = useCallback((opt: { id: string; name: string }) => {
+    setContextFiles((prev) => {
+      if (prev.some((f) => f.id === opt.id)) return prev
+      return [...prev, { id: opt.id, name: opt.name }]
+    })
+  }, [])
+
+  const handleSelectChatRef = useCallback((chat: { id: string; title?: string | null }) => {
+    const title = chat.title || 'Chat'
+    const id = chat.id
+    setContextFiles((prev) => {
+      const pillId = `chat:${id}`
+      if (prev.some((f) => f.id === pillId)) return prev
+      return [...prev, { id: pillId, name: title, type: 'chat' }]
+    })
+  }, [])
 
   const formatTime = (total: number) => {
     const m = Math.floor(total / 60)
@@ -366,7 +689,7 @@ export function ChatInput({
     <div className={cn(isLive ? "bg-transparent" : "bg-background", "mx-4 ")}>
       <form
         onSubmit={handleSubmit}
-        className={cn("max-w-6xl px-0 pb-6 mx-auto inset-x-0", isLive ? "pt-3" : "pt-0", className)}
+        className={cn("max-w-6xl px-0 pb-0 md:pb-4 mx-auto inset-x-0", isLive ? "pt-3" : "pt-0", className)}
       >
         {isLive && sttAllowed ? (
           <div className="p-0 mt-5">
@@ -381,204 +704,68 @@ export function ChatInput({
             </button>
           </div>
         ) : (
-          <div className="rounded-3xl bg-accent p-2 shadow-md">
+          <div className="rounded-3xl bg-accent p-2 shadow-md border">
             {(isRecording || isTranscribing || isModelLoading) ? (
-              <div className="flex items-center justify-between px-2 py-2">
-                {isRecording ? (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="rounded-full h-9 w-9"
-                    aria-label="Cancel recording"
-                    onClick={cancelRecording}
-                  >
-                    <X className="h-5 w-5" />
-                  </Button>
-                ) : (
-                  <div className="h-9 w-9" aria-hidden="true" />
-                )}
-
-                <RecordingWaveform stream={stream} frozen={!isRecording} />
-
-                {isRecording ? (
-                  <div className="flex items-center gap-3">
-                    <span className="text-sm tabular-nums text-muted-foreground">
-                      {formatTime(recordingSeconds)}
-                    </span>
-                    <Button
-                      type="button"
-                      size="icon"
-                      className={cn(
-                        "rounded-full h-9 w-9 bg-white text-black hover:bg-white/90 dark:bg-white dark:text-black"
-                      )}
-                      aria-label="Finish recording"
-                      onClick={finishRecording}
-                    >
-                      <Check className="h-5 w-5" />
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-3 pr-1">
-                    <span className="text-sm tabular-nums text-muted-foreground">
-                      {formatTime(recordingSeconds)}
-                    </span>
-                    <div
-                      className={cn(
-                        "rounded-full h-9 w-9 bg-white text-black dark:bg-white dark:text-black",
-                        "flex items-center justify-center"
-                      )}
-                      aria-label={isModelLoading ? 'Loading model' : 'Transcribing'}
-                      title={isModelLoading ? 'Loading model' : 'Transcribing'}
-                    >
-                      <Loader className="h-4 w-4" />
-                    </div>
-                  </div>
-                )}
-              </div>
+              <VoiceRecorderBar
+                isRecording={isRecording}
+                isTranscribing={isTranscribing}
+                isModelLoading={isModelLoading}
+                recordingSeconds={recordingSeconds}
+                cancelRecording={cancelRecording}
+                finishRecording={finishRecording}
+                stream={stream}
+              />
             ) : (
               <>
-                <div className="flex items-center px-2 bg-transparent">
-                  <Textarea
-                    ref={textareaRef}
+                <ContextPills
+                  files={contextFiles}
+                  onRemove={(id) => {
+                    const item = contextFiles.find((x) => x.id === id)
+                    if (item?.previewUrl) {
+                      try { URL.revokeObjectURL(item.previewUrl); uploadPreviewUrlsRef.current.delete(item.previewUrl) } catch {}
+                    }
+                    setContextFiles((prev) => prev.filter((x) => x.id !== id))
+                  }}
+                />
+                <div className="flex items-center px-2 bg-transparent relative">
+                  <AutoResizeTextarea
+                    textareaRef={textareaRef}
                     value={value}
                     onChange={(e) => setValue(e.target.value)}
-                    onInput={resizeTextarea}
                     onKeyDown={handleKeyDown}
+                    onInput={() => resizeTextarea()}
                     placeholder={placeholder}
-                    disabled={disabled && !isStreaming}
-                    id="input"
-                    name="input"
-                    rows={1}
-                    className={cn(
-                      "min-h-12 max-h-72 resize-none overflow-y-auto",
-                      "border-0 bg-accent dark:bg-accent shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 px-1"
-                    ,
-                    // Increase font size ~2pt (~2.67px)
-                    "text-[16px] md:text-[16px]")}
+                    disabled={Boolean(disabled && !isStreaming)}
+                  />
+                  <MentionDropdown
+                    open={mentionOpen}
+                    files={displayMentionFiles}
+                    highlight={mentionHighlight}
+                    onHover={(idx) => setMentionHighlight(idx)}
+                    onSelect={(f) => selectMentionOption(f)}
+                    heading={mentionQuery.trim() ? undefined : "Recent"}
                   />
                 </div>
 
                 <div className="mt-1 flex items-center justify-between px-1">
                   <div className="flex items-center gap-2">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="rounded-full"
-                      aria-label="Open actions"
-                    >
-                      <Plus className="h-5 w-5" />
-                    </Button>
-                    <Pill
-                      active={webSearch}
-                      onClick={() => {
-                        setWebSearch((prev) => {
-                          const next = !prev
-                          try {
-                            if (sessionStorageKey) {
-                              const raw = sessionStorage.getItem(sessionStorageKey)
-                              const defaults = {
-                                prompt: "",
-                                files: [] as any[],
-                                selectedToolIds: [] as string[],
-                                selectedFilterIds: [] as string[],
-                                imageGenerationEnabled: false,
-                                webSearchEnabled: false,
-                                codeInterpreterEnabled: false,
-                              }
-                              const data = raw ? { ...defaults, ...JSON.parse(raw) } : defaults
-                              data.webSearchEnabled = next
-                              sessionStorage.setItem(sessionStorageKey, JSON.stringify(data))
-                            }
-                          } catch {}
-                          return next
-                        })
-                      }}
-                      icon={<Globe className="h-3.5 w-3.5" />}
-                      label="Web search"
+                    <AttachmentsMenu
+                      onUploadFiles={triggerUploadFiles}
+                      onReferenceChats={handleReferenceChats}
+                      onCaptureCamera={triggerCameraCapture}
+                      onSelectDriveFile={handleSelectDriveFile}
+                      onSelectChatRef={handleSelectChatRef}
                     />
-                    <Pill
-                      active={image}
-                      onClick={() => {
-                        setImage((prev) => {
-                          const next = !prev
-                          try {
-                            if (sessionStorageKey) {
-                              const raw = sessionStorage.getItem(sessionStorageKey)
-                              const defaults = {
-                                prompt: "",
-                                files: [] as any[],
-                                selectedToolIds: [] as string[],
-                                selectedFilterIds: [] as string[],
-                                imageGenerationEnabled: false,
-                                webSearchEnabled: false,
-                                codeInterpreterEnabled: false,
-                              }
-                              const data = raw ? { ...defaults, ...JSON.parse(raw) } : defaults
-                              data.imageGenerationEnabled = next
-                              sessionStorage.setItem(sessionStorageKey, JSON.stringify(data))
-                            }
-                          } catch {}
-                          return next
-                        })
-                      }}
-                      icon={<ImageIcon className="h-3.5 w-3.5" />}
-                      label="Image input"
-                    />
-                    <Pill
-                      active={video}
-                      onClick={() => {
-                        setVideo((prev) => {
-                          const next = !prev
-                          try {
-                            if (sessionStorageKey) {
-                              const raw = sessionStorage.getItem(sessionStorageKey)
-                              const defaults = {
-                                prompt: "",
-                                files: [] as any[],
-                                selectedToolIds: [] as string[],
-                                selectedFilterIds: [] as string[],
-                                imageGenerationEnabled: false,
-                                webSearchEnabled: false,
-                                codeInterpreterEnabled: false,
-                                videoGenerationEnabled: false,
-                              }
-                              const data = raw ? { ...defaults, ...JSON.parse(raw) } : defaults
-                              ;(data as any).videoGenerationEnabled = next
-                              sessionStorage.setItem(sessionStorageKey, JSON.stringify(data))
-                            }
-                          } catch {}
-                          return next
-                        })
-                      }}
-                      icon={<Video className="h-3.5 w-3.5" />}
-                      label="Video tool"
-                    />
-                    <Pill
-                      active={codeInterpreter}
-                      onClick={() => {
-                        setCodeInterpreter((v) => !v)
-                        try {
-                          if (sessionStorageKey) {
-                            const raw = sessionStorage.getItem(sessionStorageKey)
-                            const defaults = {
-                              prompt: "",
-                              files: [] as any[],
-                              selectedToolIds: [] as string[],
-                              selectedFilterIds: [] as string[],
-                              imageGenerationEnabled: false,
-                              webSearchEnabled: false,
-                              codeInterpreterEnabled: false,
-                            }
-                            const data = raw ? { ...defaults, ...JSON.parse(raw) } : defaults
-                            data.codeInterpreterEnabled = !codeInterpreter
-                            sessionStorage.setItem(sessionStorageKey, JSON.stringify(data))
-                          }
-                        } catch {}
-                      }}
-                      icon={<Terminal className="h-3.5 w-3.5" />}
-                      label="Code interpreter"
+                    <ChatInputPills
+                      webSearch={webSearch}
+                      image={image}
+                      video={video}
+                      codeInterpreter={codeInterpreter}
+                      sessionStorageKey={sessionStorageKey}
+                      setWebSearch={setWebSearch}
+                      setImage={setImage}
+                      setVideo={setVideo}
+                      setCodeInterpreter={setCodeInterpreter}
                     />
                   </div>
 
@@ -596,56 +783,254 @@ export function ChatInput({
                         <Mic className="h-5 w-5" />
                       </Button>
                     )}
-                    {isStreaming ? (
-                      <Button
-                        type="button"
-                        size="icon"
-                        onClick={onStop}
-                        className={cn(
-                          "rounded-full h-9 w-9 bg-white text-black hover:bg-white/90 dark:bg-white dark:text-black"
-                        )}
-                        aria-label="Stop generation"
-                      >
-                        <div className="h-3 w-3 bg-current rounded-[2px]" />
-                      </Button>
-                    ) : isTranscribing ? (
-                      <div
-                        className={cn(
-                          "rounded-full h-9 w-9 bg-white text-black dark:bg-white dark:text-black",
-                          "flex items-center justify-center"
-                        )}
-                        aria-label="Transcribing"
-                        title="Transcribing"
-                      >
-                        <Loader className="h-4 w-4" />
-                      </div>
-                    ) : (
-                      <Button
-                        type="submit"
-                        size="icon"
-                        onClick={handlePrimaryClick}
-                        className={cn(
-                          "rounded-full h-9 w-9 bg-white text-black hover:bg-white/90 dark:bg-white dark:text-black"
-                        )}
-                        aria-label="Send message"
-                        disabled={disabled || isTranscribing || isModelLoading}
-                      >
-                        {!value.trim() && sttAllowed ? (
-                          <AudioWaveform className="h-5 w-5" />
-                        ) : (
-                          <ArrowUp className="h-5 w-5" />
-                        )}
-                      </Button>
-                    )}
+                    <PrimaryActionButton
+                      isStreaming={isStreaming}
+                      isTranscribing={isTranscribing}
+                      isModelLoading={isModelLoading}
+                      onStop={onStop}
+                      onSubmitClick={handlePrimaryClick}
+                      disabled={Boolean(disabled)}
+                      showMic={!value.trim() && sttAllowed}
+                    />
                   </div>
                 </div>
+                <HiddenFileInputs
+                  fileInputRef={fileInputRef}
+                  cameraInputRef={cameraInputRef}
+                  onFilesSelected={handleFilesSelected}
+                />
               </>
             )}
           </div>
         )}
       </form>
+      <ChatReferenceDialog
+        open={showChatRefDialog}
+        onOpenChange={setShowChatRefDialog}
+        onInsert={(chat) => {
+          const title = chat.title || 'Chat'
+          const id = chat.id
+          setContextFiles((prev) => {
+            const pillId = `chat:${id}`
+            if (prev.some((f) => f.id === pillId)) return prev
+            return [...prev, { id: pillId, name: title, type: 'chat' }]
+          })
+        }}
+      />
     </div>
   );
+}
+
+function ChatReferenceDialog({ open, onOpenChange, onInsert }: { open: boolean; onOpenChange: (next: boolean) => void; onInsert: (chat: { id: string; title?: string | null }) => void }) {
+  const { chats, isLoading } = useChats()
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Reference a chat</DialogTitle>
+        </DialogHeader>
+        <div className="max-h-64 overflow-y-auto space-y-1">
+          {isLoading ? (
+            <div className="text-sm text-muted-foreground">Loading…</div>
+          ) : chats.length === 0 ? (
+            <div className="text-sm text-muted-foreground">No chats available</div>
+          ) : (
+            chats.map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                className="w-full text-left px-2 py-2 rounded hover:bg-accent"
+                onClick={() => { onInsert({ id: c.id, title: (c as any).title }); onOpenChange(false) }}
+              >
+                <div className="text-sm font-medium truncate">{(c as any).title || 'Untitled'}</div>
+                <div className="text-xs text-muted-foreground">/c/{c.id}</div>
+              </button>
+            ))
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function VoiceRecorderBar({
+  isRecording,
+  isTranscribing,
+  isModelLoading,
+  recordingSeconds,
+  cancelRecording,
+  finishRecording,
+  stream,
+}: {
+  isRecording: boolean
+  isTranscribing: boolean
+  isModelLoading: boolean
+  recordingSeconds: number
+  cancelRecording: () => void
+  finishRecording: () => void
+  stream: MediaStream | null
+}) {
+  return (
+    <div className="flex items-center justify-between px-2 py-2">
+      {isRecording ? (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="rounded-full h-9 w-9"
+          aria-label="Cancel recording"
+          onClick={cancelRecording}
+        >
+          <X className="h-5 w-5" />
+        </Button>
+      ) : (
+        <div className="h-9 w-9" aria-hidden="true" />
+      )}
+
+      <RecordingWaveform stream={stream as any} frozen={!isRecording} />
+
+      {isRecording ? (
+        <div className="flex items-center gap-3">
+          <span className="text-sm tabular-nums text-muted-foreground">{formatTimeLocal(recordingSeconds)}</span>
+          <Button
+            type="button"
+            size="icon"
+            className={cn(
+              "rounded-full h-9 w-9 bg-white text-black hover:bg-white/90 dark:bg-white dark:text-black"
+            )}
+            aria-label="Finish recording"
+            onClick={finishRecording}
+          >
+            <Check className="h-5 w-5" />
+          </Button>
+        </div>
+      ) : (
+        <div className="flex items-center gap-3 pr-1">
+          <span className="text-sm tabular-nums text-muted-foreground">{formatTimeLocal(recordingSeconds)}</span>
+          <div
+            className={cn(
+              "rounded-full h-9 w-9 bg-white text-black dark:bg-white dark:text-black",
+              "flex items-center justify-center"
+            )}
+            aria-label={isModelLoading ? 'Loading model' : 'Transcribing'}
+            title={isModelLoading ? 'Loading model' : 'Transcribing'}
+          >
+            <Loader className="h-4 w-4" />
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function formatTimeLocal(total: number) {
+  const m = Math.floor(total / 60)
+  const s = total % 60
+  return `${m}:${s.toString().padStart(2, '0')}`
+}
+
+function AutoResizeTextarea({
+  textareaRef,
+  value,
+  onChange,
+  onKeyDown,
+  onInput,
+  placeholder,
+  disabled,
+}: {
+  textareaRef: React.RefObject<HTMLTextAreaElement | null>
+  value: string
+  onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void
+  onKeyDown: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void
+  onInput?: (e: React.FormEvent<HTMLTextAreaElement>) => void
+  placeholder: string
+  disabled: boolean
+}) {
+  return (
+    <Textarea
+      ref={textareaRef}
+      value={value}
+      onChange={onChange}
+      onInput={onInput}
+      onKeyDown={onKeyDown}
+      placeholder={placeholder}
+      disabled={disabled}
+      id="input"
+      name="input"
+      rows={1}
+      className={cn(
+        "min-h-12 max-h-72 resize-none overflow-y-auto",
+        "border-0 bg-accent dark:bg-accent shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 px-1",
+        "text-[16px] md:text-[16px]"
+      )}
+    />
+  )
+}
+
+function PrimaryActionButton({
+  isStreaming,
+  isTranscribing,
+  isModelLoading,
+  onStop,
+  onSubmitClick,
+  disabled,
+  showMic,
+}: {
+  isStreaming: boolean
+  isTranscribing: boolean
+  isModelLoading: boolean
+  onStop?: () => void
+  onSubmitClick: (e: React.MouseEvent<HTMLButtonElement>) => void
+  disabled: boolean
+  showMic: boolean
+}) {
+  if (isStreaming) {
+    return (
+      <Button
+        type="button"
+        size="icon"
+        onClick={onStop}
+        className={cn(
+          "rounded-full h-9 w-9 bg-white text-black hover:bg-white/90 dark:bg-white dark:text-black"
+        )}
+        aria-label="Stop generation"
+      >
+        <div className="h-3 w-3 bg-current rounded-[2px]" />
+      </Button>
+    )
+  }
+  if (isTranscribing) {
+    return (
+      <div
+        className={cn(
+          "rounded-full h-9 w-9 bg-white text-black dark:bg-white dark:text-black",
+          "flex items-center justify-center"
+        )}
+        aria-label="Transcribing"
+        title="Transcribing"
+      >
+        <Loader className="h-4 w-4" />
+      </div>
+    )
+  }
+  return (
+    <Button
+      type="submit"
+      size="icon"
+      onClick={onSubmitClick}
+      className={cn(
+        "rounded-full h-9 w-9 bg-white text-black hover:bg-white/90 dark:bg-white dark:text-black"
+      )}
+      aria-label="Send message"
+      disabled={disabled || isTranscribing || isModelLoading}
+    >
+      {showMic ? (
+        <AudioWaveform className="h-5 w-5" />
+      ) : (
+        <ArrowUp className="h-5 w-5" />
+      )}
+    </Button>
+  )
 }
 
 function Pill({
@@ -666,11 +1051,12 @@ function Pill({
       <TooltipTrigger asChild>
         <Button
           type="button"
-          variant={active ? 'default' : 'outline'}
+          variant={'outlineAlt'}
           size="sm"
           onClick={onClick}
           className={cn(
-            "rounded-full h-7 px-3 gap-0",
+            "rounded-full h-7 px-3 gap-0 transition-colors",
+            active ? "!bg-foreground !text-black dark:!text-black !border-foreground" : "bg-input/10 dark:bg-input/30",
             disabled ? 'pointer-events-none opacity-50' : ''
           )}
           aria-pressed={active}
@@ -689,5 +1075,803 @@ function Pill({
   );
 }
 
+function AttachmentsMenu({
+  onUploadFiles,
+  onReferenceChats,
+  onCaptureCamera,
+  onSelectDriveFile,
+  onSelectChatRef,
+}: {
+  onUploadFiles: () => void
+  onReferenceChats: () => void
+  onCaptureCamera: () => void
+  onSelectDriveFile: (file: { id: string; name: string }) => void
+  onSelectChatRef: (chat: { id: string; title?: string | null }) => void
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="rounded-full"
+          aria-label="Open actions"
+        >
+          <Plus className="h-5 w-5" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-56 bg-accent dark:bg-accent text-foreground border">
+        <DropdownMenuItem asChild>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="w-full h-8 py-1 text-sm justify-start border-0 ring-0 focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 outline-none hover:bg-white/40 dark:hover:bg-white/10 data-[highlighted]:bg-white/40 dark:data-[highlighted]:bg-white/10 transition-colors"
+            onClick={onUploadFiles}
+          >
+            <FileUp className="mr-2 h-4 w-4" />
+            <span>Upload files</span>
+          </Button>
+        </DropdownMenuItem>
+        {/* Reference chats submenu */}
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger className="w-full h-8 py-1 px-2 bg-transparent flex items-center justify-start gap-2 hover:bg-white/40 dark:hover:bg-white/10 data-[highlighted]:bg-white/40 dark:data-[highlighted]:bg-white/10 data-[state=open]:bg-white/40 dark:data-[state=open]:bg-white/10 [&>svg:last-child]:text-muted-foreground/50">
+            <MessageSquare className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <span className="text-sm font-medium leading-5 ml-2.5">Reference chats</span>
+          </DropdownMenuSubTrigger>
+          <DropdownMenuSubContent className="w-[300px] p-0 bg-accent dark:bg-accent text-foreground border">
+            <ReferenceChatsSubmenu onSelect={(c) => onSelectChatRef(c)} />
+          </DropdownMenuSubContent>
+        </DropdownMenuSub>
+        {/* Drive files submenu */}
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger className="w-full h-8 py-1 px-2 bg-transparent flex items-center justify-start gap-2 hover:bg-white/40 dark:hover:bg-white/10 data-[highlighted]:bg-white/40 dark:data-[highlighted]:bg-white/10 data-[state=open]:bg-white/40 dark:data-[state=open]:bg-white/10 [&>svg:last-child]:text-muted-foreground/50">
+            <RiHardDrive3Line className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <span className="text-sm font-medium leading-5 ml-2.5">Drive files</span>
+          </DropdownMenuSubTrigger>
+          <DropdownMenuSubContent className="w-[300px] p-0 bg-accent dark:bg-accent text-foreground border">
+            <DriveFilesSubmenu onSelect={(f) => onSelectDriveFile(f)} />
+          </DropdownMenuSubContent>
+        </DropdownMenuSub>
+        <DropdownMenuItem asChild>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="w-full h-8 py-1 text-sm justify-start border-0 ring-0 focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 outline-none hover:bg-white/40 dark:hover:bg-white/10 data-[highlighted]:bg-white/40 dark:data-[highlighted]:bg-white/10 transition-colors"
+            onClick={onCaptureCamera}
+          >
+            <Camera className="mr-2 h-4 w-4" />
+            <span>Capture from camera</span>
+          </Button>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
+function ChatInputPills({
+  webSearch,
+  image,
+  video,
+  codeInterpreter,
+  sessionStorageKey,
+  setWebSearch,
+  setImage,
+  setVideo,
+  setCodeInterpreter,
+}: {
+  webSearch: boolean
+  image: boolean
+  video: boolean
+  codeInterpreter: boolean
+  sessionStorageKey?: string
+  setWebSearch: BoolSetter
+  setImage: BoolSetter
+  setVideo: BoolSetter
+  setCodeInterpreter: (updater: (prev: boolean) => boolean) => void
+}) {
+  return (
+    <>
+      <Pill
+        active={webSearch}
+        onClick={() => {
+          setWebSearch((prev) => {
+            const next = !prev
+            try {
+              if (sessionStorageKey) {
+                const raw = sessionStorage.getItem(sessionStorageKey)
+                const defaults = {
+                  prompt: "",
+                  files: [] as { name: string; size: number; type: string }[],
+                  selectedToolIds: [] as string[],
+                  selectedFilterIds: [] as string[],
+                  imageGenerationEnabled: false,
+                  webSearchEnabled: false,
+                  codeInterpreterEnabled: false,
+                }
+                const data = raw ? { ...defaults, ...JSON.parse(raw) } : defaults
+                data.webSearchEnabled = next
+                sessionStorage.setItem(sessionStorageKey, JSON.stringify(data))
+              }
+            } catch {}
+            return next
+          })
+        }}
+        icon={<Globe className="h-3.5 w-3.5" />}
+        label="Web search"
+      />
+      <Pill
+        active={image}
+        onClick={() => {
+          setImage((prev) => {
+            const next = !prev
+            try {
+              if (sessionStorageKey) {
+                const raw = sessionStorage.getItem(sessionStorageKey)
+                const defaults = {
+                  prompt: "",
+                  files: [] as { name: string; size: number; type: string }[],
+                  selectedToolIds: [] as string[],
+                  selectedFilterIds: [] as string[],
+                  imageGenerationEnabled: false,
+                  webSearchEnabled: false,
+                  codeInterpreterEnabled: false,
+                }
+                const data = raw ? { ...defaults, ...JSON.parse(raw) } : defaults
+                data.imageGenerationEnabled = next
+                sessionStorage.setItem(sessionStorageKey, JSON.stringify(data))
+              }
+            } catch {}
+            return next
+          })
+        }}
+        icon={<ImageIcon className="h-3.5 w-3.5" />}
+        label="Image input"
+      />
+      <Pill
+        active={video}
+        onClick={() => {
+          setVideo((prev) => {
+            const next = !prev
+            try {
+              if (sessionStorageKey) {
+                const raw = sessionStorage.getItem(sessionStorageKey)
+                const defaults = {
+                  prompt: "",
+                  files: [] as { name: string; size: number; type: string }[],
+                  selectedToolIds: [] as string[],
+                  selectedFilterIds: [] as string[],
+                  imageGenerationEnabled: false,
+                  webSearchEnabled: false,
+                  codeInterpreterEnabled: false,
+                  videoGenerationEnabled: false,
+                }
+                const data = raw ? { ...defaults, ...JSON.parse(raw) } : defaults
+                ;(data as any).videoGenerationEnabled = next
+                sessionStorage.setItem(sessionStorageKey, JSON.stringify(data))
+              }
+            } catch {}
+            return next
+          })
+        }}
+        icon={<Video className="h-3.5 w-3.5" />}
+        label="Video tool"
+      />
+      <Pill
+        active={codeInterpreter}
+        onClick={() => {
+          setCodeInterpreter((v) => !v)
+          try {
+            if (sessionStorageKey) {
+              const raw = sessionStorage.getItem(sessionStorageKey)
+              const defaults = {
+                prompt: "",
+                files: [] as { name: string; size: number; type: string }[],
+                selectedToolIds: [] as string[],
+                selectedFilterIds: [] as string[],
+                imageGenerationEnabled: false,
+                webSearchEnabled: false,
+                codeInterpreterEnabled: false,
+              }
+              const data = raw ? { ...defaults, ...JSON.parse(raw) } : defaults
+              data.codeInterpreterEnabled = !codeInterpreter
+              sessionStorage.setItem(sessionStorageKey, JSON.stringify(data))
+            }
+          } catch {}
+        }}
+        icon={<Terminal className="h-3.5 w-3.5" />}
+        label="Code interpreter"
+      />
+    </>
+  )
+}
+
+function HiddenFileInputs({
+  fileInputRef,
+  cameraInputRef,
+  onFilesSelected,
+}: {
+  fileInputRef: MutableRefObject<HTMLInputElement | null> | RefObject<HTMLInputElement>
+  cameraInputRef: MutableRefObject<HTMLInputElement | null> | RefObject<HTMLInputElement>
+  onFilesSelected: (files: FileList | null) => void
+}) {
+  return (
+    <>
+      {/* Hidden inputs for file selection and camera capture */}
+      <input
+        ref={fileInputRef as any}
+        type="file"
+        className="hidden"
+        multiple
+        onChange={(e) => {
+          onFilesSelected(e.target.files)
+          e.currentTarget.value = ''
+        }}
+      />
+      <input
+        ref={cameraInputRef as any}
+        type="file"
+        className="hidden"
+        accept="image/*,video/*"
+        capture
+        onChange={(e) => {
+          onFilesSelected(e.target.files)
+          e.currentTarget.value = ''
+        }}
+      />
+    </>
+  )
+}
+
 export default ChatInput;
 
+// Local hooks/components for future code-splitting
+
+function useRecentFilesPrefetch(limit: number) {
+  const [recent, setRecent] = useState<{ id: string; name: string }[]>([])
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res = await fetch(`/api/v1/drive/files/recent?limit=${encodeURIComponent(String(limit))}`, { cache: 'no-store' })
+        if (!res.ok) return
+        const data = await res.json()
+        if (cancelled) return
+        const files = Array.isArray(data?.files) ? data.files : []
+        setRecent(files.filter((f: any) => f && typeof f.id === 'string' && typeof f.name === 'string'))
+      } catch {}
+    })()
+    return () => { cancelled = true }
+  }, [limit])
+  return recent
+}
+
+function ContextPills({ files, onRemove }: { files: { id: string; name: string; type?: string; previewUrl?: string }[]; onRemove: (id: string) => void }) {
+  if (!files || files.length === 0) return null
+  return (
+    <div className="mb-2 px-3 flex items-center gap-2 flex-wrap">
+      {files.map((f) => (
+        <Badge key={f.id} variant="secondary" className="rounded-full border bg-input/20 dark:bg-input/20 pl-3 pr-1 py-1 flex items-center gap-2">
+          {f.previewUrl ? (
+            <img src={f.previewUrl} alt={f.name} className="h-4 w-4 rounded object-cover" />
+          ) : (
+            <>
+              {f.type === 'chat' || f.id.startsWith('chat:') ? (
+                <MessageSquare className="h-3.5 w-3.5 text-primary/60" />
+              ) : (
+                <HardDrive className="h-3.5 w-3.5 text-primary/60" />
+              )}
+            </>
+          )}
+          <span className="truncate max-w-[12rem]" title={f.name}>@{f.name}</span>
+          <button
+            type="button"
+            aria-label={`Remove ${f.name}`}
+            className="inline-flex items-center justify-center h-5 w-5 rounded-full hover:bg-muted"
+            onClick={() => onRemove(f.id)}
+          >
+            <X className="h-3 w-3" />
+          </button>
+        </Badge>
+      ))}
+    </div>
+  )
+}
+
+function MentionDropdown({
+  open,
+  files,
+  highlight,
+  onHover,
+  onSelect,
+  heading,
+}: {
+  open: boolean
+  files: { id: string; name: string }[]
+  highlight: number
+  onHover: (idx: number) => void
+  onSelect: (file: { id: string; name: string }) => void
+  heading?: string
+}) {
+  const hasQuery = heading !== "Recent"
+  const [browseMode, setBrowseMode] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [roots, setRoots] = useState<{ localRootId: string | null; googleRootId: string | null } | null>(null)
+  const [activeRootId, setActiveRootId] = useState<string | null>(null)
+  const [rootParentId, setRootParentId] = useState<string | null>(null)
+  const [foldersByParent, setFoldersByParent] = useState<Record<string, { id: string; name: string }[]>>({})
+  const [filesByParent, setFilesByParent] = useState<Record<string, { id: string; name: string }[]>>({})
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set())
+  
+  useEffect(() => {
+    if (!open || hasQuery) setBrowseMode(false)
+  }, [open, hasQuery])
+  
+  useEffect(() => {
+    if (!open || !browseMode) return
+    let cancelled = false
+    setLoading(true)
+    ;(async () => {
+      try {
+        // Load available roots, then load the chosen root (prefer Google if present)
+        const rootsRes = await fetch('/api/v1/drive/roots', { cache: 'no-store' }).catch(() => null)
+        const rootsData = await (rootsRes?.json().catch(() => ({})) || {})
+        const nextRoots = {
+          localRootId: (typeof (rootsData as any).localRootId === 'string' ? (rootsData as any).localRootId : null) as string | null,
+          googleRootId: (typeof (rootsData as any).googleRootId === 'string' ? (rootsData as any).googleRootId : null) as string | null,
+        }
+        if (cancelled) return
+        setRoots(nextRoots)
+        const chosenRoot = nextRoots.googleRootId || nextRoots.localRootId || null
+        if (chosenRoot) {
+          setActiveRootId(chosenRoot)
+          setRootParentId(chosenRoot)
+          // Load children for chosen root
+          const [foldersRes, filesRes] = await Promise.all([
+            fetch(`/api/v1/drive/folder?parent=${encodeURIComponent(chosenRoot)}`, { cache: 'no-store' }).catch(() => null),
+            fetch(`/api/v1/drive/file?parent=${encodeURIComponent(chosenRoot)}`, { cache: 'no-store' }).catch(() => null),
+          ])
+          if (cancelled) return
+          const foldersData = await (foldersRes?.json().catch(() => ({})) || {})
+          const filesData = await (filesRes?.json().catch(() => ({})) || {})
+          const flds = Array.isArray((foldersData as any).folders) ? (foldersData as any).folders : []
+          const fls = Array.isArray((filesData as any).files) ? (filesData as any).files : []
+          setFoldersByParent((prev) => ({ ...prev, [chosenRoot]: flds }))
+          setFilesByParent((prev) => ({ ...prev, [chosenRoot]: fls }))
+        }
+      } catch {
+        // ignore
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [open, browseMode])
+  
+  const toggleFolder = (folderId: string) => {
+    setExpandedFolders(prev => {
+      const next = new Set(prev)
+      if (next.has(folderId)) next.delete(folderId)
+      else next.add(folderId)
+      return next
+    })
+    // Lazy-load children for this folder if not already loaded
+    ;(async () => {
+      try {
+        if (!(foldersByParent as any)[folderId]) {
+          const res = await fetch(`/api/v1/drive/folder?parent=${encodeURIComponent(folderId)}`, { cache: 'no-store' })
+          if (res.ok) {
+            const data = await res.json().catch(() => ({}))
+            const flds = Array.isArray((data as any).folders) ? (data as any).folders : []
+            setFoldersByParent((prev) => ({ ...prev, [folderId]: flds }))
+          }
+        }
+        if (!(filesByParent as any)[folderId]) {
+          const res = await fetch(`/api/v1/drive/file?parent=${encodeURIComponent(folderId)}`, { cache: 'no-store' })
+          if (res.ok) {
+            const data = await res.json().catch(() => ({}))
+            const fls = Array.isArray((data as any).files) ? (data as any).files : []
+            setFilesByParent((prev) => ({ ...prev, [folderId]: fls }))
+          }
+        }
+      } catch {}
+    })()
+  }
+  
+  const renderFolderNode = (folder: { id: string; name: string }, depth: number = 0) => {
+    const isExpanded = expandedFolders.has(folder.id)
+    const paddingLeft = Math.min(24, depth * 12)
+    return (
+      <div key={folder.id}>
+        <div
+          className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-white/20 dark:hover:bg-white/5 cursor-pointer"
+          style={{ paddingLeft: paddingLeft ? `${paddingLeft}px` : undefined }}
+          onClick={(e) => { e.stopPropagation(); toggleFolder(folder.id) }}
+        >
+          {isExpanded ? (
+            <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+          ) : (
+            <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+          )}
+          <Folder className="h-3.5 w-3.5 text-muted-foreground" />
+          <span className="text-xs truncate">{folder.name}</span>
+        </div>
+        {isExpanded && (
+          <div className="space-y-0.5 mt-0.5">
+            {/* Child folders */}
+            {(foldersByParent[folder.id] || []).map((child) => renderFolderNode(child, depth + 1))}
+            {/* Files under this folder */}
+            {(filesByParent[folder.id] || []).map((file) => (
+              <div
+                key={file.id}
+                className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-white/20 dark:hover:bg-white/5 cursor-pointer"
+                style={{ paddingLeft: `${Math.min(24, (depth + 1) * 12) + 12}px` }}
+                onClick={(e) => { e.preventDefault(); onSelect({ id: file.id, name: file.name }) }}
+              >
+                <div className="flex-shrink-0">
+                  {getFileIconCompact(file.name)}
+                </div>
+                <span className="text-xs truncate">{file.name}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    )
+  }
+  
+  if (!open) return null
+  
+  return (
+    <div
+      className={cn(
+        "absolute left-2 bottom-full mb-1 z-50",
+        "w-[280px] max-w-[85vw]",
+        "rounded-md border bg-accent dark:bg-accent text-foreground shadow-md"
+      )}
+    >
+      <Command className="bg-transparent text-foreground">
+        <CommandList className="bg-transparent">
+          {!browseMode ? (
+            <>
+              {files.length === 0 ? (
+                <CommandEmpty>
+                  <div className="px-3 py-2 text-xs text-foreground/80">No files</div>
+                </CommandEmpty>
+              ) : (
+                <CommandGroup heading={heading}>
+                  {files.map((f, idx) => (
+                    <CommandItem
+                      key={f.id}
+                      value={f.name}
+                      className={cn(
+                        "group/item flex items-center gap-1.5 transition-colors px-2 py-1.5",
+                        "hover:bg-white/40 dark:hover:bg-white/10",
+                        idx === highlight ? "bg-white/40 dark:bg-white/10" : ""
+                      )}
+                      onMouseEnter={() => onHover(idx)}
+                      onMouseDown={(e) => { e.preventDefault(); onSelect(f) }}
+                    >
+                      <div className="flex-shrink-0">
+                        {getFileIconCompact(f.name)}
+                      </div>
+                      <span className="truncate text-xs" title={f.name}>{f.name}</span>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              )}
+              {!hasQuery && (
+                <>
+                  <div className="h-px bg-border my-1" />
+                  <div 
+                    className="flex items-center justify-between gap-2 px-2 py-2 text-xs text-muted-foreground cursor-pointer hover:bg-white/20 dark:hover:bg-white/5 transition-colors"
+                    onClick={(e) => { e.stopPropagation(); setBrowseMode(true) }}
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <Folder className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span>Files and folders</span>
+                    </div>
+                    <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/50" />
+                  </div>
+                </>
+              )}
+            </>
+          ) : (
+            <div className="max-h-[260px] overflow-y-auto py-1">
+              <div className="flex items-center justify-between px-2 py-1.5 text-xs text-muted-foreground">
+                <span className="font-medium">Browse</span>
+                <div className="flex items-center gap-2">
+                  {!!roots?.googleRootId && (
+                    <button
+                      type="button"
+                      className={cn(
+                        "px-1.5 py-0.5 rounded border text-foreground",
+                        activeRootId === roots.googleRootId ? "bg-white/30 dark:bg-white/10" : "hover:bg-white/20 dark:hover:bg-white/5"
+                      )}
+                      aria-label="Toggle Google Drive"
+                      title="Toggle Google Drive"
+                      onClick={async (e) => {
+                        e.stopPropagation()
+                        if (!roots?.googleRootId) return
+                        const nextRoot = activeRootId === roots.googleRootId
+                          ? (roots.localRootId || roots.googleRootId)
+                          : roots.googleRootId
+                        setActiveRootId(nextRoot)
+                        setRootParentId(nextRoot)
+                        if (!foldersByParent[nextRoot] || !filesByParent[nextRoot]) {
+                          try {
+                            setLoading(true)
+                            const [fr, fl] = await Promise.all([
+                              fetch(`/api/v1/drive/folder?parent=${encodeURIComponent(nextRoot)}`, { cache: 'no-store' }),
+                              fetch(`/api/v1/drive/file?parent=${encodeURIComponent(nextRoot)}`, { cache: 'no-store' }),
+                            ])
+                            const fd = await fr.json().catch(() => ({}))
+                            const ld = await fl.json().catch(() => ({}))
+                            const flds = Array.isArray((fd as any).folders) ? (fd as any).folders : []
+                            const files = Array.isArray((ld as any).files) ? (ld as any).files : []
+                            setFoldersByParent((prev) => ({ ...prev, [nextRoot]: flds }))
+                            setFilesByParent((prev) => ({ ...prev, [nextRoot]: files }))
+                          } finally {
+                            setLoading(false)
+                          }
+                        }
+                      }}
+                    >
+                      <img src="/logos/Google_Drive.svg" alt="Google Drive" className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className="text-xs hover:underline"
+                    onClick={(e) => { e.stopPropagation(); setBrowseMode(false) }}
+                  >
+                    Back to recent
+                  </button>
+                </div>
+              </div>
+              {loading ? (
+                <div className="flex items-center justify-center py-6">
+                  <Loader className="h-4 w-4" />
+                </div>
+              ) : (
+                <div className="space-y-0.5">
+                  {/* Root folders first (recursively expandable) */}
+                  {rootParentId && (foldersByParent[rootParentId] || []).map((folder) => renderFolderNode(folder, 0))}
+                  {/* Then root files */}
+                  {rootParentId && (filesByParent[rootParentId] || []).map((file) => (
+                    <div
+                      key={file.id}
+                      className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-white/20 dark:hover:bg-white/5 cursor-pointer"
+                      onClick={(e) => { e.preventDefault(); onSelect({ id: file.id, name: file.name }) }}
+                    >
+                      <div className="flex-shrink-0">
+                        {getFileIconCompact(file.name)}
+                      </div>
+                      <span className="text-xs truncate">{file.name}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </CommandList>
+      </Command>
+    </div>
+  )
+}
+
+function DriveFilesSubmenu({ onSelect }: { onSelect: (file: { id: string; name: string }) => void }) {
+  const [loading, setLoading] = useState(false)
+  const [roots, setRoots] = useState<{ localRootId: string | null; googleRootId: string | null } | null>(null)
+  const [activeRootId, setActiveRootId] = useState<string | null>(null)
+  const [rootParentId, setRootParentId] = useState<string | null>(null)
+  const [foldersByParent, setFoldersByParent] = useState<Record<string, { id: string; name: string }[]>>({})
+  const [filesByParent, setFilesByParent] = useState<Record<string, { id: string; name: string }[]>>({})
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set())
+  
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    ;(async () => {
+      try {
+        const rootsRes = await fetch('/api/v1/drive/roots', { cache: 'no-store' }).catch(() => null)
+        const rootsData = await (rootsRes?.json().catch(() => ({})) || {})
+        const nextRoots = {
+          localRootId: (typeof (rootsData as any).localRootId === 'string' ? (rootsData as any).localRootId : null) as string | null,
+          googleRootId: (typeof (rootsData as any).googleRootId === 'string' ? (rootsData as any).googleRootId : null) as string | null,
+        }
+        if (cancelled) return
+        setRoots(nextRoots)
+        const chosenRoot = nextRoots.googleRootId || nextRoots.localRootId || null
+        if (chosenRoot) {
+          setActiveRootId(chosenRoot)
+          setRootParentId(chosenRoot)
+          const [foldersRes, filesRes] = await Promise.all([
+            fetch(`/api/v1/drive/folder?parent=${encodeURIComponent(chosenRoot)}`, { cache: 'no-store' }).catch(() => null),
+            fetch(`/api/v1/drive/file?parent=${encodeURIComponent(chosenRoot)}`, { cache: 'no-store' }).catch(() => null),
+          ])
+          if (cancelled) return
+          const foldersData = await (foldersRes?.json().catch(() => ({})) || {})
+          const filesData = await (filesRes?.json().catch(() => ({})) || {})
+          const flds = Array.isArray((foldersData as any).folders) ? (foldersData as any).folders : []
+          const fls = Array.isArray((filesData as any).files) ? (filesData as any).files : []
+          setFoldersByParent((prev) => ({ ...prev, [chosenRoot]: flds }))
+          setFilesByParent((prev) => ({ ...prev, [chosenRoot]: fls }))
+        }
+      } catch {
+        // ignore
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [])
+  
+  const toggleFolder = (folderId: string) => {
+    setExpandedFolders(prev => {
+      const next = new Set(prev)
+      if (next.has(folderId)) next.delete(folderId)
+      else next.add(folderId)
+      return next
+    })
+    ;(async () => {
+      try {
+        if (!(foldersByParent as any)[folderId]) {
+          const res = await fetch(`/api/v1/drive/folder?parent=${encodeURIComponent(folderId)}`, { cache: 'no-store' })
+          if (res.ok) {
+            const data = await res.json().catch(() => ({}))
+            const flds = Array.isArray((data as any).folders) ? (data as any).folders : []
+            setFoldersByParent((prev) => ({ ...prev, [folderId]: flds }))
+          }
+        }
+        if (!(filesByParent as any)[folderId]) {
+          const res = await fetch(`/api/v1/drive/file?parent=${encodeURIComponent(folderId)}`, { cache: 'no-store' })
+          if (res.ok) {
+            const data = await res.json().catch(() => ({}))
+            const fls = Array.isArray((data as any).files) ? (data as any).files : []
+            setFilesByParent((prev) => ({ ...prev, [folderId]: fls }))
+          }
+        }
+      } catch {}
+    })()
+  }
+
+  const renderFolderNode = (folder: { id: string; name: string }, depth: number = 0) => {
+    const isExpanded = expandedFolders.has(folder.id)
+    const paddingLeft = Math.min(24, depth * 12)
+    return (
+      <div key={folder.id}>
+        <div
+          className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-white/20 dark:hover:bg-white/5 cursor-pointer"
+          style={{ paddingLeft: paddingLeft ? `${paddingLeft}px` : undefined }}
+          onClick={(e) => { e.stopPropagation(); toggleFolder(folder.id) }}
+        >
+          {isExpanded ? (
+            <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+          ) : (
+            <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+          )}
+          <Folder className="h-3.5 w-3.5 text-muted-foreground" />
+          <span className="text-xs truncate">{folder.name}</span>
+        </div>
+        {isExpanded && (
+          <div className="space-y-0.5 mt-0.5">
+            {(foldersByParent[folder.id] || []).map((child) => renderFolderNode(child, depth + 1))}
+            {(filesByParent[folder.id] || []).map((file) => (
+              <div
+                key={file.id}
+                className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-white/20 dark:hover:bg-white/5 cursor-pointer"
+                style={{ paddingLeft: `${Math.min(24, (depth + 1) * 12) + 12}px` }}
+                onClick={(e) => { e.preventDefault(); onSelect({ id: file.id, name: file.name }) }}
+              >
+                <div className="flex-shrink-0">
+                  {getFileIconCompact(file.name)}
+                </div>
+                <span className="text-xs truncate">{file.name}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  return (
+    <div className="max-h-[320px] overflow-y-auto py-1">
+      <div className="flex items-center justify-end px-2 py-1.5 text-xs text-muted-foreground gap-2">
+        {!!roots?.googleRootId && (
+          <button
+            type="button"
+            className={cn(
+              "px-1.5 py-0.5 rounded border text-foreground",
+              activeRootId === roots.googleRootId ? "bg-white/30 dark:bg-white/10" : "hover:bg-white/20 dark:hover:bg-white/5"
+            )}
+            aria-label="Toggle Google Drive"
+            title="Toggle Google Drive"
+            onClick={async (e) => {
+              e.stopPropagation()
+              if (!roots?.googleRootId) return
+              const nextRoot = activeRootId === roots.googleRootId
+                ? (roots.localRootId || roots.googleRootId)
+                : roots.googleRootId
+              setActiveRootId(nextRoot)
+              setRootParentId(nextRoot)
+              if (!foldersByParent[nextRoot] || !filesByParent[nextRoot]) {
+                try {
+                  setLoading(true)
+                  const [fr, fl] = await Promise.all([
+                    fetch(`/api/v1/drive/folder?parent=${encodeURIComponent(nextRoot)}`, { cache: 'no-store' }),
+                    fetch(`/api/v1/drive/file?parent=${encodeURIComponent(nextRoot)}`, { cache: 'no-store' }),
+                  ])
+                  const fd = await fr.json().catch(() => ({}))
+                  const ld = await fl.json().catch(() => ({}))
+                  const flds = Array.isArray((fd as any).folders) ? (fd as any).folders : []
+                  const files = Array.isArray((ld as any).files) ? (ld as any).files : []
+                  setFoldersByParent((prev) => ({ ...prev, [nextRoot]: flds }))
+                  setFilesByParent((prev) => ({ ...prev, [nextRoot]: files }))
+                } finally {
+                  setLoading(false)
+                }
+              }
+            }}
+          >
+            <img src="/logos/Google_Drive.svg" alt="Google Drive" className="h-3.5 w-3.5" />
+          </button>
+        )}
+      </div>
+      {loading ? (
+        <div className="flex items-center justify-center py-6">
+          <Loader className="h-4 w-4" />
+        </div>
+      ) : (
+        <div className="space-y-0.5">
+          {rootParentId && (foldersByParent[rootParentId] || []).map((folder) => renderFolderNode(folder, 0))}
+          {rootParentId && (filesByParent[rootParentId] || []).map((file) => (
+            <div
+              key={file.id}
+              className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-white/20 dark:hover:bg-white/5 cursor-pointer"
+              onClick={(e) => { e.preventDefault(); onSelect({ id: file.id, name: file.name }) }}
+            >
+              <div className="flex-shrink-0">
+                {getFileIconCompact(file.name)}
+              </div>
+              <span className="text-xs truncate">{file.name}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ReferenceChatsSubmenu({ onSelect }: { onSelect: (chat: { id: string; title?: string | null }) => void }) {
+  const { chats, isLoading } = useChats()
+  return (
+    <div className="max-h-[320px] overflow-y-auto py-1">
+      {isLoading ? (
+        <div className="flex items-center justify-center py-6">
+          <Loader className="h-4 w-4" />
+        </div>
+      ) : (
+        <div className="space-y-0.5">
+          {Array.isArray(chats) && chats.length > 0 ? (
+            chats.map((c) => (
+              <div
+                key={c.id}
+                className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-white/20 dark:hover:bg-white/5 cursor-pointer"
+                onClick={(e) => { e.preventDefault(); onSelect({ id: c.id, title: (c as any).title }) }}
+              >
+                <MessageSquare className="h-4 w-4 shrink-0 text-muted-foreground" />
+                <span className="text-xs truncate">{(c as any).title || 'Untitled'}</span>
+              </div>
+            ))
+          ) : (
+            <div className="px-3 py-2 text-xs text-foreground/80">No chats available</div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}

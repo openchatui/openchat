@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useRef } from "react"
 import { useSearchParams } from "next/navigation"
 import { Check, ChevronsUpDown, Cpu, Link as LinkIcon, MoreHorizontal, PanelLeft } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -40,6 +40,8 @@ interface ModelSelectorProps {
 export function ModelSelector({ selectedModelId, onModelSelect, models = [], currentUserId }: ModelSelectorProps) {
   const [open, setOpen] = useState(false)
   const [userSelectedModel, setUserSelectedModel] = useState<Model | null>(null)
+  const [ollamaActiveNames, setOllamaActiveNames] = useState<Set<string>>(new Set())
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const { pinnedIds, pin, unpin } = usePinnedModels(currentUserId, { allModels: models })
   const { setOpenMobile } = useSidebar()
   const searchParams = useSearchParams()
@@ -80,6 +82,26 @@ export function ModelSelector({ selectedModelId, onModelSelect, models = [], cur
   }
 
   const isOllamaActive = (model: Model): boolean => {
+    // Prefer live data from /api/v1/ollama/active_models if available
+    if (ollamaActiveNames.size > 0) {
+      const normalize = (v: string) => v.trim().toLowerCase()
+      const tokens = new Set<string>()
+      tokens.add(normalize(model.name))
+      const providerId = typeof (model as unknown as { providerId?: unknown }).providerId === 'string'
+        ? (model as unknown as { providerId?: string }).providerId
+        : undefined
+      if (providerId) {
+        tokens.add(normalize(providerId))
+        const suffix = providerId.split('/').pop() || providerId
+        tokens.add(normalize(suffix))
+        tokens.add(normalize((suffix.split(':')[0] || suffix)))
+      }
+      for (const t of tokens) {
+        if (ollamaActiveNames.has(t) || ollamaActiveNames.has(t.split(':')[0])) return true
+      }
+      return false
+    }
+    // Fallback to meta flag if present
     return Boolean(model.meta?.details?.runtime_active)
   }
 
@@ -121,6 +143,56 @@ export function ModelSelector({ selectedModelId, onModelSelect, models = [], cur
       onModelSelect?.(found)
     }
   }, [searchParams, activeModels, onModelSelect, userSelectedModel])
+
+  // Fetch active Ollama models and maintain a set of active names (normalized)
+  useEffect(() => {
+    let aborted = false
+    const normalize = (v: string) => v.trim().toLowerCase()
+
+    const fetchActive = async () => {
+      try {
+        const res = await fetch('/api/v1/ollama/active_models', { method: 'GET', cache: 'no-store' })
+        if (!res.ok) {
+          setOllamaActiveNames(new Set())
+          return
+        }
+        const raw: unknown = await res.json().catch(() => null)
+        const next = new Set<string>()
+        if (raw && typeof raw === 'object' && raw !== null) {
+          const modelsArr = Array.isArray((raw as any).models) ? (raw as any).models : []
+          for (const item of modelsArr) {
+            if (!item || typeof item !== 'object') continue
+            const name: unknown = (item as any).name ?? (item as any).model
+            if (typeof name === 'string' && name.trim()) {
+              next.add(normalize(name))
+              next.add(normalize(name.split(':')[0]))
+              const suffix = name.split('/').pop() || name
+              next.add(normalize(suffix))
+              next.add(normalize((suffix.split(':')[0] || suffix)))
+            }
+          }
+        }
+        if (!aborted) setOllamaActiveNames(next)
+      } catch {
+        if (!aborted) setOllamaActiveNames(new Set())
+      }
+    }
+
+    // Initial fetch
+    fetchActive()
+
+    // Lightweight polling
+    if (pollRef.current) clearInterval(pollRef.current)
+    pollRef.current = setInterval(fetchActive, 10000)
+
+    return () => {
+      aborted = true
+      if (pollRef.current) {
+        clearInterval(pollRef.current)
+        pollRef.current = null
+      }
+    }
+  }, [])
 
   const handlePinModelById = async (modelId: string) => { await pin(modelId) }
   const handleUnpinModelById = async (modelId: string) => { await unpin(modelId) }
@@ -169,9 +241,6 @@ export function ModelSelector({ selectedModelId, onModelSelect, models = [], cur
                             {getParameterSize(selectedModel)}
                           </span>
                         )}
-                        {isOllamaActive(selectedModel) && (
-                          <span className="inline-block h-2 w-2 rounded-full bg-green-500" title="Active" />
-                        )}
                       </div>
                     ) : (
                       <LinkIcon style={{ width: 10, height: 10 }} className="shrink-0 text-primary/35 mt-0.5" />
@@ -188,9 +257,10 @@ export function ModelSelector({ selectedModelId, onModelSelect, models = [], cur
             <ChevronsUpDown className="ml-2 h-5 w-5 shrink-0 opacity-50" />
           </Button>
         </PopoverTrigger>
-        <PopoverContent
+      <PopoverContent
           align="start"
           className="w-fit min-w-[300px] p-0 shadow-lg border scrollbar-hide"
+          onOpenAutoFocus={(e) => e.preventDefault()}
         >
           <Command className="scrollbar-hide">
             <CommandInput placeholder="Search models..."/>
