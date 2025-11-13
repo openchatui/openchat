@@ -233,6 +233,8 @@ export function FilesResultsTable({
   >(new Map());
   // Only enable drag and drop on client to avoid hydration mismatch
   const [isDndReady, setIsDndReady] = useState(false);
+  // Optimistically hide items that were moved to trash so UI updates instantly
+  const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set());
   const idToItem = useMemo(() => {
     const m = new Map<string, FileEntry>();
     for (const e of entries) m.set(e.id, e);
@@ -267,7 +269,11 @@ export function FilesResultsTable({
     })
   );
 
-  const allIds = useMemo(() => entries.map((e) => e.id), [entries]);
+  const visibleEntries = useMemo(
+    () => entries.filter((e) => !hiddenIds.has(e.id)),
+    [entries, hiddenIds]
+  );
+  const allIds = useMemo(() => visibleEntries.map((e) => e.id), [visibleEntries]);
 
   const handleRowDoubleClick = useCallback(
     (item: FileEntry) => {
@@ -490,13 +496,41 @@ export function FilesResultsTable({
             }
             onTrashSelected={async () => {
               const ids = Array.from(selected);
-              for (const id of ids) {
-                const it = idToItem.get(id);
-                if (!it) continue;
-                if (it.isDirectory) await moveFolderToTrash({ id: it.id });
-                else await moveFileToTrash({ id: it.id });
+              // Optimistically hide trashed items
+              setHiddenIds((prev) => {
+                const next = new Set(prev);
+                for (const id of ids) next.add(id);
+                return next;
+              });
+              setSelected(new Set());
+              setLastIndex(null);
+              try {
+                const failed: string[] = [];
+                for (const id of ids) {
+                  const it = idToItem.get(id);
+                  if (!it) continue;
+                  try {
+                    if (it.isDirectory) await moveFolderToTrash({ id: it.id });
+                    else await moveFileToTrash({ id: it.id });
+                  } catch {
+                    failed.push(id);
+                  }
+                }
+                if (failed.length > 0) {
+                  setHiddenIds((prev) => {
+                    const next = new Set(prev);
+                    for (const id of failed) next.delete(id);
+                    return next;
+                  });
+                }
+              } finally {
+                try {
+                  window.dispatchEvent(
+                    new CustomEvent("drive:itemsTrashed", { detail: { ids } })
+                  );
+                } catch {}
+                router.refresh();
               }
-              router.refresh();
             }}
             onRestoreSelected={
               parentName === "Trash"
@@ -544,14 +578,14 @@ export function FilesResultsTable({
               <col style={{ width: "10%" }} />
             </colgroup>
             <TableBody>
-              {entries.length === 0 ? (
+              {visibleEntries.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={5} className="text-muted-foreground">
                     No results
                   </TableCell>
                 </TableRow>
               ) : (
-                entries.map((item) => (
+                visibleEntries.map((item) => (
                   <RowItem
                     key={item.id}
                     item={item}
@@ -575,6 +609,24 @@ export function FilesResultsTable({
                         mimeType: meta?.mimeType,
                         fileId: it.id,
                       });
+                    }}
+                    onTrashItem={(id) => {
+                      setHiddenIds((prev) => {
+                        const next = new Set(prev);
+                        next.add(id);
+                        return next;
+                      });
+                      setSelected((prev) => {
+                        if (!prev.has(id)) return prev;
+                        const next = new Set(prev);
+                        next.delete(id);
+                        return next;
+                      });
+                      try {
+                        window.dispatchEvent(
+                          new CustomEvent("drive:itemTrashed", { detail: { id } })
+                        );
+                      } catch {}
                     }}
                     isStarred={
                       starredOverrides.has(item.id)
@@ -782,6 +834,7 @@ interface RowItemProps {
   allIds: string[];
   overFolderId: string | null;
   onPreview: (item: FileEntry) => void;
+  onTrashItem: (id: string) => void;
   isStarred: boolean;
   onToggleStar: () => void;
 }
@@ -800,6 +853,7 @@ function RowItem({
   allIds,
   overFolderId,
   onPreview,
+  onTrashItem,
   isStarred,
   onToggleStar,
 }: RowItemProps) {
@@ -980,6 +1034,9 @@ function RowItem({
               itemType="folder"
               onMove={() => setMoveFolderId(item.id)}
               onRename={() => setRenameFolderId(item.id)}
+              onTrash={() => {
+                onTrashItem(item.id);
+              }}
               disabled={isTrashFolder}
             />
           ) : (
@@ -994,6 +1051,9 @@ function RowItem({
                   : undefined
               }
               onDownload={() => handleFileDownload(item)}
+              onTrash={() => {
+                onTrashItem(item.id);
+              }}
             />
           )}
         </div>
@@ -1012,6 +1072,9 @@ function RowItem({
           isPreviewable(item.name, item) ? () => onPreview(item) : undefined
         }
         onDownload={() => handleFileDownload(item)}
+        onTrash={() => {
+          onTrashItem(item.id);
+        }}
       >
         {row}
       </ItemContextMenu>
@@ -1023,6 +1086,9 @@ function RowItem({
       itemType="folder"
       onMove={() => setMoveFolderId(item.id)}
       onRename={() => setRenameFolderId(item.id)}
+      onTrash={() => {
+        onTrashItem(item.id);
+      }}
       disabled={isTrashFolder}
     >
       {row}
