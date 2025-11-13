@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { SidebarInset } from '@/components/ui/sidebar'
 import { ModelSelector } from '@/components/chat/model-selector'
 import { ChatInput } from '@/components/chat/chat-input'
-import dynamic from 'next/dynamic'
 import type { Session } from 'next-auth'
 import type { Model } from '@/types/model.types'
 import { useChatStore } from '@/lib/modules/chat/chat.client-store'
@@ -13,6 +12,7 @@ import { getChatMessages } from '@/lib/api/chats'
 import { updateUserSettingsRaw } from '@/lib/api/userSettings'
 import { useChatStreaming } from '@/hooks/useChatStreaming'
 import { Loader } from '@/components/ui/loader'
+import ChatMessages from '@/components/chat/chat-messages'
 
 interface ChatStandardProps {
   session: Session | null
@@ -53,11 +53,11 @@ export function ChatStandard({
     if (currentChatId !== chatId) setCurrentChatId(chatId)
   }, [chatId, currentChatId, setCurrentChatId])
 
-  // Clear messages when navigating to a different chat so the loader can replace them
+  // On chat change, reset auto-send guard and clear messages to prepare for new chat
   useEffect(() => {
-    setMessages([] as any)
     hasAutoSentRef.current = false
-    setSelectedModel(null)
+    // Clear messages when switching chats to avoid showing stale data
+    setMessages([])
   }, [chatId, setMessages])
 
   // (removed) defer message loading until after streaming hook is available
@@ -107,16 +107,6 @@ export function ChatStandard({
       : null
   }, [selectedModel, initialModels])
 
-  // ChatMessages is quite heavy; lazy-load to reduce initial bundle
-  const ChatMessagesDynamic = useMemo(() => dynamic(() => import('@/components/chat/chat-messages'), {
-    ssr: false,
-    loading: () => (
-      <div className="flex items-center justify-center h-full">
-        <Loader className="h-8 w-8" />
-      </div>
-    )
-  }), [])
-
   const assistantInfo = useMemo(() => {
     for (let i = messages.length - 1; i >= 0; i--) {
       const msg = messages[i] as any
@@ -135,10 +125,25 @@ export function ChatStandard({
         return { displayName: name, imageUrl }
       }
     }
-    return {
-      displayName: selectedModel?.name || 'AI Assistant',
-      imageUrl: selectedModel?.meta?.profile_image_url || '/avatars/01.png'
+    // Fallback: use model info from the latest user message metadata if available
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const msg = messages[i] as any
+      if (msg?.role === 'user') {
+        const meta = msg?.metadata || {}
+        const modelMeta = meta?.model || {}
+        const name =
+          (typeof modelMeta.name === 'string' && modelMeta.name) ||
+          selectedModel?.name ||
+          'AI Assistant'
+        const imageUrl =
+          (typeof modelMeta.profile_image_url === 'string' && modelMeta.profile_image_url) ||
+          selectedModel?.meta?.profile_image_url ||
+          '/avatars/01.png'
+        return { displayName: name, imageUrl }
+      }
     }
+    // Final fallback
+    return { displayName: selectedModel?.name || 'AI Assistant', imageUrl: selectedModel?.meta?.profile_image_url || '/avatars/01.png' }
   }, [messages, selectedModel])
 
   const handleModelSelect = async (model: Model) => {
@@ -161,17 +166,39 @@ export function ChatStandard({
 
   const { handleSendMessage, handleStop, isLoading, error } = useChatStreaming({ chatId, initialModels, selectedModel })
 
-  // Load messages for the active chat, but avoid clobbering streaming state
+  const handleInputSubmit = useCallback(async (
+    value: string,
+    options: { webSearch: boolean; image: boolean; video?: boolean; codeInterpreter: boolean; referencedChats?: { id: string; title?: string | null }[] },
+    overrideModel?: Model | null,
+    isAutoSend: boolean = false,
+    streamHandlers?: any,
+    attachedFiles?: Array<{ file: File; localId: string } | { fileId: string; fileName: string }>
+  ) => {
+    // Load messages for any referenced chats and pass to streaming hook
+    let contextMessages: any[] | undefined
+    const refs = Array.isArray(options?.referencedChats) ? options.referencedChats : []
+    if (refs.length > 0) {
+      try {
+        const lists = await Promise.all(refs.map(r => getChatMessages(r.id).catch(() => [])))
+        contextMessages = ([] as any[]).concat(...lists)
+      } catch {
+        contextMessages = undefined
+      }
+    }
+    const { referencedChats, ...rest } = options as any
+    return await (handleSendMessage as any)(value, { ...rest, referencedChats, contextMessages }, overrideModel || undefined, isAutoSend, streamHandlers, attachedFiles)
+  }, [handleSendMessage])
+
+  // Load messages for the active chat (messages are cleared on chatId change above)
   useEffect(() => {
     if (!chatId) return
     let cancelled = false
     getChatMessages(chatId)
       .then((loaded) => {
-        if (cancelled) return
-        if (!Array.isArray(loaded) || loaded.length === 0) return
-        const hasAssistant = (messages as any[])?.some((m: any) => m?.role === 'assistant')
-        const shouldReplace = (messages as any[])?.length === 0 || loaded.length > (messages as any[])?.length
-        if (!isLoading && !hasAssistant && shouldReplace) {
+        if (cancelled || isLoading) return
+        if (!Array.isArray(loaded)) return
+        // Only set if we don't have messages yet (cleared on chat change)
+        if ((messages as any[])?.length === 0) {
           setMessages(loaded as any)
         }
       })
@@ -195,22 +222,71 @@ export function ChatStandard({
               let imageFromStorage = false
               let codeFromStorage = false
               let videoFromStorage = false
+              let referencedChatsFromStorage: { id: string; title?: string | null }[] = []
               try {
-                const raw = sessionStorage.getItem(`chat-input-${chatId}`)
+                let raw = sessionStorage.getItem(`chat-input-${chatId}`)
+                // Fallback: if migration from landing page hasn't occurred yet, read from base key
+                if (!raw) raw = sessionStorage.getItem('chat-input')
                 if (raw) {
                   const data = JSON.parse(raw)
                   webSearchFromStorage = Boolean(data?.webSearchEnabled)
                   imageFromStorage = Boolean(data?.imageGenerationEnabled)
                   codeFromStorage = Boolean(data?.codeInterpreterEnabled)
                   videoFromStorage = Boolean((data as any)?.videoGenerationEnabled)
+                  // Extract referenced chat pills saved as contextFiles with id "chat:<id>"
+                  if (Array.isArray((data as any)?.contextFiles)) {
+                    referencedChatsFromStorage = (data as any).contextFiles
+                      .filter((f: any) => f && typeof f.id === 'string' && f.id.startsWith('chat:'))
+                      .map((f: any) => ({ id: String(f.id).slice(5), title: String(f.name || 'Chat') }))
+                  }
                 }
+                // Handoff fallback from landing page (cleared after read)
+                try {
+                  const handoffRaw = sessionStorage.getItem(`chat-handoff-${chatId}`)
+                  if (handoffRaw) {
+                    const h = JSON.parse(handoffRaw)
+                    if (Array.isArray(h?.referencedChats)) {
+                      const add = h.referencedChats.filter((r: any) => r && typeof r.id === 'string').map((r: any) => ({ id: String(r.id), title: String(r.title || 'Chat') }))
+                      const existingIds = new Set(referencedChatsFromStorage.map(r => r.id))
+                      for (const r of add) if (!existingIds.has(r.id)) referencedChatsFromStorage.push(r)
+                    }
+                    sessionStorage.removeItem(`chat-handoff-${chatId}`)
+                  }
+                } catch {}
               } catch {}
-              void handleSendMessage(
-                textContent,
-                { webSearch: webSearchFromStorage, image: imageFromStorage, video: videoFromStorage, codeInterpreter: codeFromStorage },
-                selectedModel,
-                true
-              )
+              // Reflect chips in the existing user message metadata for UI
+              if (referencedChatsFromStorage.length > 0) {
+                useChatStore.setState(prev => {
+                  const newMessages = [...prev.messages]
+                  for (let j = newMessages.length - 1; j >= 0; j--) {
+                    if (newMessages[j].role === 'user') {
+                      const meta: any = { ...((newMessages[j] as any).metadata || {}) }
+                      meta.referencedChats = referencedChatsFromStorage
+                      ;(newMessages[j] as any) = { ...(newMessages[j] as any), metadata: meta }
+                      break
+                    }
+                  }
+                  return { ...prev, messages: newMessages }
+                })
+              }
+              // Fetch referenced chat messages asynchronously and then send
+              void (async () => {
+                let contextMessages: any[] | undefined
+                if (referencedChatsFromStorage.length > 0) {
+                  try {
+                    const lists = await Promise.all(referencedChatsFromStorage.map(r => getChatMessages(r.id).catch(() => [])))
+                    contextMessages = ([] as any[]).concat(...lists)
+                  } catch {
+                    contextMessages = undefined
+                  }
+                }
+                await (handleSendMessage as any)(
+                  textContent,
+                  { webSearch: webSearchFromStorage, image: imageFromStorage, video: videoFromStorage, codeInterpreter: codeFromStorage, referencedChats: referencedChatsFromStorage, contextMessages },
+                  selectedModel,
+                  true
+                )
+              })()
             }
             break
           }
@@ -232,7 +308,7 @@ export function ChatStandard({
 
         <div className="flex-1 relative overflow-hidden">
           <div className="absolute inset-0">
-            <ChatMessagesDynamic
+            <ChatMessages
               messages={messages as any}
               isLoading={isLoading}
               error={error as any}
@@ -247,7 +323,7 @@ export function ChatStandard({
           </div>
           <div className="absolute bottom-0 left-0 right-0 z-10">
             <ChatInput
-              onSubmit={handleSendMessage}
+              onSubmit={handleInputSubmit}
               disabled={false}
               isStreaming={isLoading}
               onStop={handleStop}

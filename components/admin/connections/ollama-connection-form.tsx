@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import { MESSAGES, PLACEHOLDERS } from "@/constants/connections"
+import { toast } from "sonner"
 import type { NewOllamaConnection, Connection } from "@/types/connections.types"
 
 interface OllamaConnectionFormProps {
@@ -40,7 +41,12 @@ export function OllamaConnectionForm({
           <div className="flex items-center">
             <Switch
               checked={ollamaEnabled}
-              onCheckedChange={(checked) => onToggleOllamaEnabled?.(Boolean(checked))}
+              onCheckedChange={(checked) => {
+                onToggleOllamaEnabled?.(Boolean(checked))
+                const action = checked ? 'Enabled' : 'Disabled'
+                const url = existingOllamaConnections[0]?.baseUrl
+                toast.success(`${action} Ollama connection${url ? `: ${url}` : ''}`)
+              }}
             />
           </div>
         </div>
