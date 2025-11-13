@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { AnimatedLoader } from "@/components/ui/loader"
 import { MESSAGES } from "@/constants/audio"
+import { toast } from "sonner"
 import { useAudio } from "@/hooks/audio/useAudio"
 import { OpenAISttConnectionForm } from "@/components/admin/audio/OpenAISttConnectionForm"
 import { DeepgramSttConnectionForm } from "@/components/admin/audio/DeepgramSttConnectionForm"
@@ -67,7 +68,11 @@ export function AdminAudio({ session, initialChats = [], initialOpenAI, initialE
                     <Label htmlFor="tts-enabled">{MESSAGES.TTS_ENABLE_LABEL}</Label>
                     <p className="text-sm text-muted-foreground">{MESSAGES.TTS_ENABLE_HINT}</p>
                   </div>
-                  <Switch id="tts-enabled" checked={ttsEnabled} onCheckedChange={toggleTtsEnabled} />
+                  <Switch id="tts-enabled" checked={ttsEnabled} onCheckedChange={(checked) => {
+                    toggleTtsEnabled(Boolean(checked))
+                    const action = checked ? 'Enabled' : 'Disabled'
+                    toast.success(`${action} TTS`)
+                  }} />
                 </div>
                 <Separator />
                 <div className="flex items-center justify-between">
@@ -116,7 +121,11 @@ export function AdminAudio({ session, initialChats = [], initialOpenAI, initialE
                     <Label htmlFor="stt-enabled">{MESSAGES.STT_ENABLE_LABEL}</Label>
                     <p className="text-sm text-muted-foreground">{MESSAGES.STT_ENABLE_HINT}</p>
                   </div>
-                  <Switch id="stt-enabled" checked={sttEnabled} onCheckedChange={toggleSttEnabled} />
+                  <Switch id="stt-enabled" checked={sttEnabled} onCheckedChange={(checked) => {
+                    toggleSttEnabled(Boolean(checked))
+                    const action = checked ? 'Enabled' : 'Disabled'
+                    toast.success(`${action} STT`)
+                  }} />
                 </div>
                 <Separator />
                 <div className="flex items-center justify-between">

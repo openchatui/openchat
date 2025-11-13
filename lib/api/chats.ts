@@ -36,7 +36,15 @@ export async function unarchiveChat(chatId: string): Promise<void> {
   }
 }
 
-export async function createInitialChat(input: { message: string; model: { id: string; name?: string; profile_image_url?: string | null } }): Promise<{ chatId: string } & { model: { id: string; name?: string; profile_image_url?: string | null } }> {
+type AttachmentImage = { type: 'image'; image: string; mediaType: string; fileId?: string; localId?: string }
+type AttachmentFile = { type: 'file'; data: string; mediaType: string; filename: string; fileId?: string; localId?: string }
+type Attachment = AttachmentImage | AttachmentFile
+
+export async function createInitialChat(input: {
+  message: string;
+  model: { id: string; name?: string; profile_image_url?: string | null };
+  attachments?: Attachment[];
+}): Promise<{ chatId: string } & { model: { id: string; name?: string; profile_image_url?: string | null } }> {
   const initialMessage = {
     id: `msg_${Date.now()}`,
     role: 'user',
@@ -44,12 +52,16 @@ export async function createInitialChat(input: { message: string; model: { id: s
     metadata: {
       createdAt: Date.now(),
       model: { id: input.model.id, name: input.model.name ?? 'Unknown Model', profile_image_url: input.model.profile_image_url ?? null },
+      ...(Array.isArray(input.attachments) && input.attachments.length > 0 ? { attachments: input.attachments } : {}),
     },
   }
   const res = await httpFetch(absoluteUrl('/api/v1/chats'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ message: { text: input.message, model: input.model }, initialMessage }),
+    body: JSON.stringify({
+      message: { text: input.message, model: input.model, attachments: input.attachments || [] },
+      initialMessage
+    }),
   })
   if (!res.ok) {
     const data = await res.json().catch(() => ({}))

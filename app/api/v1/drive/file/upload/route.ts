@@ -17,16 +17,19 @@ function ensureDirSync(dir: string) {
 }
 
 export async function POST(req: Request) {
+  console.log('[DEBUG] Upload POST received')
   const session = await auth()
+  console.log('[DEBUG] Upload auth check:', { hasSession: !!session, userId: session?.user?.id })
   if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   return new Promise<Response>((resolve) => {
     try {
       const headers = Object.fromEntries(req.headers as any)
+      console.log('[DEBUG] Creating Busboy with headers:', { contentType: headers['content-type'] })
       const bb = Busboy({ headers })
 
       let parent = ''
-      const saved: { name: string; path: string }[] = []
+      const saved: { id: string; name: string; path: string }[] = []
       const inserts: Promise<void>[] = []
       const insertErrors: any[] = []
 
@@ -35,7 +38,9 @@ export async function POST(req: Request) {
       })
 
       bb.on('file', (_name, fileStream, info) => {
+        console.log('[DEBUG] Busboy file event:', { name: _name, filename: info.filename })
         const filename = info.filename || 'file'
+        const fileId = randomUUID()
         // Save under data/files/<parentId>/; targetDir updated once we know parent
         let targetDir = LOCAL_BASE_DIR
         ensureDirSync(targetDir)
@@ -52,7 +57,7 @@ export async function POST(req: Request) {
         fileStream.pipe(writeStream)
         writeStream.on('close', () => {
           const relativeFilePath = path.relative(LOCAL_BASE_DIR, finalPath)
-          saved.push({ name: path.basename(finalPath), path: relativeFilePath })
+          saved.push({ id: fileId, name: path.basename(finalPath), path: relativeFilePath })
 
           // Prepare DB insert for this file
           const userId = session.user!.id as string
@@ -89,7 +94,7 @@ export async function POST(req: Request) {
               if (client?.file?.create) {
                 await client.file.create({
                   data: {
-                    id: randomUUID(),
+                    id: fileId,
                     userId,
                     filename: path.basename(finalPath),
                     parentId: resolvedParentId,
@@ -101,7 +106,7 @@ export async function POST(req: Request) {
                 })
               } else {
                 await db.$executeRaw`INSERT INTO "file" (id, user_id, filename, parent_id, meta, created_at, updated_at, path)
-                  VALUES (${randomUUID()}, ${userId}, ${path.basename(finalPath)}, ${resolvedParentId}, ${JSON.stringify({})}, ${nowSec}, ${nowSec}, ${`/data/files/${resolvedParentId}/${path.basename(finalPath)}`})`
+                  VALUES (${fileId}, ${userId}, ${path.basename(finalPath)}, ${resolvedParentId}, ${JSON.stringify({})}, ${nowSec}, ${nowSec}, ${`/data/files/${resolvedParentId}/${path.basename(finalPath)}`})`
               }
             } catch (err) {
               insertErrors.push(err)
@@ -114,12 +119,18 @@ export async function POST(req: Request) {
 
       bb.on('finish', async () => {
         try {
+          console.log('[DEBUG] Upload finish, saved files:', saved.length)
+          console.log('[DEBUG] Waiting for DB inserts:', inserts.length)
           await Promise.all(inserts)
+          console.log('[DEBUG] DB inserts complete, errors:', insertErrors.length)
           if (insertErrors.length > 0) {
+            console.error('[DEBUG] Insert errors:', insertErrors)
             return resolve(NextResponse.json({ ok: false, error: 'Failed to save some files to the database' }, { status: 500 }))
           }
+          console.log('[DEBUG] Returning success response with files:', saved)
           resolve(NextResponse.json({ ok: true, files: saved }))
         } catch (e) {
+          console.error('[DEBUG] Finish handler error:', e)
           resolve(NextResponse.json({ ok: false, error: 'Database error' }, { status: 500 }))
         }
       })

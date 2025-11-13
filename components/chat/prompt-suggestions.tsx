@@ -53,7 +53,7 @@ interface PromptSuggestionsProps {
 
 export function PromptSuggestions({ onSelect, disabled = false }: PromptSuggestionsProps) {
   return (
-    <div className="max-w-2xl mx-auto w-full">
+    <div className="max-w-2xl mx-auto w-full mt-4 md:mt-2 px-6 md:px-0">
       <div className="flex items-center gap-2 mb-2 text-sm text-muted-foreground">
         <Zap className="h-4 w-4" />
         <span>Suggestions</span>
