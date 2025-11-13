@@ -14,6 +14,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Separator } from "@/components/ui/separator"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { toast } from "sonner"
 
 interface AdminCodeInterpreterProps {
   session: Session | null
@@ -64,7 +65,11 @@ export function AdminCodeInterpreter({ session, initialConfig }: AdminCodeInterp
                   <Label htmlFor="ci-enabled">Enable</Label>
                   <p className="text-sm text-muted-foreground">Allow the assistant to execute code via the configured runtime.</p>
                 </div>
-                <Switch id="ci-enabled" checked={enabled} onCheckedChange={setEnabled} />
+                <Switch id="ci-enabled" checked={enabled} onCheckedChange={(checked) => {
+                  setEnabled(Boolean(checked))
+                  const action = checked ? 'Enabled' : 'Disabled'
+                  toast.success(`${action} Code Interpreter`)
+                }} />
               </div>
 
               <Separator />
