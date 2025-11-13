@@ -2,6 +2,7 @@
 import type { FileEntry } from "@/lib/modules/drive"
 import { useRouter } from "next/navigation"
 import { useMemo, useState, useCallback } from "react"
+import { useEffect } from "react"
 import { Users, Download, Pencil } from "lucide-react"
 import { FaStar, FaRegStar, FaFolder, FaFilePdf, FaImage } from "react-icons/fa"
 import { BsFileEarmarkSpreadsheetFill } from "react-icons/bs"
@@ -86,11 +87,50 @@ export function FilesResultsTableMobile({ entries, parentName }: FilesResultsTab
   const [preview, setPreview] = useState<{ name: string; url: string; fileId?: string; mimeType?: string } | null>(null)
   const [renameFileId, setRenameFileId] = useState<string | null>(null)
   const [optimisticStars, setOptimisticStars] = useState<Record<string, boolean>>({})
+  const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set())
   const idToItem = useMemo(() => {
     const m = new Map<string, FileEntry>()
     for (const e of entries) m.set(e.id, e)
     return m
   }, [entries])
+  const visibleEntries = useMemo(
+    () => entries.filter((e) => !hiddenIds.has(e.id)),
+    [entries, hiddenIds]
+  )
+  useEffect(() => {
+    const onItem = (e: Event) => {
+      try {
+        const ce = e as CustomEvent<{ id?: string }>
+        const id = ce.detail?.id
+        if (id) {
+          setHiddenIds((prev) => {
+            const next = new Set(prev)
+            next.add(id)
+            return next
+          })
+        }
+      } catch {}
+    }
+    const onItems = (e: Event) => {
+      try {
+        const ce = e as CustomEvent<{ ids?: string[] }>
+        const ids = Array.isArray(ce.detail?.ids) ? ce.detail?.ids as string[] : []
+        if (ids.length) {
+          setHiddenIds((prev) => {
+            const next = new Set(prev)
+            for (const id of ids) next.add(id)
+            return next
+          })
+        }
+      } catch {}
+    }
+    window.addEventListener("drive:itemTrashed", onItem as EventListener)
+    window.addEventListener("drive:itemsTrashed", onItems as EventListener)
+    return () => {
+      window.removeEventListener("drive:itemTrashed", onItem as EventListener)
+      window.removeEventListener("drive:itemsTrashed", onItems as EventListener)
+    }
+  }, [])
 
   const onOpen = useCallback((item: FileEntry) => {
     if (item.isDirectory) {
@@ -105,7 +145,7 @@ export function FilesResultsTableMobile({ entries, parentName }: FilesResultsTab
   return (
     <div className="w-full pt-0 pb-20">
       <ul className="divide-y">
-        {entries.map((item) => (
+        {visibleEntries.map((item) => (
           <li key={item.id} className="flex items-center gap-3 px-3 py-3">
             <div className="flex-shrink-0">
               {item.isDirectory ? <FaFolder className="h-5 w-5" /> : getIconForFile(item.name, item)}
